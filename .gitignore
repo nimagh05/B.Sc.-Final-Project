@@ -17,7 +17,9 @@ web/dist/
 
 # Runtime data and secrets
 .env
+/data/
 data/
+!conformance/data/
 logs/
 *.log
 
@@ -26,6 +28,7 @@ eval/pdfs/
 eval/experiments/out/
 eval/results/*/*.png
 !eval/questions.json
+conformance/results/
 
 # IDEs
 .idea/
