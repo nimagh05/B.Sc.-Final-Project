@@ -1,0 +1,1029 @@
+[
+  {
+    "id": "q001",
+    "question": "دانشجوی مقطع لیسانس تو هز ترم حداکثر چند واحد میتونه انتخاب کنه",
+    "expected_answer": "حداکثر ۲۰ واحد درسی (حداقل ۱۴ واحد).",
+    "answer_keywords": [
+      "20",
+      "واحد"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "بازنویسی نیما؛ املای «هز» ممکنه غلط تایپی باشه.",
+    "split": "test"
+  },
+  {
+    "id": "q002",
+    "question": "حداکثر واحد مجاز انتخابی در دوره تابستانی چند واحد است؟",
+    "expected_answer": "۶ واحد.",
+    "answer_keywords": [
+      "6",
+      "واحد"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "",
+    "split": "dev"
+  },
+  {
+    "id": "q003",
+    "question": "حداقل نمره برای اینکه تو ی درس قبول شیم چقدره",
+    "expected_answer": "۱۰ از ۲۰.",
+    "answer_keywords": [
+      "10"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      7
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "بازنویسی نیما.",
+    "split": "dev"
+  },
+  {
+    "id": "q004",
+    "question": "حداکثر مدت مجاز تحصیل در دوره کارشناسی پیوسته چند سال است؟",
+    "expected_answer": "۵ سال.",
+    "answer_keywords": [
+      "5",
+      "سال"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q005",
+    "question": "دانشجوی کارشناسی پیوسته برای دریافت مدرک باید چند واحد درسی بگذراند؟",
+    "expected_answer": "بین ۱۳۰ تا ۱۴۰ واحد درسی.",
+    "answer_keywords": [
+      "130",
+      "140"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      3
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q006",
+    "question": "هر واحد درسی نظری معادل چند ساعت آموزش در یک نیمسال است؟",
+    "expected_answer": "۱۶ ساعت.",
+    "answer_keywords": [
+      "16",
+      "ساعت"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q007",
+    "question": "یک واحد عملی یا آزمایشگاهی در این آیین‌نامه چند ساعت حساب می‌شود؟",
+    "expected_answer": "۲۲ ساعت (طبق عدد چاپ‌شده در متن سند).",
+    "answer_keywords": [
+      "22",
+      "ساعت"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "عدد چاپ‌شده در خود سند ۲۲ است (ممکن است با متن رسمی اصلی فرق داشته باشد)؛ ملاک پاسخ درست = متن سند. سوال خوبی برای تست faithfulness.",
+    "split": "dev"
+  },
+  {
+    "id": "q008",
+    "question": "حداکثر سن برای پذیرش دانشجوی غیرایرانی با دیپلم متوسطه در دوره کارشناسی (غیر از زبان و ادبیات فارسی و الهیات) چند سال است؟",
+    "expected_answer": "۲۲ سال.",
+    "answer_keywords": [
+      "22",
+      "سال"
+    ],
+    "source_file": "bein-almelali.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q009",
+    "question": "شهریه سالانه دانشجوی غیرایرانی دوره کارشناسی گروه علوم پایه چند دلار است؟",
+    "expected_answer": "۷۵۰ دلار.",
+    "answer_keywords": [
+      "750",
+      "دلار"
+    ],
+    "source_file": "bein-almelali.pdf",
+    "source_pages": [
+      8
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "مقدار از جدول صفحه ۸؛ سوال جدولی.",
+    "split": "dev"
+  },
+  {
+    "id": "q010",
+    "question": "آخرین مهلت دریافت مدارک متقاضیان غیربورسیه برای نیمسال اول تحصیلی چه زمانی است؟",
+    "expected_answer": "تا قبل از پانزدهم اردیبهشت.",
+    "answer_keywords": [
+      "پانزدهم",
+      "اردیبهشت"
+    ],
+    "source_file": "bein-almelali.pdf",
+    "source_pages": [
+      6
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "مقدار از جدول زمان‌بندی.",
+    "split": "dev"
+  },
+  {
+    "id": "q011",
+    "question": "حق‌الزحمه ساعتی دستیار پژوهشی که دانشجوی دکتری است چند ریال است؟",
+    "expected_answer": "۳۰۰٬۰۰۰ ریال به ازای هر ساعت (برای دانش‌آموخته کارشناسی ارشد ۲۰۰٬۰۰۰ ریال).",
+    "answer_keywords": [
+      "300"
+    ],
+    "source_file": "dastyar-pazhuheshi.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده ۳۱۱،۱۱۱ می‌شود). کلیدواژه ساده نگه داشته شد؛ بهتر است judge هم استفاده شود.",
+    "split": "test"
+  },
+  {
+    "id": "q012",
+    "question": "طبق دستورالعمل دستیار پژوهشی، برای حداکثر چند ساعت فعالیت در ماه حق‌الزحمه پرداخت می‌شود؟",
+    "expected_answer": "حداکثر ۱۰۰ ساعت در ماه.",
+    "answer_keywords": [
+      "100",
+      "ساعت"
+    ],
+    "source_file": "dastyar-pazhuheshi.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده ۱۱۱ می‌شود).",
+    "split": "test"
+  },
+  {
+    "id": "q013",
+    "question": "حداکثر زمان دستیاری قابل پرداخت برای هر دانشجو در هفته و در ماه چقدر است؟",
+    "expected_answer": "۱۰ ساعت در هفته و ۴۰ ساعت در ماه.",
+    "answer_keywords": [
+      "10",
+      "40"
+    ],
+    "source_file": "dastyar-amoozeshi.pdf",
+    "source_pages": [
+      3
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q014",
+    "question": "سقف مبلغ قابل پرداخت برای هزینه‌های بدون فاکتور دانشجوی دکتری رشته‌های نظری چقدر است؟",
+    "expected_answer": "۶٬۰۰۰٬۰۰۰ ریال.",
+    "answer_keywords": [
+      "6"
+    ],
+    "source_file": "bedoon-factor.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده 6/555/555 می‌شود). کلیدواژه ضعیف است؛ برای این سوال judge لازم است.",
+    "split": "test"
+  },
+  {
+    "id": "q015",
+    "question": "تبصره ۱ ماده ۷ آیین‌نامه آموزشی کارشناسی چه می‌گوید؟",
+    "expected_answer": "اگر معدل دانشجو در یک نیمسال حداقل ۱۷ باشد، در نیمسال بعد می‌تواند حداکثر ۲۴ واحد اخذ کند.",
+    "answer_keywords": [
+      "17",
+      "24"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q016",
+    "question": "ماده ۸ در چه شرایطی اجازه می‌دهد درس به‌صورت «معرفی به استاد» گذرانده شود؟",
+    "expected_answer": "وقتی دانشجو برای فراغت از تحصیل فقط دو درس نظری باقی‌مانده داشته باشد.",
+    "answer_keywords": [
+      "دو",
+      "نظری"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q017",
+    "question": "طبق ماده ۲۰، دانشجوی کارشناسی پیوسته حداکثر در چند نیمسال می‌تواند مشروط شود؟",
+    "expected_answer": "۳ نیمسال، اعم از متوالی یا متناوب.",
+    "answer_keywords": [
+      "3",
+      "نیمسال"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      7
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "",
+    "split": "dev"
+  },
+  {
+    "id": "q018",
+    "question": "ماده ۲۶ آیین‌نامه درباره تغییر رشته در دوره کارشناسی ناپیوسته چه حکمی دارد؟",
+    "expected_answer": "تغییر رشته ممنوع است، اما تغییر گرایش با شرایط ماده ۲۵ ممکن است.",
+    "answer_keywords": [
+      "ممنوع",
+      "گرایش"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      9
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q019",
+    "question": "طبق تبصره ۳ ماده ۱۷، نمره ناتمام باید ظرف چند روز به نمره قطعی تبدیل شود؟",
+    "expected_answer": "حداکثر ۴۵ روز از تاریخ پایان امتحانات.",
+    "answer_keywords": [
+      "45",
+      "روز"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      6
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q020",
+    "question": "تبصره ماده ۴ شیوه‌نامه پذیرش دانشجویان بین‌المللی درباره تعداد جلسات شورای راهبری پذیرش دانشجویان غیرایرانی چه می‌گوید؟",
+    "expected_answer": "جلسات این شورا سالانه حداقل یک بار تشکیل می‌شود.",
+    "answer_keywords": [
+      "سال",
+      "یک"
+    ],
+    "source_file": "bein-almelali.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q021",
+    "question": "طبق بند ۴-۱۱ شیوه‌نامه پذیرش دانشجویان بین‌المللی، اگر شهریه قبل از ثبت‌نام نهایی دریافت شده باشد و صلاحیت متقاضی تأیید نشود چه می‌شود؟",
+    "expected_answer": "شهریه به متقاضی مسترد می‌شود.",
+    "answer_keywords": [
+      "مسترد"
+    ],
+    "source_file": "bein-almelali.pdf",
+    "source_pages": [
+      8
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q022",
+    "question": "تبصره ۱۲ ماده ۶ دستورالعمل اجرایی دستیار پژوهشی چه می‌گوید و چه مدت محرومیتی دارد؟",
+    "expected_answer": "اگر خروجی طرح موفقیت‌آمیز نباشد، استاد پذیرنده ۲ سال از پذیرش دستیار پژوهشی محروم می‌شود.",
+    "answer_keywords": [
+      "2",
+      "سال",
+      "محروم"
+    ],
+    "source_file": "dastyar-pazhuheshi.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده ۵ سال می‌شود؛ ملاک تصویر: ۲ سال).",
+    "split": "dev"
+  },
+  {
+    "id": "q023",
+    "question": "طبق تبصره ۱ ماده ۳ دستورالعمل دستیار پژوهشی، استفاده از دستیار پژوهشی برای چه کاری ممنوع است؟",
+    "expected_answer": "تدریس در دانشگاه.",
+    "answer_keywords": [
+      "تدریس"
+    ],
+    "source_file": "dastyar-pazhuheshi.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q024",
+    "question": "تبصره ۹ دستورالعمل شوراهای پژوهشی درباره چه موضوعی است؟",
+    "expected_answer": "تصویب نهایی سفرهای علمی خارجی پیش‌بینی‌نشده در طرح‌های پژوهشی منوط به تصویب شورای پژوهشی دانشگاه است.",
+    "answer_keywords": [
+      "سفر",
+      "شورای پژوهشی"
+    ],
+    "source_file": "shoraha-pazhuheshi.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q025",
+    "question": "ماده ۳ شیوه‌نامه دستیار آموزشی درباره واگذاری تدریس دروس نظری به دانشجویان تحصیلات تکمیلی چه می‌گوید؟",
+    "expected_answer": "واگذاری تدریس دروس نظری تحت عنوان دستیاری مجاز نیست.",
+    "answer_keywords": [
+      "نظری",
+      "نیست"
+    ],
+    "source_file": "dastyar-amoozeshi.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "",
+    "split": "dev"
+  },
+  {
+    "id": "q026",
+    "question": "اگه معدل یه ترمم زیر ۱۲ بشه چی می‌شه و ترم بعد چند واحد می‌تونم بردارم؟",
+    "expected_answer": "مشروط محسوب می‌شود و در نیمسال بعد (جز آخرین نیمسال) حداکثر ۱۴ واحد می‌تواند انتخاب کند.",
+    "answer_keywords": [
+      "مشروط",
+      "14"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      7
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q027",
+    "question": "اگه یه ترم بدون اجازه دانشگاه ثبت‌نام نکنم چه وضعیتی پیدا می‌کنم؟",
+    "expected_answer": "عدم ثبت‌نام بدون کسب اجازه از مؤسسه، انصراف از تحصیل محسوب می‌شود.",
+    "answer_keywords": [
+      "انصراف"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      8
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q028",
+    "question": "بعد از اینکه مدارک طرح پژوهشی کامل شد، مدیر گروه برای ارزیابی اخلاقی و علمی چه کاری انجام می‌دهد؟",
+    "expected_answer": "مدارک را کنترل و تأیید می‌کند و از طریق ایمیل برای داوران (دو داور اخلاقی و دو داور علمی) می‌فرستد.",
+    "answer_keywords": [
+      "داور",
+      "ایمیل"
+    ],
+    "source_file": "kod-akhlaghi.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "در لایه متنی این PDF حرف «لا» به «ال» تبدیل شده (مثلاً اخلاقی→اخالقی).",
+    "split": "dev"
+  },
+  {
+    "id": "q029",
+    "question": "کسی که هم تابعیت ایرانی داره هم تابعیت کشور دیگه، می‌تونه به عنوان دانشجوی غیرایرانی پذیرش بشه؟",
+    "expected_answer": "خیر؛ دارندگان دو تابعیت ایرانی و غیرایرانی نمی‌توانند به عنوان دانشجوی بین‌المللی پذیرش شوند.",
+    "answer_keywords": [
+      "تابعیت"
+    ],
+    "source_file": "bein-almelali.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q030",
+    "question": "دانشجوی خارجی که می‌خواد دکتری بخونه، علاوه بر مدارک عمومی چه مدارک اضافه‌ای باید بفرسته؟",
+    "expected_answer": "توصیه‌نامه علمی، رزومه (CV) و پیشنهادیه پژوهشی کوتاه.",
+    "answer_keywords": [
+      "توصیه",
+      "رزومه",
+      "پیشنهاد"
+    ],
+    "source_file": "bein-almelali.pdf",
+    "source_pages": [
+      7
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "",
+    "split": "dev"
+  },
+  {
+    "id": "q031",
+    "question": "برای اینکه جلسه شورای پژوهشی دانشگاه رسمی بشه چند نفر باید حاضر باشن و تصمیم‌ها چطوری گرفته می‌شه؟",
+    "expected_answer": "با حضور اکثریت اعضا رسمیت می‌یابد و تصمیم‌ها با اکثریت آرای حاضران گرفته می‌شود.",
+    "answer_keywords": [
+      "اکثریت"
+    ],
+    "source_file": "shoraha-pazhuheshi.pdf",
+    "source_pages": [
+      3
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q032",
+    "question": "چه هزینه‌هایی از پایان‌نامه رو می‌شه بدون فاکتور از دانشگاه گرفت؟",
+    "expected_answer": "مواد مصرفی، ایاب و ذهاب، تایپ و تکثیر پایان‌نامه، خرید کاغذ A4 و مانند آن، با تأیید استاد راهنما.",
+    "answer_keywords": [
+      "مصرفی",
+      "تایپ",
+      "استاد راهنما"
+    ],
+    "source_file": "bedoon-factor.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "",
+    "split": "dev"
+  },
+  {
+    "id": "q033",
+    "question": "قبل از اینکه برای همایش داخلی اقدام کنم باید با کی و برای چه چیزی هماهنگ کنم؟",
+    "expected_answer": "با استاد راهنما، برای اطمینان از اعتبار همایش و پوشش گرنت استاد.",
+    "answer_keywords": [
+      "استاد راهنما",
+      "اعتبار",
+      "گرنت"
+    ],
+    "source_file": "hamayesh.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q034",
+    "question": "اگه استاد راهنما پیشنهاده‌ی من رو رد کنه باید چی کار کنم؟",
+    "expected_answer": "اشکالات را رفع می‌کنم و از بخش پیغام‌ها به استاد پیام می‌دهم تا نسبت به تأیید اقدام کند.",
+    "answer_keywords": [
+      "پیغام",
+      "استاد"
+    ],
+    "source_file": "ziro-guide.pdf",
+    "source_pages": [
+      16
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q035",
+    "question": "دانشجو در آخرین ترم سال تحصیلی چه امتیازایی نسبت به بقیه ترم داره؟",
+    "expected_answer": "می‌تواند تا ۲۴ واحد بگیرد (صرف‌نظر از معدل کل و مشروطی، به شرط کمتر از ۱۰ نبودن) و از رعایت پیش‌نیاز و تقدم و تأخر دروس معاف است.",
+    "answer_keywords": [
+      "24",
+      "پیش"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      4,
+      5
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "بازنویسی نیما؛ «آخرین ترم سال تحصیلی» ممکنه به‌معنی ترم دوم هر سال برداشت بشه، منظور ترم آخر دوره‌ست.",
+    "split": "dev"
+  },
+  {
+    "id": "q036",
+    "question": "برای دانشجوی کارشناسی چند ترم میتونه مرخصی بگیره و مرخصی زایمان پزشکی چطوریه؟",
+    "expected_answer": "برای کارشناسی پیوسته تا دو نیمسال مرخصی تحصیلی (کاردانی و کارشناسی ناپیوسته: یک نیمسال)؛ مرخصی زایمان تا دو نیمسال و مرخصی پزشکی (با تأیید پزشک معتمد و شورای آموزشی) تا دو نیمسال، هر دو بدون احتساب در سنوات.",
+    "answer_keywords": [
+      "زایمان",
+      "پزشکی",
+      "دو"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      7,
+      8
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "بازنویسی نیما؛ «کارشناسی» بین پیوسته و ناپیوسته مبهمه، پاسخ باید هر دو را بگوید.",
+    "split": "test"
+  },
+  {
+    "id": "q037",
+    "question": "برای پذیرش دانشجوی غیرایرانی در کارشناسی ارشد چه شرایط معدل و سن و چه مدارکی لازم است؟",
+    "expected_answer": "حداقل معدل ۱۵ در علوم انسانی/هنر/کشاورزی و ۱۴ در سایر رشته‌ها؛ حداکثر سن ۲۸ سال (۳۰ برای فارسی و الهیات)؛ مدارک از جمله فرم درخواست، مدارک تحصیلی، گذرنامه، توصیه‌نامه علمی، رزومه و نامه تأمین هزینه.",
+    "answer_keywords": [
+      "15",
+      "14",
+      "28"
+    ],
+    "source_file": "bein-almelali.pdf",
+    "source_pages": [
+      5,
+      7
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q038",
+    "question": "استاد میزبان دستیار پژوهشی باید چه شرایطی داشته باشد؟",
+    "expected_answer": "مرتبه استادی یا دانشیاری (استادیار با دستاوردهای برجسته با تشخیص دانشگاه)، دریافت پایه استحقاقی سالیانه در سه سال قبل، داشتن حداقل یک طرح کارفرمایی فعال با اعتبار کافی و انطباق رشته و زمینه تحقیقاتی با دستیار.",
+    "answer_keywords": [
+      "استاد",
+      "دانشیار",
+      "طرح"
+    ],
+    "source_file": "dastyar-pazhuheshi.pdf",
+    "source_pages": [
+      2,
+      3
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "",
+    "split": "dev"
+  },
+  {
+    "id": "q039",
+    "question": "مراحل ثبت طرح پیشنهاده دانشجویی در سامانه ژیرو چیست؟",
+    "expected_answer": "پنج گام: مشخصات اصلی، مشارکت‌کنندگان، مستندات (فایل پروپوزال و تأییدیه اصالت)، هزینه‌ها (نیاز به تکمیل ندارد) و ارائه به شورا (گروه).",
+    "answer_keywords": [
+      "مشخصات",
+      "مشارکت",
+      "مستندات",
+      "شورا"
+    ],
+    "source_file": "ziro-guide.pdf",
+    "source_pages": [
+      8,
+      9,
+      11,
+      17
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q040",
+    "question": "رئیس و دبیر شورای پژوهشی دانشگاه و شورای انتشارات دانشگاه چه کسانی هستند؟",
+    "expected_answer": "رئیس هر دو شورا معاون پژوهش و فناوری دانشگاه است؛ دبیر شورای پژوهشی مدیر امور پژوهش و فناوری و دبیر شورای انتشارات رئیس کتابخانه مرکزی است.",
+    "answer_keywords": [
+      "معاون پژوهش",
+      "کتابخانه",
+      "مدیر امور پژوهش"
+    ],
+    "source_file": "shoraha-pazhuheshi.pdf",
+    "source_pages": [
+      2,
+      3
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q041",
+    "question": "مرخصی دانشجوی فوق لیسانس چند ترمه ؟",
+    "expected_answer": "در اسناد موجود نیست (آیین‌نامه موجود فقط کاردانی و کارشناسی را پوشش می‌دهد).",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: aein-91 درباره مرخصی کارشناسی است. بازنویسی نیما؛ حروف presentation-form (از کپی‌پیست) با NFKC به حروف معمولی تبدیل شد.",
+    "split": "dev"
+  },
+  {
+    "id": "q042",
+    "question": "شهریه سالانه دانشجوی ایرانی دوره دکتری در دانشگاه شهید مدنی آذربایجان چقدر است؟",
+    "expected_answer": "در اسناد موجود نیست (فقط شهریه دانشجویان غیرایرانی آمده).",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: جدول شهریه غیرایرانی‌ها.",
+    "split": "dev"
+  },
+  {
+    "id": "q043",
+    "question": "حق التدریس مربی پایه چند تومنه؟",
+    "expected_answer": "در اسناد موجود نیست (فقط گفته شده معادل آموزانه مربی پایه ۱ است، بدون عدد).",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: شیوه‌نامه دستیار آموزشی. بازنویسی نیما (واحد: تومان).",
+    "split": "dev"
+  },
+  {
+    "id": "q044",
+    "question": "مهلت ثبت نام تو آزمون سراسری ارشد کیه؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: عبارت «آزمون سراسری» در دو سند هست. بازنویسی نیما.",
+    "split": "test"
+  },
+  {
+    "id": "q045",
+    "question": "خوابگاه های دانشگاه مدنی چند نفرست؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: بحث خوابگاه دانشجویان غیرایرانی. بازنویسی نیما.",
+    "split": "test"
+  },
+  {
+    "id": "q046",
+    "question": "برای دریافت وام دانشجویی چه مدارکی لازم است؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. ",
+    "split": "test"
+  },
+  {
+    "id": "q047",
+    "question": "جریمه تأخیر در ثبت‌نام نیمسال برای دانشجویان چقدر است؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. ",
+    "split": "test"
+  },
+  {
+    "id": "q048",
+    "question": "برای ثبت‌نام در آزمون زبان عمومی دانشگاه چه مراحلی باید طی شود؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: بحث آزمون‌های زبان انگلیسی در شیوه‌نامه بین‌المللی.",
+    "split": "test"
+  },
+  {
+    "id": "q049",
+    "question": "چند ساعت کارآموزی برای فارغ‌التحصیلی رشته مهندسی کامپیوتر لازم است؟",
+    "expected_answer": "در اسناد موجود نیست (فقط تعریف ساعت هر واحد کارآموزی آمده).",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: تعریف واحد کارآموزی در aein-91.",
+    "split": "test"
+  },
+  {
+    "id": "q050",
+    "question": "What two kinds of memory do RAG models combine?",
+    "expected_answer": "Parametric memory (a pre-trained seq2seq model) and non-parametric memory (a dense vector index of Wikipedia accessed with a pre-trained neural retriever).",
+    "answer_keywords": [
+      "parametric",
+      "wikipedia"
+    ],
+    "source_file": "rag-lewis-2020.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
+    "split": "dev"
+  },
+  {
+    "id": "q051",
+    "question": "What does the RAG paper say remain open research problems for pre-trained language models on knowledge-intensive tasks?",
+    "expected_answer": "Providing provenance for their decisions and updating their world knowledge.",
+    "answer_keywords": [
+      "provenance",
+      "world knowledge"
+    ],
+    "source_file": "rag-lewis-2020.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
+    "split": "test"
+  },
+  {
+    "id": "q052",
+    "question": "How many languages does M3-Embedding support?",
+    "expected_answer": "More than 100 languages.",
+    "answer_keywords": [
+      "100",
+      "languages"
+    ],
+    "source_file": "bge-m3-paper.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
+    "split": "test"
+  },
+  {
+    "id": "q053",
+    "question": "Which three retrieval functionalities can M3-Embedding perform simultaneously?",
+    "expected_answer": "Dense retrieval, multi-vector retrieval, and sparse retrieval.",
+    "answer_keywords": [
+      "dense",
+      "multi-vector",
+      "sparse"
+    ],
+    "source_file": "bge-m3-paper.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
+    "split": "test"
+  },
+  {
+    "id": "q054",
+    "question": "What is the maximum input length that M3-Embedding can process?",
+    "expected_answer": "Up to 8192 tokens.",
+    "answer_keywords": [
+      "192",
+      "tokens"
+    ],
+    "source_file": "bge-m3-paper.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن. کلیدواژه ۱۹۲ چون مقاله «8,192» با ویرگول نوشته.",
+    "split": "dev"
+  },
+  {
+    "id": "q055",
+    "question": "On how many open-domain QA tasks did the RAG models set the state of the art?",
+    "expected_answer": "Three open-domain QA tasks.",
+    "answer_keywords": [
+      "three"
+    ],
+    "source_file": "rag-lewis-2020.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن. کلیدواژه «three» ممکنه با «3» رد بشه؛ judge لازم.",
+    "split": "test"
+  },
+  {
+    "id": "q056",
+    "question": "Which pre-trained model is the text encoder of M3-Embedding based on, and which method is it adapted with?",
+    "expected_answer": "An XLM-RoBERTa model adapted with the RetroMAE method, then pre-trained on massive unsupervised data.",
+    "answer_keywords": [
+      "xlm-roberta",
+      "retromae"
+    ],
+    "source_file": "bge-m3-paper.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "",
+    "split": "dev"
+  },
+  {
+    "id": "q057",
+    "question": "In the self-knowledge distillation ablation on MIRACL, what sparse-retrieval nDCG@10 does M3-Embedding reach with and without self-knowledge distillation?",
+    "expected_answer": "53.9 with self-knowledge distillation and 36.7 without.",
+    "answer_keywords": [
+      "53.9",
+      "36.7"
+    ],
+    "source_file": "bge-m3-paper.pdf",
+    "source_pages": [
+      9
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "سوال جدولی (Table 5، صفحه ۹).",
+    "split": "test"
+  },
+  {
+    "id": "q058",
+    "question": "What is the average nDCG@10 of M3-Embedding when all three retrieval methods are combined on the MIRACL dev set?",
+    "expected_answer": "71.5.",
+    "answer_keywords": [
+      "71.5"
+    ],
+    "source_file": "bge-m3-paper.pdf",
+    "source_pages": [
+      6
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "Table 1، صفحه ۶. عدد ۷۱.۵ تو جدول MKQA (صفحه ۷، ستون ar) هم هست؛ judge لازم.",
+    "split": "test"
+  },
+  {
+    "id": "q059",
+    "question": "What are the two RAG formulations that the paper compares?",
+    "expected_answer": "RAG-Sequence, which uses the same retrieved document for the whole generated sequence, and RAG-Token, which can use a different document for each token.",
+    "answer_keywords": [
+      "rag-sequence",
+      "rag-token"
+    ],
+    "source_file": "rag-lewis-2020.pdf",
+    "source_pages": [
+      1,
+      3
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q060",
+    "question": "How many documents does the Wikipedia index used by RAG contain, and how are the articles split?",
+    "expected_answer": "About 21 million documents: each Wikipedia article (December 2018 dump) is split into disjoint 100-word chunks.",
+    "answer_keywords": [
+      "21",
+      "100"
+    ],
+    "source_file": "rag-lewis-2020.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "",
+    "split": "test"
+  },
+  {
+    "id": "q061",
+    "question": "In the index hot-swapping experiment, how often does RAG answer correctly about world leaders when the index matches the year, and what happens with mismatched indices?",
+    "expected_answer": "70% with the 2016 index for 2016 leaders and 68% with the 2018 index for 2018 leaders; accuracy with mismatched indices is low (12% and 4%).",
+    "answer_keywords": [
+      "70",
+      "68"
+    ],
+    "source_file": "rag-lewis-2020.pdf",
+    "source_pages": [
+      7,
+      8
+    ],
+    "type": "english",
+    "language": "en",
+    "notes": "چند تکه: تنظیم آزمایش صفحه ۷ و اعداد صفحه ۸.",
+    "split": "test"
+  },
+  {
+    "id": "q062",
+    "question": "How many parameters does the M3-Embedding model have?",
+    "expected_answer": "Not stated in the paper.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "en",
+    "notes": "سوال بدون پاسخ در اسناد؛ مقاله XLM-RoBERTa و batch size را می‌گوید ولی تعداد پارامتر M3 را نه. مدل ممکنه از حافظه‌ی خودش جواب بده (تست faithfulness).",
+    "split": "dev"
+  },
+  {
+    "id": "q063",
+    "question": "Under which software license is the RAG code released?",
+    "expected_answer": "Not stated in the paper.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "en",
+    "notes": "سوال بدون پاسخ در اسناد؛ در متن مقاله هیچ اشاره‌ای به license نیست.",
+    "split": "test"
+  }
+]
