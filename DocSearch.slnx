@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DocSearch.Api/DocSearch.Api.csproj" />
+    <Project Path="src/DocSearch.Application/DocSearch.Application.csproj" />
+    <Project Path="src/DocSearch.Domain/DocSearch.Domain.csproj" />
+    <Project Path="src/DocSearch.Infrastructure/DocSearch.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DocSearch.Api.Tests/DocSearch.Api.Tests.csproj" />
+    <Project Path="tests/DocSearch.Application.Tests/DocSearch.Application.Tests.csproj" />
+    <Project Path="tests/DocSearch.Domain.Tests/DocSearch.Domain.Tests.csproj" />
+    <Project Path="tests/DocSearch.Infrastructure.Tests/DocSearch.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>
