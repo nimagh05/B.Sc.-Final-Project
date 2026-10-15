@@ -1,4 +1,6 @@
+using DocSearch.Application.Abstractions;
 using DocSearch.Application.Options;
+using DocSearch.Application.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -57,6 +59,8 @@ public static class DependencyInjection
             .Bind(configuration.GetSection(DocsOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+
+        services.AddSingleton<ITextNormalizer, PersianTextNormalizer>();
 
         return services;
     }
