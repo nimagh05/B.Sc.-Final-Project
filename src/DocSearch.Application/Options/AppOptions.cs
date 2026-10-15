@@ -124,7 +124,7 @@ public sealed class RagOptions : IValidatableObject
     public int CandidateK { get; set; } = 30;
 
     [Range(0.0, 1.0)]
-    public double MinSimilarity { get; set; } = 0.65;
+    public double MinSimilarity { get; set; } = 0.55;
 
     [Range(100, 32000)]
     public int MaxContextTokens { get; set; } = 4000;

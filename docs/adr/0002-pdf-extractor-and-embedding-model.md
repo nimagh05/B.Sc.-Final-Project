@@ -97,3 +97,28 @@ Heuristic formula: $\text{tokens} = \lceil \text{words} \times M \rceil + \lfloo
 - **PdfPig (C# In-Process):** Rejected. While in-process C# avoids a sidecar, PdfPig cannot extract Persian text in correct logical reading order without extensive custom bidi layout restructuring.
 - **pdfplumber (Python):** Rejected. 10x slower than PyMuPDF and exhibited identical backwards text on Persian pages.
 - **multilingual-e5-base:** Unavailable on the official Ollama registry; importing third-party GGUF would complicate deployment.
+
+---
+
+## Amendment (2026-10-15)
+
+- **Decision 5 revised.** `Rag:MinSimilarity` baseline lowered from 0.65 to 0.55.
+  At 0.65 the dev sweep gives 50% false rejects (test: 47.2%). The four dev
+  not-in-docs questions are near-domain (top-1 0.594-0.652) and are not separable
+  from answerable ones by cosine alone. The threshold is a coarse guard against
+  clearly unrelated queries; near-domain refusals are handled by the prompt and
+  citation validation (T10). Re-sweep after T06 and T11. Dev has only 4
+  not-in-docs questions, so the sweep is indicative, not conclusive.
+- **Decision 4 caveat.** The Latin multiplier (1.80) is fitted on 25 chunks from
+  two formula-heavy two-column papers and is conservative for plain English prose.
+  `prompt_eval_count` includes special tokens (+2). Prefer a high percentile
+  of actual/estimated ratio over MAPE-minimizing multipliers where the limit is a hard cap.
+- **Risks.**
+  1. PDF text-layer defects (CMap bugs in bedoon-factor, dastyar-pazhuheshi,
+     kod-akhlaghi: "لا" stored as "ال"/"یا", reversed numbers) are not detected by
+     `PageQualityScorer`; numeric questions on those files may fail silently.
+  2. PyMuPDF is AGPL-3.0 (commercial license available from Artifex). The extractor
+     stays behind `IPdfExtractor` and a separate sidecar; revisit at the T20 license decision.
+  3. No second embedding model was compared (multilingual-e5-* unavailable in the
+     Ollama registry); add a baseline before the T19 experiment matrix.
+  4. CPU embedding is about 5.5 s per chunk; ingestion of large PDFs takes minutes.
