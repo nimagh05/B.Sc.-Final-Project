@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DocSearch.Domain.Constants;
 
 namespace DocSearch.Application.Options;
 
@@ -35,7 +36,7 @@ public sealed class AiEmbeddingOptions : IValidatableObject
     public string? ApiKey { get; set; }
 
     [Range(1, 16384)]
-    public int Dimensions { get; set; } = 1024;
+    public int Dimensions { get; set; } = EmbeddingConstants.VectorDimensions;
 
     public string QueryPrefix { get; set; } = "";
 
@@ -49,10 +50,10 @@ public sealed class AiEmbeddingOptions : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (Dimensions != 1024)
+        if (Dimensions != EmbeddingConstants.VectorDimensions)
         {
             yield return new ValidationResult(
-                $"Embedding Dimensions must equal 1024 (configured: {Dimensions}).",
+                $"Embedding Dimensions must equal {EmbeddingConstants.VectorDimensions} (configured: {Dimensions}).",
                 [nameof(Dimensions)]);
         }
 
