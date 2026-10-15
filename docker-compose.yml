@@ -1,0 +1,73 @@
+name: ${COMPOSE_PROJECT_NAME:-docsearch}
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: ${COMPOSE_PROJECT_NAME:-docsearch}_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-docsearch}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-docsearch}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  extractor:
+    profiles: ["full"]
+    build: ./tools/extractor
+    container_name: ${COMPOSE_PROJECT_NAME:-docsearch}_extractor
+    restart: unless-stopped
+    ports:
+      - "${EXTRACTOR_PORT:-8000}:8000"
+
+  api:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: src/DocSearch.Api/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME:-docsearch}_api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__Default: Host=db;Port=5432;Database=${POSTGRES_DB:-docsearch};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}
+      Extraction__ExtractorBaseUrl: http://extractor:8000
+      Storage__RootPath: /data/files
+      Jwt__SigningKey: ${Jwt__SigningKey}
+      Auth__BootstrapAdmin__Email: ${Auth__BootstrapAdmin__Email:-}
+      Auth__BootstrapAdmin__Password: ${Auth__BootstrapAdmin__Password:-}
+      Ai__Embedding__Provider: ${Ai__Embedding__Provider:-Ollama}
+      Ai__Embedding__Model: ${Ai__Embedding__Model:-bge-m3}
+      Ai__Embedding__Endpoint: ${Ai__Embedding__Endpoint:-http://host.docker.internal:11434}
+      Ai__Chat__Provider: ${Ai__Chat__Provider:-OpenAICompatible}
+      Ai__Chat__Endpoint: ${Ai__Chat__Endpoint:-}
+      Ai__Chat__Model: ${Ai__Chat__Model:-}
+      Ai__Chat__ApiKey: ${Ai__Chat__ApiKey:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${API_PORT:-5000}:8080"
+    volumes:
+      - filedata:/data/files
+
+  web:
+    profiles: ["full"]
+    build: ./web
+    container_name: ${COMPOSE_PROJECT_NAME:-docsearch}_web
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-5173}:80"
+
+volumes:
+  dbdata:
+  filedata:
