@@ -14,3 +14,17 @@ public enum CollectionRole
     Editor,
     Owner
 }
+
+public enum MessageRole
+{
+    User,
+    Assistant
+}
+
+public enum ReindexJobStatus
+{
+    Queued,
+    Running,
+    Completed,
+    Failed
+}
