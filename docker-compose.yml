@@ -27,6 +27,8 @@ services:
     restart: unless-stopped
     ports:
       - "${EXTRACTOR_PORT:-8000}:8000"
+    tmpfs:
+      - /tmp
 
   api:
     profiles: ["full"]

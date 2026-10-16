@@ -99,17 +99,18 @@ public sealed class PageQualityScorerTests
     [Fact]
     public void T01_Parity_With_PyMuPDF_Extraction_Summary()
     {
-        // Locate repo root from test directory
+        // Locate repo root by walking parent directories until global.json is found
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
         var dir = new DirectoryInfo(baseDir);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "DocSearch.slnx")) && !File.Exists(Path.Combine(dir.FullName, "DocSearch.sln")))
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "global.json")))
         {
             dir = dir.Parent;
         }
 
         if (dir == null)
         {
-            return; // Cleanly exit if repo root cannot be found
+            Assert.Fail("Repository root containing 'global.json' could not be located.");
+            return;
         }
 
         var csvPath = Path.Combine(dir.FullName, "eval", "experiments", "out", "extract_summary.csv");
@@ -117,7 +118,7 @@ public sealed class PageQualityScorerTests
 
         if (!File.Exists(csvPath) || !Directory.Exists(pymupdfDir))
         {
-            // Skip gracefully when git-ignored eval experiments folder is absent (e.g., on fresh CI clone)
+            Assert.Fail("Parity test skipped/failed: git-ignored 'eval/experiments/out/' directory is absent on this environment. Run T01 experiments to generate extraction outputs.");
             return;
         }
 

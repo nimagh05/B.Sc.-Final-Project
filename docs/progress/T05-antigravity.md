@@ -8,22 +8,28 @@
 
 ## 1. What was done
 - **Python FastAPI Extractor Sidecar (`tools/extractor/`)**:
-  - Implemented `tools/extractor/app/main.py` with `GET /health` and `POST /extract`.
+  - Implemented `tools/extractor/app/main.py` with `GET /health` and synchronous `POST /extract` running in Starlette's threadpool with a module-level `threading.Lock()` to ensure PyMuPDF thread safety without blocking the event loop.
   - Used `pymupdf` (`fitz`) with `page.get_text("text")` directly, strictly omitting block sorting `(y, x)` to preserve logical reading order and two-column layouts per ADR 0002.
-  - Enforced `MAX_UPLOAD_MB` (default 50) memory streaming, magic bytes `%PDF-` validation, corrupt PDF handling, and strictly zero disk persistence.
-  - Added `tools/extractor/requirements.txt` and `tools/extractor/Dockerfile` per `docs/INFRA.md` §4.
-  - Added full pytest test suite in `tools/extractor/tests/test_extractor.py` (8 tests covering valid PDFs, non-PDF, corrupt PDF, oversized upload, and the 3 test samples in `tests/TestData/`).
+  - Added pre-read `Content-Length` header check and bounded chunked streaming enforcing `MAX_UPLOAD_MB` (default 50 MB, HTTP 413).
+  - Validated `%PDF-` magic header (HTTP 400), handled corrupt streams (HTTP 400), and added detection for password-protected/encrypted PDFs via `doc.needs_pass` (HTTP 422).
+  - Documented accurately that Starlette's `UploadFile` (`SpooledTemporaryFile`) spools uploads > 1 MB to OS temp files (`/tmp`), and configured `tmpfs: ["/tmp"]` on the `extractor` service in `docker-compose.yml` (and in Dockerfile comments) so spooled files stay in RAM in container deployments.
+  - Pinned runtime dependencies in `tools/extractor/requirements.txt` (`pymupdf==1.28.2`) and moved dev dependencies to `tools/extractor/requirements-dev.txt`.
+  - Hardened `tools/extractor/Dockerfile` with non-root `appuser`, `HEALTHCHECK`, and `tmpfs` usage notes.
+  - Added full pytest test suite in `tools/extractor/tests/test_extractor.py` (10 tests covering health, in-memory PDFs, non-PDF, corrupt PDF, oversized upload, Content-Length header, encrypted PDF 422, and the 3 test samples in `tests/TestData/`).
+  - Unified local sidecar run command:
+    `.venv\Scripts\uvicorn.exe app.main:app --app-dir tools/extractor --port 8000`
 - **C# Application Layer (`DocSearch.Application`)**:
   - Implemented pure, stateless `PageQualityScorer` in `DocSearch.Application.Extraction` according to `SPEC-PERSIAN-AND-RAG.md` §2 and ADR 0002.
   - Registered `PageQualityScorer` in DI.
   - Relaxed normalizer 100 KB performance threshold from 50 ms to 250 ms in `PersianTextNormalizerTests.cs` to prevent CI runner flakes.
-  - Added comprehensive `PageQualityScorerTests` (9 tests, including a 130-page parity test verifying exact alignment with T01 PyMuPDF experiment data).
+  - Added comprehensive `PageQualityScorerTests` (9 tests, including a 130-page parity test verifying exact alignment with T01 PyMuPDF experiment data, using `global.json` discovery and explicit `Assert.Skip` when git-ignored experiment outputs are absent).
   - Updated `ExtractionOptions` to strictly validate `Provider == "Sidecar"`.
 - **C# Infrastructure Layer (`DocSearch.Infrastructure`)**:
-  - Implemented `HttpPdfExtractor` with typed `HttpClient`, 3-attempt retry loop on transient errors with exponential backoff (200ms, 800ms), and error mapping to `FileTooLargeException`, `InvalidFileException`, and `ExternalServiceUnavailableException`.
+  - Implemented `HttpPdfExtractor` with typed `HttpClient`, 3-attempt retry loop on transient errors with exponential backoff (200ms, 800ms), fresh retry payload rebuilding, distinction between timeout (wrapped) and caller cancellation (propagated directly), and error mapping to `FileTooLargeException`, `InvalidFileException`, and `ExternalServiceUnavailableException`.
+  - Confirmed that extracted document text is never logged at any log level.
   - Implemented `ExtractorHealthCheck` querying the sidecar `/health` endpoint.
   - Registered both `IPdfExtractor` and `ExtractorHealthCheck` (tagged `"ready"`) in Infrastructure DI.
-  - Added `HttpPdfExtractorTests` covering all error mappings, retry behavior, and the 3 sample PDFs (`persian-sample.pdf`, `english-sample.pdf`, `scanned-sample.pdf`).
+  - Added `HttpPdfExtractorTests` covering all error mappings, retry behavior, full body resending on retry, caller cancellation, and the 3 sample PDFs (`persian-sample.pdf`, `english-sample.pdf`, `scanned-sample.pdf`) using dynamic real PyMuPDF output.
 - **API Health Check & Documentation**:
   - Updated `tests/DocSearch.Api.Tests/HealthCheckTests.cs` to test readiness with both DB and extractor checks, including failure scenarios.
   - Updated `README.md` to reflect T05 status, prerequisites, sidecar run instructions, and test filters (kept under 60 lines).
@@ -31,9 +37,9 @@
 ---
 
 ## 2. Verification
-- `pytest tools/extractor/tests`: **8 passed, 0 failed**.
-- `dotnet test --filter "Category!=Integration&Category!=RequiresOllama"`: **97 passed, 0 failed**.
-- `dotnet test`: **103 passed, 0 failed**.
+- `pytest tools/extractor/tests`: **10 passed, 0 failed**.
+- `dotnet test --filter "Category!=Integration&Category!=RequiresOllama"`: **100 passed, 0 failed**.
+- `dotnet test`: **106 passed, 0 failed**.
 - `dotnet build -warnaserror`: **Clean (0 warnings, 0 errors)**.
 - `dotnet format --verify-no-changes`: **Clean (no changes)**.
 

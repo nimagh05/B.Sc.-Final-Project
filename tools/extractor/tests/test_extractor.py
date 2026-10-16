@@ -82,6 +82,38 @@ def test_extract_oversized_file(monkeypatch):
     assert "exceeds maximum allowed upload size" in response.json()["detail"]
 
 
+def test_extract_oversized_content_length_header(monkeypatch):
+    import app.main as app_main
+
+    monkeypatch.setattr(app_main, "MAX_UPLOAD_MB", 1)
+    response = client.post(
+        "/extract",
+        headers={"content-length": str(2 * 1024 * 1024)},
+        files={"file": ("oversized.pdf", io.BytesIO(b"%PDF-1.4\nshort"), "application/pdf")},
+    )
+    assert response.status_code == 413
+    assert "exceeds maximum allowed upload size" in response.json()["detail"]
+
+
+def test_extract_encrypted_pdf_returns_422():
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((50, 50), "Confidential encrypted text")
+    enc_bytes = doc.tobytes(
+        encryption=pymupdf.PDF_ENCRYPT_AES_256,
+        owner_pw="secret",
+        user_pw="secret",
+    )
+    doc.close()
+
+    response = client.post(
+        "/extract",
+        files={"file": ("encrypted.pdf", io.BytesIO(enc_bytes), "application/pdf")},
+    )
+    assert response.status_code == 422
+    assert "Password-protected or encrypted PDFs are not supported" in response.json()["detail"]
+
+
 def test_extract_persian_sample_pdf():
     persian_pdf_path = TEST_DATA_DIR / "persian-sample.pdf"
     assert persian_pdf_path.exists(), f"Sample file missing: {persian_pdf_path}"

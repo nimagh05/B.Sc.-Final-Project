@@ -26,7 +26,7 @@ PDF extraction adapter and sidecar with quality scoring operational (Task T05 co
 
 2. Run PyMuPDF extractor sidecar:
    ```powershell
-   .venv\Scripts\uvicorn.exe tools.extractor.app.main:app --port 8000
+   .venv\Scripts\uvicorn.exe app.main:app --app-dir tools/extractor --port 8000
    ```
 
 3. Run API and verify health:

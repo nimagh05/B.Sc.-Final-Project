@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using DocSearch.Application.Exceptions;
 using DocSearch.Application.Options;
 using DocSearch.Application.Text;
@@ -111,6 +113,23 @@ public sealed class HttpPdfExtractorTests
     }
 
     [Fact]
+    public async Task ExtractAsync_UnprocessableEntity_ThrowsInvalidFileException()
+    {
+        var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.UnprocessableEntity)
+        {
+            Content = new StringContent("Password-protected or encrypted PDFs are not supported.", Encoding.UTF8, "text/plain")
+        });
+
+        var extractor = CreateExtractor(handler);
+        using var pdfStream = new MemoryStream("%PDF-1.4 encrypted"u8.ToArray());
+
+        var ex = await Assert.ThrowsAsync<InvalidFileException>(() =>
+            extractor.ExtractAsync(pdfStream, CancellationToken.None));
+
+        Assert.Contains("encrypted", ex.Message);
+    }
+
+    [Fact]
     public async Task ExtractAsync_TransientServerError_RetriesTwiceAndThrowsExternalServiceUnavailableException()
     {
         var callCount = 0;
@@ -131,6 +150,43 @@ public sealed class HttpPdfExtractorTests
 
         Assert.Equal(3, callCount); // 1 initial + 2 retries
         Assert.Equal("PdfExtractor", ex.ServiceName);
+    }
+
+    [Fact]
+    public async Task ExtractAsync_TransientServerError_RetryResendsFullBody()
+    {
+        var receivedLengths = new List<long>();
+        var jsonResponse = JsonSerializer.Serialize(new
+        {
+            pages = new[] { new { page = 1, text = "Success after retry" } }
+        });
+
+        var handler = new TestHttpMessageHandler(req =>
+        {
+            var contentBytes = req.Content!.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+            receivedLengths.Add(contentBytes.Length);
+
+            if (receivedLengths.Count == 1)
+            {
+                return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
+            };
+        });
+
+        var extractor = CreateExtractor(handler);
+        var originalPdfBytes = "%PDF-1.4 mock content with some non-trivial byte length"u8.ToArray();
+        using var stream = new MemoryStream(originalPdfBytes);
+
+        var pages = await extractor.ExtractAsync(stream, CancellationToken.None);
+
+        Assert.Equal(2, receivedLengths.Count);
+        Assert.True(receivedLengths[0] > 0, "Attempt 1 request body should not be empty.");
+        Assert.Equal(receivedLengths[0], receivedLengths[1]);
+        Assert.Single(pages);
     }
 
     [Fact]
@@ -170,6 +226,20 @@ public sealed class HttpPdfExtractorTests
     }
 
     [Fact]
+    public async Task ExtractAsync_CallerCancellation_PropagatesOperationCanceledException()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel(); // Pre-cancelled caller token
+
+        var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+        var extractor = CreateExtractor(handler);
+        using var pdfStream = new MemoryStream("%PDF-1.4 mock"u8.ToArray());
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            extractor.ExtractAsync(pdfStream, cts.Token));
+    }
+
+    [Fact]
     public async Task ExtractAsync_ConnectionFailure_ThrowsExternalServiceUnavailableException()
     {
         var callCount = 0;
@@ -195,22 +265,12 @@ public sealed class HttpPdfExtractorTests
         var (sampleBytes, testDataDir) = FindTestDataFile("persian-sample.pdf");
         Assert.NotEmpty(sampleBytes);
 
-        // Simulated PyMuPDF extraction matching page 1 & 2 of persian-sample.pdf
-        var p1Text = "آﯾﯿﻦ ﻧﺎﻣﻪ آﻣﻮزﺷﯽ \n دوره ﻫﺎي\nﮐﺎرﺷﻨﺎﺳﯽ   \n ورودي ﻫﺎي91\n و ﺑﻌﺪ از آن  \nﻣﻘﺪﻣﻪ  \n رﺷﺪ روزاﻓﺰون ﭘﯿﺸﺮﻓﺖ ﻫﺎي ﻋﻠﻤﯽ در ﺟﻬﺎن اﻣﺮوز ﻫﻤﺮاه ﺑﺎ ﺗﺤﻮﻻت ﺷﮕﺮف ﺻﻮرت ﮔﺮﻓﺘﻪ\n در آن، ﺿﺮورت ﺗﻮﺟﻪ ﺑﻪ ﺑﺮﻧﺎﻣﻪ رﯾﺰي دﻗﯿﻖ، اﺳﺎﺳﯽ و ﻣﻨﻄﺒﻖ ﺑﺎ واﻗﻌﯿﺖ ﻫﺎي ﻣﻮﺟﻮد و\nﺳﻨﺪ ﭼﺸﻢ اﻧﺪاز ﺑﯿﺴﺖ ﺳﺎﻟﻪ ﺟﻤﻬﻮري اﺳﻼﻣﯽ اﯾﺮان را ﺑﯿﺶ از ﭘﯿﺶ روﺷﻦ ﺳﺎﺧﺘﻪ اﺳﺖ .";
-        var p2Text = "فصل اول : کلیات و تعاریف \nماده 1: هدف \nهدف از تدوین این آیین نامه تعیین ضوابط و مقررات آموزشی دوره کارشناسی در دانشگاه ها و موسسات آموزش عالی است.";
-
-        var jsonResponse = JsonSerializer.Serialize(new
-        {
-            pages = new[]
-            {
-                new { page = 1, text = p1Text },
-                new { page = 2, text = p2Text }
-            }
-        });
+        var filePath = Path.Combine(testDataDir, "persian-sample.pdf");
+        var realPyMuPdfJson = GetRealPyMuPdfExtractionJson(filePath);
 
         var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
+            Content = new StringContent(realPyMuPdfJson, Encoding.UTF8, "application/json")
         });
 
         var extractor = CreateExtractor(handler);
@@ -223,14 +283,14 @@ public sealed class HttpPdfExtractorTests
         Assert.False(pages[1].NeedsOcr, "Persian digital page 2 should not require OCR.");
 
         // NormalizeForDisplay preserves ZWNJ; replace ZWNJ with space and collapse whitespace to assert multi-line title phrase
-        var displayNormalized = System.Text.RegularExpressions.Regex.Replace(
+        var displayNormalized = Regex.Replace(
             _normalizer.NormalizeForDisplay(pages[0].Text).Replace('\u200C', ' '),
             @"\s+",
             " ");
         Assert.Contains("آیین نامه آموزشی دوره های کارشناسی", displayNormalized);
 
         // NormalizeForSearch also resolves it cleanly
-        var searchNormalized = System.Text.RegularExpressions.Regex.Replace(
+        var searchNormalized = Regex.Replace(
             _normalizer.NormalizeForSearch(pages[0].Text),
             @"\s+",
             " ");
@@ -240,22 +300,15 @@ public sealed class HttpPdfExtractorTests
     [Fact]
     public async Task ExtractAsync_EnglishSample_MatchesInvariants()
     {
-        var (sampleBytes, _) = FindTestDataFile("english-sample.pdf");
+        var (sampleBytes, testDataDir) = FindTestDataFile("english-sample.pdf");
         Assert.NotEmpty(sampleBytes);
 
-        var englishText = "Retrieval-Augmented Generation for\nKnowledge-Intensive NLP Tasks\nPatrick Lewis, Ethan Perez, Aleksandra Piktus\nWe explore retrieval-augmented models.";
-
-        var jsonResponse = JsonSerializer.Serialize(new
-        {
-            pages = new[]
-            {
-                new { page = 1, text = englishText }
-            }
-        });
+        var filePath = Path.Combine(testDataDir, "english-sample.pdf");
+        var realPyMuPdfJson = GetRealPyMuPdfExtractionJson(filePath);
 
         var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
+            Content = new StringContent(realPyMuPdfJson, Encoding.UTF8, "application/json")
         });
 
         var extractor = CreateExtractor(handler);
@@ -271,22 +324,15 @@ public sealed class HttpPdfExtractorTests
     [Fact]
     public async Task ExtractAsync_ScannedSample_RoutesToOcr()
     {
-        var (sampleBytes, _) = FindTestDataFile("scanned-sample.pdf");
+        var (sampleBytes, testDataDir) = FindTestDataFile("scanned-sample.pdf");
         Assert.NotEmpty(sampleBytes);
 
-        // Scanned documents yield empty or near-empty text (< 20 chars)
-        var jsonResponse = JsonSerializer.Serialize(new
-        {
-            pages = new[]
-            {
-                new { page = 1, text = "" },
-                new { page = 2, text = "  \n  " }
-            }
-        });
+        var filePath = Path.Combine(testDataDir, "scanned-sample.pdf");
+        var realPyMuPdfJson = GetRealPyMuPdfExtractionJson(filePath);
 
         var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent(jsonResponse, Encoding.UTF8, "application/json")
+            Content = new StringContent(realPyMuPdfJson, Encoding.UTF8, "application/json")
         });
 
         var extractor = CreateExtractor(handler);
@@ -301,27 +347,75 @@ public sealed class HttpPdfExtractorTests
         Assert.True(pages[1].NeedsOcr, "Page 2 of scanned document must have NeedsOcr=true.");
     }
 
-    private static (byte[] Bytes, string Dir) FindTestDataFile(string fileName)
+    private static string GetRealPyMuPdfExtractionJson(string pdfPath)
+    {
+        var repoRoot = FindRepoRoot();
+        var pythonExe = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
+        if (!File.Exists(pythonExe))
+        {
+            pythonExe = "python";
+        }
+
+        var script = "import pymupdf, json, sys; sys.stdout.reconfigure(encoding='utf-8'); doc = pymupdf.open(sys.argv[1]); pages = [{'page': i+1, 'text': p.get_text('text')} for i, p in enumerate(doc)]; print(json.dumps({'pages': pages}, ensure_ascii=False)); doc.close()";
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = pythonExe,
+            Arguments = $"-c \"{script}\" \"{pdfPath}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            StandardOutputEncoding = Encoding.UTF8
+        };
+
+        using var process = Process.Start(psi);
+        if (process == null)
+        {
+            Assert.Fail("Failed to start python process for real PyMuPDF extraction.");
+            return string.Empty;
+        }
+
+        var stdout = process.StandardOutput.ReadToEnd();
+        var stderr = process.StandardError.ReadToEnd();
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            Assert.Fail($"Real PyMuPDF extraction process failed: {stderr}");
+            return string.Empty;
+        }
+
+        return stdout;
+    }
+
+    private static string FindRepoRoot()
     {
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
         var dir = new DirectoryInfo(baseDir);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "DocSearch.slnx")) && !File.Exists(Path.Combine(dir.FullName, "DocSearch.sln")))
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "global.json")))
         {
             dir = dir.Parent;
         }
 
         if (dir == null)
         {
-            throw new InvalidOperationException("Could not locate repository root.");
+            throw new InvalidOperationException("Could not locate repository root containing global.json.");
         }
 
-        var filePath = Path.Combine(dir.FullName, "tests", "TestData", fileName);
+        return dir.FullName;
+    }
+
+    private static (byte[] Bytes, string Dir) FindTestDataFile(string fileName)
+    {
+        var repoRoot = FindRepoRoot();
+        var filePath = Path.Combine(repoRoot, "tests", "TestData", fileName);
         if (!File.Exists(filePath))
         {
             throw new FileNotFoundException($"Test data file not found: {filePath}");
         }
 
-        return (File.ReadAllBytes(filePath), Path.Combine(dir.FullName, "tests", "TestData"));
+        return (File.ReadAllBytes(filePath), Path.Combine(repoRoot, "tests", "TestData"));
     }
 
     private sealed class TestHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)

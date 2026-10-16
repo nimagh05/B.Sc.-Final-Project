@@ -35,14 +35,10 @@ public sealed class HttpPdfExtractor : IPdfExtractor
     {
         ArgumentNullException.ThrowIfNull(pdf);
 
+        // Buffer the stream into a byte array once before the retry loop
         byte[] pdfBytes;
-        if (pdf is MemoryStream ms && ms.TryGetBuffer(out var segment))
+        using (var buffer = new MemoryStream())
         {
-            pdfBytes = segment.ToArray();
-        }
-        else
-        {
-            using var buffer = new MemoryStream();
             if (pdf.CanSeek)
             {
                 pdf.Position = 0;
@@ -59,6 +55,7 @@ public sealed class HttpPdfExtractor : IPdfExtractor
         {
             ct.ThrowIfCancellationRequested();
 
+            // Create fresh MultipartFormDataContent and ByteArrayContent on each retry
             using var content = new MultipartFormDataContent();
             var byteArrayContent = new ByteArrayContent(pdfBytes);
             byteArrayContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
@@ -71,7 +68,24 @@ public sealed class HttpPdfExtractor : IPdfExtractor
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
+                // Caller requested cancellation -> rethrow directly without wrapping
                 throw;
+            }
+            catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+            {
+                // HttpClient request timeout
+                _logger.LogWarning(ex, "HTTP call to extractor timed out on attempt {Attempt}/{MaxAttempts}.", attempt, maxAttempts);
+
+                if (attempt == maxAttempts)
+                {
+                    throw new ExternalServiceUnavailableException(
+                        "PdfExtractor",
+                        $"Extractor sidecar request timed out after {maxAttempts} attempts.",
+                        ex);
+                }
+
+                await Task.Delay(delays[attempt - 1], ct);
+                continue;
             }
             catch (Exception ex)
             {
