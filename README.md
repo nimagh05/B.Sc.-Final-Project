@@ -5,48 +5,47 @@ Answers questions strictly from uploaded PDF documents with exact file name and 
 
 ## Status
 
-Solution skeleton, Docker Compose (database), and health endpoints provisioned (Task T02 completed).
+PDF extraction adapter and sidecar with quality scoring operational (Task T05 completed).
 
 ## Prerequisites
 
 - .NET 10 SDK (`net10.0`)
 - Docker Desktop with WSL2 (runs `pgvector/pgvector:pg16`)
+- Python 3.11 with `.venv` and Ollama on host (`bge-m3`)
 - Windows PowerShell
 
 ## Quickstart
 
-1. Configure environment:
+1. Configure environment and apply migrations:
    ```powershell
    Copy-Item .env.example .env
-   # Edit POSTGRES_PASSWORD in .env
    . .\scripts\load-env.ps1
-   ```
-
-2. Start PostgreSQL + pgvector database:
-   ```powershell
    docker compose up -d db
-   docker compose ps
+   dotnet ef database update --project src/DocSearch.Infrastructure --startup-project src/DocSearch.Api
    ```
 
-3. Run API:
+2. Run PyMuPDF extractor sidecar:
+   ```powershell
+   .venv\Scripts\uvicorn.exe tools.extractor.app.main:app --port 8000
+   ```
+
+3. Run API and verify health:
    ```powershell
    dotnet run --project src/DocSearch.Api
-   ```
-
-4. Verify health endpoints:
-   ```powershell
-   Invoke-RestMethod http://localhost:5000/health/live
    Invoke-RestMethod http://localhost:5000/health/ready
    ```
 
-5. Explore API documentation via Scalar:
-   Open `http://localhost:5000/scalar/v1` in browser.
+API docs: `http://localhost:5000/scalar/v1`
 
 ## Running Tests
 
 ```powershell
-dotnet test
-dotnet build -warnaserror
+# Sidecar pytest suite
+.venv\Scripts\pytest.exe tools/extractor/tests
+# Unit tests only
+dotnet test --filter "Category!=Integration&Category!=RequiresOllama"
+# All tests (including Testcontainers PostgreSQL integration)
+dotnet test --filter "Category!=RequiresOllama"
 dotnet format --verify-no-changes
 ```
 

@@ -206,10 +206,10 @@ public sealed class ExtractionOptions : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (Provider is not ("PdfPig" or "Sidecar"))
+        if (Provider is not "Sidecar")
         {
             yield return new ValidationResult(
-                $"Unknown extraction provider '{Provider}'. Allowed providers: PdfPig, Sidecar.",
+                $"Unknown extraction provider '{Provider}'. Allowed providers: Sidecar.",
                 [nameof(Provider)]);
         }
 

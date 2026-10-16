@@ -1,3 +1,6 @@
+using DocSearch.Application.Abstractions;
+using DocSearch.Application.Options;
+using DocSearch.Infrastructure.Extraction;
 using DocSearch.Infrastructure.Health;
 using DocSearch.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -20,8 +23,28 @@ public static class DependencyInjection
             });
         });
 
+        var extractionSection = configuration.GetSection(ExtractionOptions.SectionName);
+        var extractorBaseUrl = extractionSection.GetValue<string>("ExtractorBaseUrl") ?? "http://localhost:8000";
+        if (!extractorBaseUrl.EndsWith('/'))
+        {
+            extractorBaseUrl += "/";
+        }
+
+        services.AddHttpClient<IPdfExtractor, HttpPdfExtractor>(client =>
+        {
+            client.BaseAddress = new Uri(extractorBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(120);
+        });
+
+        services.AddHttpClient("ExtractorHealthCheck", client =>
+        {
+            client.BaseAddress = new Uri(extractorBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(3);
+        });
+
         services.AddHealthChecks()
-            .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
+            .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"])
+            .AddCheck<ExtractorHealthCheck>("extractor", tags: ["ready"]);
 
         return services;
     }

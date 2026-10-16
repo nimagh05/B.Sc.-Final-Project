@@ -1,4 +1,5 @@
 using DocSearch.Application.Abstractions;
+using DocSearch.Application.Extraction;
 using DocSearch.Application.Options;
 using DocSearch.Application.Text;
 using Microsoft.Extensions.Configuration;
@@ -61,6 +62,7 @@ public static class DependencyInjection
             .ValidateOnStart();
 
         services.AddSingleton<ITextNormalizer, PersianTextNormalizer>();
+        services.AddSingleton<PageQualityScorer>();
 
         return services;
     }
