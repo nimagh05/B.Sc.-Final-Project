@@ -259,7 +259,7 @@ public sealed class HttpPdfExtractorTests
         Assert.Equal("PdfExtractor", ex.ServiceName);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ExtractAsync_PersianSample_MatchesInvariantsAndPhrase()
     {
         var (sampleBytes, testDataDir) = FindTestDataFile("persian-sample.pdf");
@@ -297,7 +297,7 @@ public sealed class HttpPdfExtractorTests
         Assert.Contains("آیین نامه آموزشی دوره های کارشناسی", searchNormalized);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ExtractAsync_EnglishSample_MatchesInvariants()
     {
         var (sampleBytes, testDataDir) = FindTestDataFile("english-sample.pdf");
@@ -321,7 +321,7 @@ public sealed class HttpPdfExtractorTests
         Assert.Contains("Retrieval-Augmented Generation", pages[0].Text);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ExtractAsync_ScannedSample_RoutesToOcr()
     {
         var (sampleBytes, testDataDir) = FindTestDataFile("scanned-sample.pdf");
@@ -347,49 +347,100 @@ public sealed class HttpPdfExtractorTests
         Assert.True(pages[1].NeedsOcr, "Page 2 of scanned document must have NeedsOcr=true.");
     }
 
+    private static string? ResolvePythonExecutable()
+    {
+        var env = Environment.GetEnvironmentVariable("PYTHON_EXECUTABLE");
+        if (!string.IsNullOrWhiteSpace(env) && File.Exists(env))
+        {
+            return env;
+        }
+
+        var repoRoot = FindRepoRoot();
+        if (repoRoot != null)
+        {
+            var windowsVenv = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
+            if (File.Exists(windowsVenv))
+            {
+                return windowsVenv;
+            }
+
+            var unixVenv = Path.Combine(repoRoot, ".venv", "bin", "python");
+            if (File.Exists(unixVenv))
+            {
+                return unixVenv;
+            }
+        }
+
+        foreach (var cmd in new[] { "python3", "python" })
+        {
+            try
+            {
+                using var p = Process.Start(new ProcessStartInfo
+                {
+                    FileName = cmd,
+                    Arguments = "--version",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                if (p != null)
+                {
+                    p.WaitForExit();
+                    if (p.ExitCode == 0)
+                    {
+                        return cmd;
+                    }
+                }
+            }
+            catch
+            {
+                // Not on PATH or execution failed
+            }
+        }
+
+        return null;
+    }
+
     private static string GetRealPyMuPdfExtractionJson(string pdfPath)
     {
-        var repoRoot = FindRepoRoot();
-        var pythonExe = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
-        if (!File.Exists(pythonExe))
-        {
-            pythonExe = "python";
-        }
+        var pythonExe = ResolvePythonExecutable();
+        Skip.IfNot(pythonExe != null, "Python executable not found in PYTHON_EXECUTABLE, .venv, or system PATH.");
 
         var script = "import pymupdf, json, sys; sys.stdout.reconfigure(encoding='utf-8'); doc = pymupdf.open(sys.argv[1]); pages = [{'page': i+1, 'text': p.get_text('text')} for i, p in enumerate(doc)]; print(json.dumps({'pages': pages}, ensure_ascii=False)); doc.close()";
 
-        var psi = new ProcessStartInfo
+        Process? process;
+        try
         {
-            FileName = pythonExe,
-            Arguments = $"-c \"{script}\" \"{pdfPath}\"",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            StandardOutputEncoding = Encoding.UTF8
-        };
-
-        using var process = Process.Start(psi);
-        if (process == null)
+            process = Process.Start(new ProcessStartInfo
+            {
+                FileName = pythonExe!,
+                Arguments = $"-c \"{script}\" \"{pdfPath}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardOutputEncoding = Encoding.UTF8
+            });
+        }
+        catch (Exception ex)
         {
-            Assert.Fail("Failed to start python process for real PyMuPDF extraction.");
+            Skip.IfNot(false, $"Failed to start python process ({pythonExe}): {ex.Message}");
             return string.Empty;
         }
 
-        var stdout = process.StandardOutput.ReadToEnd();
+        Skip.IfNot(process != null, "Failed to start python process for real PyMuPDF extraction.");
+
+        var stdout = process!.StandardOutput.ReadToEnd();
         var stderr = process.StandardError.ReadToEnd();
         process.WaitForExit();
 
-        if (process.ExitCode != 0)
-        {
-            Assert.Fail($"Real PyMuPDF extraction process failed: {stderr}");
-            return string.Empty;
-        }
+        Skip.IfNot(process.ExitCode == 0, $"Real PyMuPDF extraction process failed (PyMuPDF missing or exit code {process.ExitCode}): {stderr}");
 
         return stdout;
     }
 
-    private static string FindRepoRoot()
+    private static string? FindRepoRoot()
     {
         var baseDir = AppDomain.CurrentDomain.BaseDirectory;
         var dir = new DirectoryInfo(baseDir);
@@ -398,24 +449,18 @@ public sealed class HttpPdfExtractorTests
             dir = dir.Parent;
         }
 
-        if (dir == null)
-        {
-            throw new InvalidOperationException("Could not locate repository root containing global.json.");
-        }
-
-        return dir.FullName;
+        return dir?.FullName;
     }
 
     private static (byte[] Bytes, string Dir) FindTestDataFile(string fileName)
     {
         var repoRoot = FindRepoRoot();
-        var filePath = Path.Combine(repoRoot, "tests", "TestData", fileName);
-        if (!File.Exists(filePath))
-        {
-            throw new FileNotFoundException($"Test data file not found: {filePath}");
-        }
+        Skip.IfNot(repoRoot != null, "Could not locate repository root containing global.json.");
 
-        return (File.ReadAllBytes(filePath), Path.Combine(repoRoot, "tests", "TestData"));
+        var filePath = Path.Combine(repoRoot!, "tests", "TestData", fileName);
+        Skip.IfNot(File.Exists(filePath), $"Test data file not found: {filePath}");
+
+        return (File.ReadAllBytes(filePath), Path.Combine(repoRoot!, "tests", "TestData"));
     }
 
     private sealed class TestHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler)

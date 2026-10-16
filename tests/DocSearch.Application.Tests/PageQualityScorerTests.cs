@@ -96,7 +96,7 @@ public sealed class PageQualityScorerTests
         Assert.False(page.NeedsOcr);
     }
 
-    [Fact]
+    [SkippableFact]
     public void T01_Parity_With_PyMuPDF_Extraction_Summary()
     {
         // Locate repo root by walking parent directories until global.json is found
@@ -107,20 +107,12 @@ public sealed class PageQualityScorerTests
             dir = dir.Parent;
         }
 
-        if (dir == null)
-        {
-            Assert.Fail("Repository root containing 'global.json' could not be located.");
-            return;
-        }
+        Skip.IfNot(dir != null, "Repository root containing 'global.json' could not be located.");
 
-        var csvPath = Path.Combine(dir.FullName, "eval", "experiments", "out", "extract_summary.csv");
+        var csvPath = Path.Combine(dir!.FullName, "eval", "experiments", "out", "extract_summary.csv");
         var pymupdfDir = Path.Combine(dir.FullName, "eval", "experiments", "out", "extract", "pymupdf");
 
-        if (!File.Exists(csvPath) || !Directory.Exists(pymupdfDir))
-        {
-            Assert.Fail("Parity test skipped/failed: git-ignored 'eval/experiments/out/' directory is absent on this environment. Run T01 experiments to generate extraction outputs.");
-            return;
-        }
+        Skip.IfNot(File.Exists(csvPath) && Directory.Exists(pymupdfDir), "Parity test skipped: git-ignored 'eval/experiments/out/' directory is absent on this environment. Run T01 experiments to generate extraction outputs.");
 
         var lines = File.ReadAllLines(csvPath, Encoding.UTF8);
         var matchedPages = 0;

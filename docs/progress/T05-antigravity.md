@@ -14,7 +14,7 @@
   - Validated `%PDF-` magic header (HTTP 400), handled corrupt streams (HTTP 400), and added detection for password-protected/encrypted PDFs via `doc.needs_pass` (HTTP 422).
   - Documented accurately that Starlette's `UploadFile` (`SpooledTemporaryFile`) spools uploads > 1 MB to OS temp files (`/tmp`), and configured `tmpfs: ["/tmp"]` on the `extractor` service in `docker-compose.yml` (and in Dockerfile comments) so spooled files stay in RAM in container deployments.
   - Pinned runtime dependencies in `tools/extractor/requirements.txt` (`pymupdf==1.28.2`) and moved dev dependencies to `tools/extractor/requirements-dev.txt`.
-  - Hardened `tools/extractor/Dockerfile` with non-root `appuser`, `HEALTHCHECK`, and `tmpfs` usage notes.
+  - Hardened `tools/extractor/Dockerfile` with non-root `appuser`, `HEALTHCHECK` using Python's built-in `urllib.request` (avoiding missing `curl` in slim image), and `tmpfs` usage notes.
   - Added full pytest test suite in `tools/extractor/tests/test_extractor.py` (10 tests covering health, in-memory PDFs, non-PDF, corrupt PDF, oversized upload, Content-Length header, encrypted PDF 422, and the 3 test samples in `tests/TestData/`).
   - Unified local sidecar run command:
     `.venv\Scripts\uvicorn.exe app.main:app --app-dir tools/extractor --port 8000`
@@ -22,14 +22,16 @@
   - Implemented pure, stateless `PageQualityScorer` in `DocSearch.Application.Extraction` according to `SPEC-PERSIAN-AND-RAG.md` §2 and ADR 0002.
   - Registered `PageQualityScorer` in DI.
   - Relaxed normalizer 100 KB performance threshold from 50 ms to 250 ms in `PersianTextNormalizerTests.cs` to prevent CI runner flakes.
-  - Added comprehensive `PageQualityScorerTests` (9 tests, including a 130-page parity test verifying exact alignment with T01 PyMuPDF experiment data, using `global.json` discovery and explicit `Assert.Skip` when git-ignored experiment outputs are absent).
+  - Added comprehensive `PageQualityScorerTests` (9 tests, including a 130-page parity test verifying exact alignment with T01 PyMuPDF experiment data; previously claimed 'explicit skip' while using `Assert.Fail`, now properly converted to `[SkippableFact]` with `Skip.IfNot` via `Xunit.SkippableFact` so fresh clones and CI without local experiment files skip cleanly).
   - Updated `ExtractionOptions` to strictly validate `Provider == "Sidecar"`.
 - **C# Infrastructure Layer (`DocSearch.Infrastructure`)**:
   - Implemented `HttpPdfExtractor` with typed `HttpClient`, 3-attempt retry loop on transient errors with exponential backoff (200ms, 800ms), fresh retry payload rebuilding, distinction between timeout (wrapped) and caller cancellation (propagated directly), and error mapping to `FileTooLargeException`, `InvalidFileException`, and `ExternalServiceUnavailableException`.
-  - Confirmed that extracted document text is never logged at any log level.
+  - Confirmed that extracted document text is never logged at any log level (only attempt count and status codes are logged).
   - Implemented `ExtractorHealthCheck` querying the sidecar `/health` endpoint.
   - Registered both `IPdfExtractor` and `ExtractorHealthCheck` (tagged `"ready"`) in Infrastructure DI.
-  - Added `HttpPdfExtractorTests` covering all error mappings, retry behavior, full body resending on retry, caller cancellation, and the 3 sample PDFs (`persian-sample.pdf`, `english-sample.pdf`, `scanned-sample.pdf`) using dynamic real PyMuPDF output.
+  - Added `HttpPdfExtractorTests` covering all error mappings, retry behavior, full body resending on retry, caller cancellation, and the 3 sample PDFs (`persian-sample.pdf`, `english-sample.pdf`, `scanned-sample.pdf`) using dynamic real PyMuPDF output; decorated sample tests with `[SkippableFact]` and multi-platform python discovery (`PYTHON_EXECUTABLE`, `.venv`, system PATH) so CI environments without Python/PyMuPDF skip cleanly without failure.
+- **Repository Configuration & Line Endings**:
+  - Configured `.gitattributes` (`* text=auto eol=lf`) to enforce LF line endings across Windows and Linux, preventing working tree checkout on Windows from introducing CRLF into `.editorconfig`-controlled files.
 - **API Health Check & Documentation**:
   - Updated `tests/DocSearch.Api.Tests/HealthCheckTests.cs` to test readiness with both DB and extractor checks, including failure scenarios.
   - Updated `README.md` to reflect T05 status, prerequisites, sidecar run instructions, and test filters (kept under 60 lines).
