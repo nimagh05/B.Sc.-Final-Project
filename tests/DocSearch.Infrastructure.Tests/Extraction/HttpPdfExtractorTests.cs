@@ -257,6 +257,8 @@ public sealed class HttpPdfExtractorTests
 
         Assert.Equal(3, callCount);
         Assert.Equal("PdfExtractor", ex.ServiceName);
+        Assert.Equal("Extractor sidecar connection failed after 3 attempts.", ex.Message);
+        Assert.DoesNotContain("Connection refused", ex.Message);
     }
 
     [SkippableFact]
@@ -435,7 +437,19 @@ public sealed class HttpPdfExtractorTests
         var stderr = process.StandardError.ReadToEnd();
         process.WaitForExit();
 
-        Skip.IfNot(process.ExitCode == 0, $"Real PyMuPDF extraction process failed (PyMuPDF missing or exit code {process.ExitCode}): {stderr}");
+        if (process.ExitCode != 0)
+        {
+            if (stderr.Contains("ModuleNotFoundError", StringComparison.OrdinalIgnoreCase))
+            {
+                Skip.IfNot(false, $"PyMuPDF is not installed in the resolved Python environment ({pythonExe}): {stderr}");
+            }
+            else
+            {
+                Assert.Fail($"Real PyMuPDF extraction process failed (exit code {process.ExitCode}): {stderr}");
+            }
+
+            return string.Empty;
+        }
 
         return stdout;
     }

@@ -95,7 +95,7 @@ public sealed class HttpPdfExtractor : IPdfExtractor
                 {
                     throw new ExternalServiceUnavailableException(
                         "PdfExtractor",
-                        $"Extractor sidecar connection failed after {maxAttempts} attempts: {ex.Message}",
+                        $"Extractor sidecar connection failed after {maxAttempts} attempts.",
                         ex);
                 }
 
@@ -158,9 +158,16 @@ public sealed class HttpPdfExtractor : IPdfExtractor
 
                 // Any unexpected non-transient status
                 var detail = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning(
+                    "Extractor returned unexpected status {StatusCode} on attempt {Attempt}/{MaxAttempts}: {Detail}",
+                    response.StatusCode,
+                    attempt,
+                    maxAttempts,
+                    detail);
+
                 throw new ExternalServiceUnavailableException(
                     "PdfExtractor",
-                    $"Extractor returned unexpected status {response.StatusCode}: {detail}");
+                    $"Extractor returned unexpected HTTP status {response.StatusCode}.");
             }
         }
 
