@@ -257,7 +257,7 @@ public sealed class HttpPdfExtractorTests
 
         Assert.Equal(3, callCount);
         Assert.Equal("PdfExtractor", ex.ServiceName);
-        Assert.Equal("Extractor sidecar connection failed after 3 attempts.", ex.Message);
+        Assert.Equal("External service 'PdfExtractor' is unavailable: Extractor sidecar connection failed after 3 attempts.", ex.Message);
         Assert.DoesNotContain("Connection refused", ex.Message);
     }
 
