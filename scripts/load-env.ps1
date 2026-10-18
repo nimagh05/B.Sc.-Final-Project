@@ -25,7 +25,7 @@ Get-Content -Path $EnvFile -Encoding UTF8 | ForEach-Object {
     }
 }
 
-$dbHost = "localhost"
+$dbHost = if ($env:DB_HOST) { $env:DB_HOST } else { "127.0.0.1" }
 $dbPort = if ($env:DB_PORT) { $env:DB_PORT } else { "5432" }
 $dbName = if ($env:POSTGRES_DB) { $env:POSTGRES_DB } else { "docsearch" }
 $dbUser = if ($env:POSTGRES_USER) { $env:POSTGRES_USER } else { "postgres" }

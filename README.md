@@ -52,5 +52,5 @@ dotnet format --verify-no-changes
 ## Stop Services
 
 ```powershell
-docker compose down
+docker compose --profile "*" down
 ```

@@ -32,11 +32,13 @@
   - Added `HttpPdfExtractorTests` covering all error mappings, retry behavior, full body resending on retry, caller cancellation, and the 3 sample PDFs (`persian-sample.pdf`, `english-sample.pdf`, `scanned-sample.pdf`) using dynamic real PyMuPDF output; decorated sample tests with `[SkippableFact]` and multi-platform python discovery (`PYTHON_EXECUTABLE`, `.venv`, system PATH), restricting skips to `ModuleNotFoundError` only and failing explicitly on non-zero exit codes to guard against silent regression skips.
 - **Repository Configuration, Line Endings & Loopback Networking**:
   - Configured `.gitattributes` (`* text=auto eol=lf`) to enforce LF line endings across Windows and Linux, preventing working tree checkout on Windows from introducing CRLF into `.editorconfig`-controlled files.
-  - Updated default `Extraction:ExtractorBaseUrl` to `http://127.0.0.1:8000` (instead of `http://localhost:8000`) across `appsettings.json`, `AppOptions.cs`, `.env.example`, `.env`, and DI to prevent Windows IPv6 (`::1`) TCP SYN timeouts when connecting to uvicorn.
-  - Bound `extractor` service published host port strictly to loopback (`127.0.0.1:${EXTRACTOR_PORT:-8000}:8000`) in `docker-compose.yml` to prevent exposing the unauthenticated sidecar on external interfaces.
+  - Updated default `Extraction:ExtractorBaseUrl` to `http://127.0.0.1:8000` (instead of `http://localhost:8000`) across `appsettings.json`, `AppOptions.cs`, `.env.example`, and DI to prevent Windows IPv6 (`::1`) TCP SYN timeouts when connecting to uvicorn.
+  - Bound `extractor` (`127.0.0.1:${EXTRACTOR_PORT:-8000}:8000`) and `db` (`127.0.0.1:${DB_PORT:-5432}:5432`) host ports strictly to loopback in `docker-compose.yml` to prevent exposing unauthenticated services externally.
+  - Updated PostgreSQL connection host from `localhost` to `127.0.0.1` in `appsettings.json`, `scripts/load-env.ps1`, and `.env.example` to eliminate IPv6 resolution delay on database connections.
+  - Created `tools/extractor/.dockerignore` ignoring `__pycache__/`, `*.pyc`, `.pytest_cache/`, `tests/`, and `.venv/`.
 - **API Health Check & Documentation**:
   - Updated `tests/DocSearch.Api.Tests/HealthCheckTests.cs` to test readiness with both DB and extractor checks, including failure scenarios.
-  - Updated `README.md` to reflect T05 status, prerequisites, sidecar run instructions, and test filters (kept under 60 lines).
+  - Updated `README.md` to reflect T05 status, prerequisites, sidecar run instructions, test filters, and `docker compose --profile "*" down` teardown (kept under 60 lines).
 
 ---
 
