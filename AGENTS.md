@@ -51,6 +51,8 @@ If a document is missing or contradicts another, **this file wins for rules**, t
 
 ---
 
+18. **Secret Hygiene (`.env`)**: NEVER read, view, cat, or edit the local `.env` file under any circumstances. Only read or edit `.env.example`.
+
 ## 2. Environment facts (assume these)
 
 - OS: Windows 10/11, PowerShell. Repo lives on drive **F:** (`F:\projects\<repo>`); C: is almost full — never install large things on C:.
@@ -92,5 +94,3 @@ stop and ask on conflicts. If the task is [PLAN-FIRST], give me a plan and wait.
 Dev environment: Windows PowerShell, repo on F:, Ollama on host (CPU-only), Docker Desktop.
 End with the 6-heading report from AGENTS.md §3.
 ```
-
-- **Secret Hygiene (`.env`)**: NEVER read, view, cat, or edit the local `.env` file under any circumstances. Only read or edit `.env.example`.

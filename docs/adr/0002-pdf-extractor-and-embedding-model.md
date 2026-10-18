@@ -128,3 +128,9 @@ Calibrated against Ollama `bge-m3` (`prompt_eval_count`):
   3. No second embedding model was compared (multilingual-e5-* unavailable in the
      Ollama registry); add a baseline before the T19 experiment matrix.
   4. CPU embedding is about 5.5 s per chunk; ingestion of large PDFs takes minutes.
+
+- **Decision 4 correction.** `LatinMultiplier = 2.25` (P90 on 25 formula-heavy chunks,
+  92% not underestimated). The earlier 1.80 is the MAPE-optimal value and underestimates
+  15/25 chunks (60%); it was wrongly described as conservative. No plain-English prose
+  sample exists, so 2.25 is probably wasteful for prose. Both multipliers are configuration
+  (not constants); recalibrate with a prose-heavy sample before the final evaluation.
