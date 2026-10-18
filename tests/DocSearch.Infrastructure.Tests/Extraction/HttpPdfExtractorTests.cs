@@ -22,13 +22,13 @@ public sealed class HttpPdfExtractorTests
     {
         var client = new HttpClient(handler)
         {
-            BaseAddress = new Uri("http://localhost:8000/")
+            BaseAddress = new Uri("http://127.0.0.1:8000/")
         };
 
         var extractionOptions = Options.Create(options ?? new ExtractionOptions
         {
             Provider = "Sidecar",
-            ExtractorBaseUrl = "http://localhost:8000/",
+            ExtractorBaseUrl = "http://127.0.0.1:8000/",
             MinPageQuality = 0.35
         });
 

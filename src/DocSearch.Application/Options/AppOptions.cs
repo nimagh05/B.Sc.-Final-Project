@@ -194,7 +194,7 @@ public sealed class ExtractionOptions : IValidatableObject
     public string Provider { get; set; } = "Sidecar";
 
     [Required]
-    public string ExtractorBaseUrl { get; set; } = "http://localhost:8000";
+    public string ExtractorBaseUrl { get; set; } = "http://127.0.0.1:8000";
 
     public bool OcrEnabled { get; set; }
 

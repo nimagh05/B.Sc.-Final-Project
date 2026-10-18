@@ -26,7 +26,7 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME:-docsearch}_extractor
     restart: unless-stopped
     ports:
-      - "${EXTRACTOR_PORT:-8000}:8000"
+      - "127.0.0.1:${EXTRACTOR_PORT:-8000}:8000"
     tmpfs:
       - /tmp
 

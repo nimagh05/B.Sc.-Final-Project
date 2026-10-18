@@ -24,7 +24,7 @@ PDF extraction adapter and sidecar with quality scoring operational (Task T05 co
    dotnet ef database update --project src/DocSearch.Infrastructure --startup-project src/DocSearch.Api
    ```
 
-2. Run PyMuPDF extractor sidecar:
+2. Run PyMuPDF extractor sidecar (`http://127.0.0.1:8000`):
    ```powershell
    .venv\Scripts\uvicorn.exe app.main:app --app-dir tools/extractor --port 8000
    ```

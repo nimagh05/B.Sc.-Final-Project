@@ -24,7 +24,7 @@ public static class DependencyInjection
         });
 
         var extractionSection = configuration.GetSection(ExtractionOptions.SectionName);
-        var extractorBaseUrl = extractionSection.GetValue<string>("ExtractorBaseUrl") ?? "http://localhost:8000";
+        var extractorBaseUrl = extractionSection.GetValue<string>("ExtractorBaseUrl") ?? "http://127.0.0.1:8000";
         if (!extractorBaseUrl.EndsWith('/'))
         {
             extractorBaseUrl += "/";
