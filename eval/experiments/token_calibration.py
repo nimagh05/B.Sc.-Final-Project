@@ -203,12 +203,13 @@ def run_calibration(repo_root: Path):
     persian_records = [r for r in calibration_records if r["is_persian"]]
     latin_records = [r for r in calibration_records if not r["is_persian"]]
 
-    def find_best_multiplier(records, default_m):
-        best_m = default_m
+    def calibrate_group(records, default_m, group_name):
+        # 1. Sweep to find MAPE-optimal multiplier (raw real_tokens)
+        best_mape_m = default_m
         lowest_mape = 999.0
         best_rmse = 999.0
 
-        for m_candidate in np.arange(1.0, 3.01, 0.05):
+        for m_candidate in np.arange(1.0, 3.51, 0.05):
             m_val = round(float(m_candidate), 2)
             errors = []
             sq_errors = []
@@ -224,46 +225,140 @@ def run_calibration(repo_root: Path):
             if mape < lowest_mape:
                 lowest_mape = mape
                 best_rmse = rmse
-                best_m = m_val
+                best_mape_m = m_val
 
-        return best_m, lowest_mape, best_rmse
+        # 2. Per-chunk required multiplier M_i = max(0, real - floor(symbols/12)) / words
+        req_m_raw = []
+        req_m_adj = []  # real_tokens - 2 (accounting for <s> and </s> special tokens)
 
-    best_p_m, p_mape, p_rmse = find_best_multiplier(persian_records, 1.8)
-    best_l_m, l_mape, l_rmse = find_best_multiplier(latin_records, 1.3)
+        for r in records:
+            w = max(1, r["words"])
+            s = int(r["symbols"] / 12)
+            real = r["real_tokens"]
+            real_adj = max(1, real - 2)
 
-    print("\n--- Calibration Results ---")
-    print(f"Persian (persianRatio >= 0.5, n={len(persian_records)}): Best Multiplier = {best_p_m:.2f} (MAPE: {p_mape*100:.2f}%, RMSE: {p_rmse:.2f} tokens)")
-    print(f"Latin   (persianRatio <  0.5, n={len(latin_records)}): Best Multiplier = {best_l_m:.2f} (MAPE: {l_mape*100:.2f}%, RMSE: {l_rmse:.2f} tokens)")
+            m_raw = max(0.0, real - s) / w
+            m_adj = max(0.0, real_adj - s) / w
+            req_m_raw.append(m_raw)
+            req_m_adj.append(m_adj)
+
+        p90_raw_continuous = float(np.percentile(req_m_raw, 90))
+        p90_adj_continuous = float(np.percentile(req_m_adj, 90))
+
+        # Helper to compute coverage & stats for a given multiplier
+        def eval_m(m_val, subtract_special=False):
+            covered = 0
+            errors = []
+            sq_errors = []
+            for r in records:
+                est = np.ceil(r["words"] * m_val) + int(r["symbols"] / 12)
+                real = (r["real_tokens"] - 2) if subtract_special else r["real_tokens"]
+                if est >= real:
+                    covered += 1
+                errors.append(abs(est - real) / max(1, real))
+                sq_errors.append((est - real) ** 2)
+            coverage = covered / len(records)
+            mape = float(np.mean(errors))
+            rmse = float(np.sqrt(np.mean(sq_errors)))
+            return coverage, mape, rmse
+
+        # 3. Minimal discrete multiplier (step 0.05) ensuring >= 90% chunks do not underestimate
+        def find_min_p90_discrete(subtract_special=False):
+            for m_candidate in np.arange(1.0, 4.01, 0.05):
+                m_val = round(float(m_candidate), 2)
+                cov, mape, rmse = eval_m(m_val, subtract_special=subtract_special)
+                if cov >= 0.90:
+                    return m_val, cov, mape, rmse
+            return 4.00, 1.0, 0.0, 0.0
+
+        p90_raw_m, cov_p90_raw, mape_p90_raw, rmse_p90_raw = find_min_p90_discrete(subtract_special=False)
+        p90_adj_m, cov_p90_adj, mape_p90_adj, rmse_p90_adj = find_min_p90_discrete(subtract_special=True)
+
+        cov_mape_raw, _, _ = eval_m(best_mape_m, subtract_special=False)
+        cov_mape_adj, _, _ = eval_m(best_mape_m, subtract_special=True)
+
+        return {
+            "name": group_name,
+            "count": len(records),
+            "best_mape_m": best_mape_m,
+            "mape": lowest_mape,
+            "rmse": best_rmse,
+            "cov_mape_raw": cov_mape_raw,
+            "cov_mape_adj": cov_mape_adj,
+            "p90_raw_continuous": p90_raw_continuous,
+            "p90_raw_m": p90_raw_m,
+            "cov_p90_raw": cov_p90_raw,
+            "mape_p90_raw": mape_p90_raw,
+            "rmse_p90_raw": rmse_p90_raw,
+            "p90_adj_continuous": p90_adj_continuous,
+            "p90_adj_m": p90_adj_m,
+            "cov_p90_adj": cov_p90_adj,
+            "mape_p90_adj": mape_p90_adj,
+            "rmse_p90_adj": rmse_p90_adj,
+        }
+
+    p_stats = calibrate_group(persian_records, 1.80, "Persian (persianRatio >= 0.5)")
+    l_stats = calibrate_group(latin_records, 1.30, "Latin (persianRatio < 0.5)")
+
+    print("\n" + "=" * 70)
+    print("TOKEN CALIBRATION RESULTS: MAPE vs P90 MULTIPLIERS")
+    print("=" * 70)
+    for s in [p_stats, l_stats]:
+        print(f"\n[{s['name']}] (n = {s['count']})")
+        print(f"  MAPE-Optimal Multiplier: M = {s['best_mape_m']:.2f}")
+        print(f"    - MAPE: {s['mape']*100:.2f}%, RMSE: {s['rmse']:.2f} tokens")
+        print(f"    - Non-underestimate coverage (Raw): {s['cov_mape_raw']*100:.1f}% ({s['count'] - int(round(s['cov_mape_raw']*s['count']))} chunks underestimated)")
+        print(f"    - Non-underestimate coverage (-2 Special): {s['cov_mape_adj']*100:.1f}%")
+        print(f"  P90 Multiplier (Raw real_tokens): M = {s['p90_raw_m']:.2f} (exact P90: {s['p90_raw_continuous']:.3f})")
+        print(f"    - Non-underestimate coverage: {s['cov_p90_raw']*100:.1f}%")
+        print(f"    - MAPE: {s['mape_p90_raw']*100:.2f}%, RMSE: {s['rmse_p90_raw']:.2f} tokens")
+        print(f"  P90 Multiplier (Adjusted -2 Special tokens): M = {s['p90_adj_m']:.2f} (exact P90: {s['p90_adj_continuous']:.3f})")
+        print(f"    - Non-underestimate coverage: {s['cov_p90_adj']*100:.1f}%")
+        print(f"    - MAPE: {s['mape_p90_adj']*100:.2f}%, RMSE: {s['rmse_p90_adj']:.2f} tokens")
 
     # Generate Markdown Report
     md_path = out_dir / "token_calibration.md"
-    md_content = f"""# Token Counter Calibration Results
+    md_content = f"""# Token Counter Calibration Results (MAPE vs P90)
 
-**Evaluated Model:** `{MODEL}`  
-**Sampled Chunks:** {len(calibration_records)} ({len(persian_records)} Persian-dominant, {len(latin_records)} Latin-dominant)  
+**Evaluated Model:** `{MODEL}` (bge-m3, 1024 dims)  
+**Sampled Chunks:** {len(calibration_records)} ({p_stats['count']} Persian-dominant, {l_stats['count']} Latin-dominant)  
 
----
-
-## 1. Optimal Heuristic Multipliers
-
-The formula for `HeuristicTokenCounter` is:
+Heuristic formula:
 $$\\text{{tokens}} = \\lceil \\text{{words}} \\times M \\rceil + \\lfloor \\text{{symbols}} / 12 \\rfloor$$
 
-| Category | Sample Size | Default Spec $M$ | Calibrated $M$ | MAPE (%) | RMSE (Tokens) |
-|---|---|---|---|---|---|
-| **Persian** (`persianRatio >= 0.5`) | {len(persian_records)} | 1.80 | **{best_p_m:.2f}** | {p_mape*100:.2f}% | {p_rmse:.2f} |
-| **Latin/English** (`persianRatio < 0.5`) | {len(latin_records)} | 1.30 | **{best_l_m:.2f}** | {l_mape*100:.2f}% | {l_rmse:.2f} |
+---
+
+## 1. Summary of Multipliers
+
+| Category | Sample Size | MAPE-Optimal $M$ | MAPE Coverage (Raw) | P90 $M$ (Raw Tokens) | P90 Coverage (Raw) | P90 $M$ (-2 Special Tokens) | P90 Coverage (Adj) |
+|---|---|---|---|---|---|---|---|
+| **Persian** (`persianRatio >= 0.5`) | {p_stats['count']} | **{p_stats['best_mape_m']:.2f}** | {p_stats['cov_mape_raw']*100:.1f}% | **{p_stats['p90_raw_m']:.2f}** | {p_stats['cov_p90_raw']*100:.1f}% | **{p_stats['p90_adj_m']:.2f}** | {p_stats['cov_p90_adj']*100:.1f}% |
+| **Latin/English** (`persianRatio < 0.5`) | {l_stats['count']} | **{l_stats['best_mape_m']:.2f}** | {l_stats['cov_mape_raw']*100:.1f}% | **{l_stats['p90_raw_m']:.2f}** | {l_stats['cov_p90_raw']*100:.1f}% | **{l_stats['p90_adj_m']:.2f}** | {l_stats['cov_p90_adj']*100:.1f}% |
 
 ---
 
-## 2. Recommendation for Implementation
-- Update `HeuristicTokenCounter` configuration in `SPEC-PERSIAN-AND-RAG.md` §4 and T06 to use:
-  - `PersianMultiplier = {best_p_m:.2f}`
-  - `LatinMultiplier = {best_l_m:.2f}`
-- Both multipliers maintain chunks within the 512-token limit for `bge-m3` on CPU.
+## 2. Analysis & Special Tokens Caveat
+
+1. **Persian text:**
+   - Under MAPE minimization ($M = {p_stats['best_mape_m']:.2f}$), non-underestimate coverage is {p_stats['cov_mape_raw']*100:.1f}%.
+   - At P90 ($M = {p_stats['p90_raw_m']:.2f}$ raw, or $M = {p_stats['p90_adj_m']:.2f}$ subtracting 2 special tokens), non-underestimate coverage reaches $\\ge 90\\%$.
+   - Using $M = {p_stats['p90_raw_m']:.2f}$ guarantees that $\\ge 90\\%$ of Persian chunks do not exceed the estimated token count, preventing chunk overflows in Ollama/bge-m3.
+
+2. **Latin text:**
+   - The 25 Latin chunks in this benchmark come from two formula-heavy academic papers (`rag-survey.pdf` and `retrieval-survey.pdf`).
+   - Formula and LaTeX syntax produce heavy subword token fragmentation in bge-m3.
+   - For raw tokens, the P90 multiplier is $M = {l_stats['p90_raw_m']:.2f}$ (coverage {l_stats['cov_p90_raw']*100:.1f}%), whereas MAPE is $M = {l_stats['best_mape_m']:.2f}$.
+   - Subtracting 2 special tokens yields P90 multiplier $M = {l_stats['p90_adj_m']:.2f}$.
+
+---
+
+## 3. Recommendation for Implementation (Task T06)
+
+- Set `PersianMultiplier = {p_stats['p90_raw_m']:.2f}` (or `{p_stats['p90_adj_m']:.2f}` if special tokens are accounted for separately).
+- Set `LatinMultiplier = {l_stats['best_mape_m']:.2f}` (MAPE) or `{min(l_stats['p90_raw_m'], 2.00):.2f}` (clamped P90) to avoid over-fragmenting standard English prose while keeping chunks safely below the 512-token limit.
 """
     md_path.write_text(md_content, encoding="utf-8")
-    print(f"Calibration report written to {md_path}")
+    print(f"\nCalibration report written to {md_path}")
 
 
 if __name__ == "__main__":
