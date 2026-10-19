@@ -74,7 +74,7 @@ Calibrated against Ollama `bge-m3` (`prompt_eval_count`):
 
 *Key calibration findings:*
 1. **Persian text:** The MAPE-optimal multiplier ($M = 1.35$) underestimates token counts for 54.3% of chunks. Adopting P90 multiplier **$M = 1.45$** achieves 94.3% non-underestimation coverage (33/35 chunks) with a minimal average error penalty (MAPE 7.35%, RMSE 12.90 tokens). When discounting 2 special tokens (`<s>` and `</s>`), $M = 1.45$ covers 97.1% of chunks.
-2. **Latin text & Formula Caveat:** The Latin benchmark pool originates from two formula-heavy academic papers (`rag-survey.pdf`, `retrieval-survey.pdf`). Dense LaTeX and mathematical notations cause substantial subword token fragmentation, pushing the raw P90 multiplier to $2.25$. Standard English prose typically has a token-to-word ratio of 1.25–1.35. A multiplier of 2.25 would over-fragment normal English text (~220 words per 500-token chunk). Therefore, `LatinMultiplier = 1.80` (the formula MAPE value) is retained as a practical conservative default, providing a 38% safety buffer over plain prose (1.30) without micro-fragmentation.
+2. **Latin text & Formula Caveat:** The Latin benchmark pool originates from two formula-heavy academic papers (`rag-survey.pdf`, `retrieval-survey.pdf`). Dense LaTeX and mathematical notations cause substantial subword token fragmentation, pushing the raw P90 multiplier to $2.25$. Standard English prose typically has a token-to-word ratio of 1.25–1.35. A multiplier of 2.25 would over-fragment normal English text (~220 words per 500-token chunk). Therefore, `LatinMultiplier = 2.25` (was 1.80, see the correction below) is adopted as the P90 cap-safe default.
 
 ---
 
@@ -83,7 +83,7 @@ Calibrated against Ollama `bge-m3` (`prompt_eval_count`):
 1. **PDF Extractor:** Adopt **PyMuPDF** (`fitz`) via a Python FastAPI sidecar (Option B in T05) as the primary PDF extraction engine. PdfPig is disqualified for Persian due to severe reverse-text ordering on 38.5% of pages.
 2. **Embedding Model & Dimensions:** Adopt **`bge-m3`** via Ollama with fixed dimension **`vector(1024)`**. This decision fixes the database schema column definition in Task T03.
 3. **OCR Routing:** Implement OCR routing in T12 for pages with `quality < 0.35` or `chars < 20`. Digital PDFs will bypass OCR.
-4. **Token Counter Multipliers:** Set `PersianMultiplier = 1.45` (calibrated P90 ensuring 94.3% non-underestimation coverage against `bge-m3`) and `LatinMultiplier = 1.80` (practical conservative value; math papers reach P90 at 2.25, while 1.80 provides a 38% margin over normal English 1.30 without over-fragmenting standard text) for `HeuristicTokenCounter` in Task T06.
+4. **Token Counter Multipliers:** Set `PersianMultiplier = 1.45` (calibrated P90 ensuring 94.3% non-underestimation coverage against `bge-m3`) and `LatinMultiplier = 2.25` (was 1.80, see the correction below; P90 on formula-heavy papers ensuring 92.0% non-underestimation coverage) for `HeuristicTokenCounter` in Task T06.
 5. **Threshold Default:** Set `Rag:MinSimilarity = 0.65` as the baseline threshold for rejecting out-of-domain questions.
 6. **CPU Concurrency & Batching:** For Ollama calls on CPU, enforce batch size ≤ 4 and `num_thread = 3` with incremental batch persistence to prevent memory exhaustion and thermal throttling.
 
@@ -93,7 +93,7 @@ Calibrated against Ollama `bge-m3` (`prompt_eval_count`):
 
 - **T03 (Persistence):** The PostgreSQL chunks table will be defined with `embedding vector(1024)`.
 - **T05 (Extractor Adapter):** Will implement the HTTP adapter calling the PyMuPDF sidecar with quality scoring.
-- **T06 (Chunker):** Will use calibrated multipliers `1.45` (Persian P90) and `1.80` (Latin conservative).
+- **T06 (Chunker):** Will use calibrated multipliers `1.45` (Persian P90) and `2.25` (Latin P90; was 1.80, see the correction below).
 - **T07 (Embeddings):** Will configure Ollama embedding provider targeting `bge-m3` (1024 dims).
 
 ---
@@ -118,7 +118,7 @@ Calibrated against Ollama `bge-m3` (`prompt_eval_count`):
 - **Decision 4 resolved (P90 Calibration, 2026-10-18).**
   P90 token multipliers were calibrated via `eval/experiments/token_calibration.py` to ensure $\ge 90\%$ non-underestimation coverage for hard 512-token caps on CPU.
   - Persian: P90 is $M = 1.45$ (94.3% non-underestimate coverage raw, 97.1% with -2 special tokens; exact continuous P90: 1.500) vs MAPE $M = 1.35$ (45.7% coverage). Set `PersianMultiplier = 1.45`.
-  - Latin: Dense formulas yield P90 $M = 2.25$ (92.0% coverage) vs MAPE $M = 1.80$ (40.0% coverage on formulas, but ~100% on normal English). To prevent over-fragmenting standard English text into ~200-word micro-chunks, `LatinMultiplier` is set to `1.80` (with 2.25 documented as the math paper upper bound).
+  - Latin: Dense formulas yield P90 $M = 2.25$ (92.0% coverage) vs MAPE $M = 1.80$ (40.0% coverage on formulas, but ~100% on normal English). `LatinMultiplier` is set to `2.25` (was 1.80, see the correction below).
 - **Risks.**
   1. PDF text-layer defects (CMap bugs in bedoon-factor, dastyar-pazhuheshi,
      kod-akhlaghi: "لا" stored as "ال"/"یا", reversed numbers) are not detected by

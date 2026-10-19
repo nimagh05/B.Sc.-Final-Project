@@ -48,10 +48,10 @@ If a document is missing or contradicts another, **this file wins for rules**, t
 19. **Ask when ambiguous.** One short, specific question is better than a wrong implementation.
 20. **Do not expand scope.** No unrequested features, refactors, renames, or formatting-only churn.
 21. **Leave the repo green:** at the end of every task `dotnet build` and `dotnet test` must succeed.
+22. **Secret Hygiene (`.env`)**: NEVER read, view, cat, or edit the local `.env` file under any circumstances. Only read or edit `.env.example`.
 
 ---
 
-18. **Secret Hygiene (`.env`)**: NEVER read, view, cat, or edit the local `.env` file under any circumstances. Only read or edit `.env.example`.
 
 ## 2. Environment facts (assume these)
 
