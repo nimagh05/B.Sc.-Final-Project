@@ -155,10 +155,10 @@ public sealed class ChunkingOptions : IValidatableObject
     public const string SectionName = "Chunking";
 
     [Range(10, 4000)]
-    public int TargetTokens { get; set; } = 500;
+    public int TargetTokens { get; set; } = 425;
 
     [Range(50, 8000)]
-    public int MaxTokens { get; set; } = 700;
+    public int MaxTokens { get; set; } = 500;
 
     [Range(0, 2000)]
     public int MinTokens { get; set; } = 80;
@@ -168,12 +168,23 @@ public sealed class ChunkingOptions : IValidatableObject
 
     public bool RespectLegalStructure { get; set; } = true;
 
+    public bool IncludeSectionTitleInEmbedding { get; set; } = true;
+
+    [Range(0.5, 5.0)]
+    public double PersianMultiplier { get; set; } = 1.45;
+
+    [Range(0.5, 5.0)]
+    public double LatinMultiplier { get; set; } = 2.25;
+
+    [Range(1, 100)]
+    public int SymbolsPerToken { get; set; } = 12;
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (TargetTokens >= MaxTokens)
+        if (TargetTokens > MaxTokens)
         {
             yield return new ValidationResult(
-                $"Chunking:TargetTokens ({TargetTokens}) must be strictly less than MaxTokens ({MaxTokens}).",
+                $"Chunking:TargetTokens ({TargetTokens}) must be less than or equal to MaxTokens ({MaxTokens}).",
                 [nameof(TargetTokens), nameof(MaxTokens)]);
         }
 

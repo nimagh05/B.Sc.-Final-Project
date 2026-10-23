@@ -17,6 +17,15 @@ public interface ITextNormalizer
     string NormalizeForSearch(string text);
 }
 
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Represents text-layer defect flags per ADR 0003")]
+[Flags]
+public enum ChunkDefectFlags
+{
+    None = 0,
+    CorruptLigatureLamAlef = 1 << 0,
+    SuspectReversedDate = 1 << 1
+}
+
 public sealed record ChunkDraft(
     int Index,
     int PageStart,
@@ -25,7 +34,8 @@ public sealed record ChunkDraft(
     string Text,
     string SearchText,
     string EmbeddingText,
-    int TokenCount);
+    int TokenCount,
+    ChunkDefectFlags DefectFlags = ChunkDefectFlags.None);
 
 public interface IChunker
 {

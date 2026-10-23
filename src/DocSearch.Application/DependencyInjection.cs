@@ -1,4 +1,5 @@
 using DocSearch.Application.Abstractions;
+using DocSearch.Application.Chunking;
 using DocSearch.Application.Extraction;
 using DocSearch.Application.Options;
 using DocSearch.Application.Text;
@@ -63,6 +64,9 @@ public static class DependencyInjection
 
         services.AddSingleton<ITextNormalizer, PersianTextNormalizer>();
         services.AddSingleton<PageQualityScorer>();
+        services.AddSingleton<HeaderFooterCleaner>();
+        services.AddSingleton<ITokenCounter, HeuristicTokenCounter>();
+        services.AddSingleton<IChunker, LegalAwareChunker>();
 
         return services;
     }

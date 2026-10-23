@@ -81,7 +81,7 @@ public sealed class OptionsValidationTests
     }
 
     [Fact]
-    public void ChunkingOptions_TargetTokens_Must_Be_LessThan_MaxTokens()
+    public void ChunkingOptions_TargetTokens_Must_Be_LessThan_Or_Equal_To_MaxTokens()
     {
         var options = new ChunkingOptions
         {
@@ -91,6 +91,19 @@ public sealed class OptionsValidationTests
         var results = ValidateModel(options);
 
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(ChunkingOptions.TargetTokens)));
+    }
+
+    [Fact]
+    public void ChunkingOptions_TargetTokens_Equal_To_MaxTokens_Is_Valid()
+    {
+        var options = new ChunkingOptions
+        {
+            TargetTokens = 500,
+            MaxTokens = 500
+        };
+        var results = ValidateModel(options);
+
+        Assert.Empty(results);
     }
 
     [Fact]
