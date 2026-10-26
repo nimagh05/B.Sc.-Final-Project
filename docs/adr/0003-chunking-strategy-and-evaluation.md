@@ -158,7 +158,7 @@ statistically significant; with 52 questions the smallest detectable dMRR is abo
   q035 (1->2). Legal-reference questions are mixed (q024 better, q020 and q015 worse), so the data
   do not show a gain from article-aware boundaries on that question type.
 - On q015 (rank 6 -> 17) the legal chunk `aein-91.pdf_7` (p.4, 284 tokens) contains Article 7 with
-  Notes 1 and 2 and is correctly isolated, yet ranks 17. Tested hypothesis: inserting spaces between letters and digits (`"ماده7"` -> `"ماده 7"`) only changed cosine similarity with `aein-91.pdf_7` from 0.5106 to 0.5161 (vs top-1 0.6109), refuting letter-digit spacing as the cause for dense retrieval. Dense
+  Notes 1 and 2 and is correctly isolated, yet ranks 17. Tested hypothesis: inserting spaces between letters and digits (`"ماده7"` -> `"ماده 7"`) only changed cosine similarity with `aein-91.pdf_7` from 0.5106 to 0.5161 (vs top-1 0.6109), so letter-digit spacing alone does not explain the gap to the top-1 chunk on this single chunk and query (inconclusive for dense retrieval overall; it says nothing about lexical/FTS matching, where 'x7' and 'x 7' are different tokens and must be checked in T11). Dense
   retrieval is also known to be weak at exact article-number references; T11 (hybrid retrieval with
   reference boost) is the planned remedy, not chunking.
 - Dev top-1 similarity (answerable vs not-in-docs, n=16 vs 4): control 0.667/0.649, legal
