@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -15,6 +16,13 @@ public sealed class ProblemDetailsTests : IClassFixture<WebApplicationFactory<Pr
     {
         _client = factory.WithWebHostBuilder(builder =>
         {
+            builder.ConfigureAppConfiguration((_, config) =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Ai:Embedding:Provider"] = "Fake"
+                });
+            });
             builder.ConfigureServices(services =>
             {
                 services.AddControllers().AddApplicationPart(typeof(TestErrorsController).Assembly);

@@ -2,8 +2,8 @@ namespace DocSearch.Application.Exceptions;
 
 public abstract class DocSearchException : Exception
 {
-    protected DocSearchException(string message, string errorCode, int statusCode)
-        : base(message)
+    protected DocSearchException(string message, string errorCode, int statusCode, Exception? innerException = null)
+        : base(message, innerException)
     {
         ErrorCode = errorCode;
         StatusCode = statusCode;
@@ -98,8 +98,13 @@ public sealed class ExternalServiceUnavailableException : DocSearchException
     public string ServiceName { get; }
 
     public ExternalServiceUnavailableException(string serviceName, string message, Exception? inner = null)
-        : base($"External service '{serviceName}' is unavailable: {message}", "server.error", 503)
+        : base($"External service '{serviceName}' is unavailable: {message}", "server.error", 503, inner)
     {
         ServiceName = serviceName;
+    }
+
+    public ExternalServiceUnavailableException(string message, Exception? inner = null)
+        : this("Embedding", message, inner)
+    {
     }
 }

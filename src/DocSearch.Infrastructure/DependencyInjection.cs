@@ -1,11 +1,20 @@
+using System.ClientModel;
 using DocSearch.Application.Abstractions;
 using DocSearch.Application.Options;
+using DocSearch.Infrastructure.Ai.Decorators;
+using DocSearch.Infrastructure.Ai.Fakes;
+using DocSearch.Infrastructure.Ai.Ollama;
 using DocSearch.Infrastructure.Extraction;
 using DocSearch.Infrastructure.Health;
 using DocSearch.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using OllamaSharp;
+using OpenAI;
 
 namespace DocSearch.Infrastructure;
 
@@ -42,10 +51,90 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(3);
         });
 
+        services.AddEmbeddingProvider(configuration);
+
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"])
-            .AddCheck<ExtractorHealthCheck>("extractor", tags: ["ready"]);
+            .AddCheck<ExtractorHealthCheck>("extractor", tags: ["ready"])
+            .AddCheck<EmbeddingHealthCheck>("embedding", tags: ["ready"]);
 
         return services;
+    }
+
+    public static IServiceCollection AddEmbeddingProvider(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddHttpClient("OllamaClient", (sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<AiOptions>>().Value.Embedding;
+            var endpoint = options.Endpoint;
+            if (!endpoint.EndsWith('/'))
+            {
+                endpoint += "/";
+            }
+
+            client.BaseAddress = new Uri(endpoint);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+        });
+
+        services.AddHttpClient("EmbeddingHealthCheck", (sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<AiOptions>>().Value.Embedding;
+            var endpoint = options.Endpoint;
+            if (!endpoint.EndsWith('/'))
+            {
+                endpoint += "/";
+            }
+
+            client.BaseAddress = new Uri(endpoint);
+            client.Timeout = TimeSpan.FromSeconds(3);
+        });
+
+        services.AddSingleton<IOllamaApiClient>(sp =>
+        {
+            var factory = sp.GetRequiredService<IHttpClientFactory>();
+            var httpClient = factory.CreateClient("OllamaClient");
+            var aiOpts = sp.GetRequiredService<IOptions<AiOptions>>().Value.Embedding;
+            return new OllamaApiClient(httpClient, aiOpts.Model);
+        });
+
+        services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(sp =>
+        {
+            var aiOptions = sp.GetRequiredService<IOptions<AiOptions>>().Value.Embedding;
+            var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+
+            IEmbeddingGenerator<string, Embedding<float>> inner = aiOptions.Provider switch
+            {
+                "Fake" => new FakeEmbeddingGenerator(
+                    sp.GetRequiredService<ITextNormalizer>(),
+                    sp.GetRequiredService<IOptions<AiOptions>>()),
+                "Ollama" => new OllamaEmbeddingGenerator(
+                    sp.GetRequiredService<IOllamaApiClient>(),
+                    sp.GetRequiredService<IOptions<AiOptions>>(),
+                    loggerFactory.CreateLogger<OllamaEmbeddingGenerator>()),
+                "OpenAICompatible" => CreateOpenAiGenerator(aiOptions),
+                _ => throw new InvalidOperationException($"Unsupported embedding provider: {aiOptions.Provider}")
+            };
+
+            var retryLogger = loggerFactory.CreateLogger<RetryingEmbeddingGenerator>();
+            var retrying = new RetryingEmbeddingGenerator(inner, retryLogger);
+            var batching = new BatchingEmbeddingGenerator(
+                retrying,
+                aiOptions.BatchSize,
+                aiOptions.Dimensions,
+                aiOptions.PauseBetweenBatchesMs);
+
+            return batching;
+        });
+
+        return services;
+    }
+
+    private static IEmbeddingGenerator<string, Embedding<float>> CreateOpenAiGenerator(AiEmbeddingOptions aiOptions)
+    {
+        var clientOptions = new OpenAIClientOptions { Endpoint = new Uri(aiOptions.Endpoint) };
+        var credential = new ApiKeyCredential(aiOptions.ApiKey ?? "none");
+        var openAiClient = new OpenAIClient(credential, clientOptions);
+        var embeddingClient = openAiClient.GetEmbeddingClient(aiOptions.Model);
+        return embeddingClient.AsIEmbeddingGenerator(aiOptions.Dimensions);
     }
 }

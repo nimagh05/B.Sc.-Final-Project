@@ -31,7 +31,7 @@ public sealed class AiEmbeddingOptions : IValidatableObject
     public string Model { get; set; } = "bge-m3";
 
     [Required]
-    public string Endpoint { get; set; } = "http://localhost:11434";
+    public string Endpoint { get; set; } = "http://127.0.0.1:11434";
 
     public string? ApiKey { get; set; }
 
@@ -42,8 +42,18 @@ public sealed class AiEmbeddingOptions : IValidatableObject
 
     public string PassagePrefix { get; set; } = "";
 
-    [Range(1, 512)]
-    public int BatchSize { get; set; } = 16;
+    [Range(1, 64)]
+    public int BatchSize { get; set; } = 4;
+
+    [Range(1, 64)]
+    public int NumThread { get; set; } = 3;
+
+    public string KeepAlive { get; set; } = "5m";
+
+    public bool Truncate { get; set; }
+
+    [Range(0, 10000)]
+    public int PauseBetweenBatchesMs { get; set; }
 
     [Range(1, 600)]
     public int TimeoutSeconds { get; set; } = 120;

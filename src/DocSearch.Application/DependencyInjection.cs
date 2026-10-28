@@ -1,4 +1,5 @@
 using DocSearch.Application.Abstractions;
+using DocSearch.Application.Ai;
 using DocSearch.Application.Chunking;
 using DocSearch.Application.Extraction;
 using DocSearch.Application.Options;
@@ -67,6 +68,8 @@ public static class DependencyInjection
         services.AddSingleton<HeaderFooterCleaner>();
         services.AddSingleton<ITokenCounter, HeuristicTokenCounter>();
         services.AddSingleton<IChunker, LegalAwareChunker>();
+        services.AddSingleton<IQueryEmbedder, QueryEmbedder>();
+        services.AddSingleton<IPassageEmbedder, PassageEmbedder>();
 
         return services;
     }
