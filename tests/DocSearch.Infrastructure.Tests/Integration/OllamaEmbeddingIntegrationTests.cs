@@ -42,23 +42,7 @@ public sealed class OllamaEmbeddingIntegrationTests : IAsyncLifetime, IDisposabl
         _generator = new OllamaEmbeddingGenerator(_client, options, NullLogger<OllamaEmbeddingGenerator>.Instance);
     }
 
-    public async Task InitializeAsync()
-    {
-        // Check if Ollama is reachable and model is available
-        try
-        {
-            var tags = await _client.ListLocalModelsAsync();
-            var hasModel = tags.Any(m =>
-                string.Equals(m.Name, _model, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(m.Name, $"{_model}:latest", StringComparison.OrdinalIgnoreCase));
-
-            Skip.If(!hasModel, $"Ollama is reachable but model '{_model}' is not pulled.");
-        }
-        catch (Exception ex)
-        {
-            Skip.If(true, $"Ollama is unreachable at {_endpoint}: {ex.Message}");
-        }
-    }
+    public Task InitializeAsync() => Task.CompletedTask;
 
     public async Task DisposeAsync()
     {
@@ -87,6 +71,8 @@ public sealed class OllamaEmbeddingIntegrationTests : IAsyncLifetime, IDisposabl
     [SkippableFact]
     public async Task Ollama_Returns_1024_Dims_For_Persian_Text()
     {
+        await EnsureOllamaAvailableAsync();
+
         const string persianText = "آیین‌نامه آموزشی دانشگاه تهران برای مقطع کارشناسی";
 
         var result = await _generator.GenerateAsync([persianText]);
@@ -110,6 +96,8 @@ public sealed class OllamaEmbeddingIntegrationTests : IAsyncLifetime, IDisposabl
     [SkippableFact]
     public async Task Ollama_Truncate_False_Throws_On_Overlength_Input()
     {
+        await EnsureOllamaAvailableAsync();
+
         using var handler = new CountingHandler();
         using var httpClient = new HttpClient(handler)
         {
@@ -146,6 +134,24 @@ public sealed class OllamaEmbeddingIntegrationTests : IAsyncLifetime, IDisposabl
         Assert.Contains("unavailable", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.NotNull(ex.InnerException);
         Assert.Equal(1, handler.Count);
+    }
+
+    private async Task EnsureOllamaAvailableAsync()
+    {
+        bool hasModel;
+        try
+        {
+            var tags = await _client.ListLocalModelsAsync();
+            hasModel = tags.Any(m =>
+                string.Equals(m.Name, _model, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(m.Name, $"{_model}:latest", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            throw new SkipException($"Ollama is unreachable at {_endpoint}: {ex.Message}");
+        }
+
+        Skip.IfNot(hasModel, $"Ollama is reachable at {_endpoint}, but model '{_model}' is not pulled.");
     }
 
     private sealed class CountingHandler : HttpClientHandler
