@@ -3,6 +3,7 @@ using DocSearch.Application.Ai;
 using DocSearch.Application.Chunking;
 using DocSearch.Application.Extraction;
 using DocSearch.Application.Options;
+using DocSearch.Application.Retrieval;
 using DocSearch.Application.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -70,6 +71,7 @@ public static class DependencyInjection
         services.AddSingleton<IChunker, LegalAwareChunker>();
         services.AddSingleton<IQueryEmbedder, QueryEmbedder>();
         services.AddSingleton<IPassageEmbedder, PassageEmbedder>();
+        services.AddScoped<IRetriever, Retriever>();
 
         return services;
     }

@@ -51,6 +51,8 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(3);
         });
 
+        services.AddScoped<IVectorStore, PgVectorStore>();
+
         services.AddEmbeddingProvider(configuration);
 
         services.AddHealthChecks()
