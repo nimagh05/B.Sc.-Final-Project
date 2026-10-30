@@ -52,6 +52,9 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IVectorStore, PgVectorStore>();
+        services.AddSingleton<IFileStorage, Storage.LocalFileStorage>();
+        services.AddSingleton<IIngestionQueue, Ingestion.IngestionQueue>();
+        services.AddScoped<IIngestionService, Ingestion.IngestionService>();
 
         services.AddEmbeddingProvider(configuration);
 

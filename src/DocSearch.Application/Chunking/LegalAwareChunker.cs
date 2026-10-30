@@ -427,8 +427,9 @@ public sealed partial class LegalAwareChunker : IChunker
             overlapTexts.RemoveAt(0);
         }
 
-        var finalText = string.Join(" ", overlapTexts.Concat(bodyTexts));
-        var finalEmbeddingText = _normalizer.NormalizeForEmbedding(sectionPrefix + finalText);
+        var rawText = string.Join(" ", overlapTexts.Concat(bodyTexts));
+        var displayText = _normalizer.NormalizeForDisplay(rawText);
+        var finalEmbeddingText = _normalizer.NormalizeForEmbedding(sectionPrefix + rawText);
         var finalTokens = _tokenCounter.Count(finalEmbeddingText);
 
         var pageStart = builder.Units.Min(u => u.PageStart);
@@ -444,14 +445,14 @@ public sealed partial class LegalAwareChunker : IChunker
             }
         }
 
-        var searchText = _normalizer.NormalizeForSearch(finalText);
+        var searchText = _normalizer.NormalizeForSearch(rawText);
 
         return new ChunkDraft(
             index,
             pageStart,
             pageEnd,
             builder.SectionTitle,
-            finalText,
+            displayText,
             searchText,
             finalEmbeddingText,
             finalTokens,

@@ -67,6 +67,38 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 _logger.LogWarning("Conflict occurred: {Detail}", detail);
                 break;
 
+            case FileTooLargeException fileTooLargeException:
+                statusCode = fileTooLargeException.StatusCode;
+                errorCode = fileTooLargeException.ErrorCode;
+                title = "Payload too large";
+                detail = fileTooLargeException.Message;
+                _logger.LogWarning("File too large: {Detail}", detail);
+                break;
+
+            case InvalidFileException invalidFileException:
+                statusCode = invalidFileException.StatusCode;
+                errorCode = invalidFileException.ErrorCode;
+                title = "Invalid file";
+                detail = invalidFileException.Message;
+                _logger.LogWarning("Invalid file uploaded: {Detail}", detail);
+                break;
+
+            case BadHttpRequestException badHttpEx when badHttpEx.StatusCode == StatusCodes.Status413PayloadTooLarge:
+                statusCode = StatusCodes.Status413PayloadTooLarge;
+                errorCode = "document.too_large";
+                title = "Payload too large";
+                detail = "The uploaded file exceeds the allowed size limit.";
+                _logger.LogWarning("Request body too large: {Detail}", detail);
+                break;
+
+            case InvalidDataException invalidDataEx when invalidDataEx.Message.Contains("Multipart body length limit", StringComparison.OrdinalIgnoreCase):
+                statusCode = StatusCodes.Status413PayloadTooLarge;
+                errorCode = "document.too_large";
+                title = "Payload too large";
+                detail = "The uploaded file exceeds the allowed size limit.";
+                _logger.LogWarning("Multipart body length exceeded: {Detail}", detail);
+                break;
+
             case RateLimitExceededException rateLimitException:
                 statusCode = rateLimitException.StatusCode;
                 errorCode = rateLimitException.ErrorCode;

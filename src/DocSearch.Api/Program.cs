@@ -19,6 +19,32 @@ builder.Host.UseSerilog((context, services, configuration) =>
 // Application & Infrastructure services and validated Options
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddHostedService<DocSearch.Infrastructure.Ingestion.IngestionWorker>();
+
+// Register temporary ICurrentUser stub only in Development/Testing per ADR/spec
+if (builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddScoped<DocSearch.Application.Abstractions.ICurrentUser, DocSearch.Infrastructure.Identity.DevCurrentUser>();
+}
+
+// Request size limits for uploads
+var storageSection = builder.Configuration.GetSection(StorageOptions.SectionName);
+var maxUploadMb = storageSection.GetValue<int>("MaxUploadMb");
+if (maxUploadMb <= 0)
+{
+    maxUploadMb = 50;
+}
+var maxUploadBytes = (long)maxUploadMb * 1024 * 1024;
+
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = maxUploadBytes;
+});
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = maxUploadBytes;
+});
 
 // ProblemDetails and global exception handler (RFC 7807)
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -60,7 +86,9 @@ builder.Services.AddControllers();
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
+#pragma warning disable AV0016 // Support test endpoints without explicit version segment
     options.AssumeDefaultVersionWhenUnspecified = true;
+#pragma warning restore AV0016
     options.ReportApiVersions = true;
     options.ApiVersionReader = new UrlSegmentApiVersionReader();
 })
@@ -109,6 +137,24 @@ if (docsOptions.Enabled)
 }
 
 app.MapControllers();
+
+if (app.Environment.IsDevelopment())
+{
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<DocSearch.Infrastructure.Persistence.AppDbContext>();
+        if (await dbContext.Database.CanConnectAsync())
+        {
+            await DocSearch.Infrastructure.Identity.DevDatabaseSeeder.SeedDevUserAndCollectionAsync(dbContext);
+        }
+    }
+    catch (Exception ex)
+    {
+        var logger = app.Services.GetRequiredService<ILogger<Program>>();
+        logger.LogWarning(ex, "Could not seed development database. Ensure database is running.");
+    }
+}
 
 app.Run();
 
