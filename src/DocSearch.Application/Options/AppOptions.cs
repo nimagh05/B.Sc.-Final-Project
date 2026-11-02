@@ -103,7 +103,7 @@ public sealed class AiChatOptions : IValidatableObject
     public double Temperature { get; set; } = 0.1;
 
     [Range(1, 8192)]
-    public int MaxOutputTokens { get; set; } = 800;
+    public int MaxOutputTokens { get; set; } = 1024;
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

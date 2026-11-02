@@ -433,4 +433,102 @@ public sealed class LegalAwareChunkerTests
             Assert.Contains($"کلمه{i}", allChunkWords);
         }
     }
+
+    [Fact]
+    public void MultiSection_HeadingsChangeMidPage_WithoutBlankLines_CorrectSectionTitles()
+    {
+        var options = new ChunkingOptions
+        {
+            TargetTokens = 425,
+            MaxTokens = 500,
+            MinTokens = 50,
+            RespectLegalStructure = true,
+            IncludeSectionTitleInEmbedding = true
+        };
+
+        // Consecutive articles without blank lines separating them
+        var body1 = string.Join(" ", Enumerable.Repeat("متن مفصل و کامل مربوط به ماده یک آیین نامه که طولانی است.", 12)) + ".";
+        var body2 = string.Join(" ", Enumerable.Repeat("متن مفصل و کامل مربوط به ماده دو آیین نامه که مستقل است.", 12)) + ".";
+        var body3 = string.Join(" ", Enumerable.Repeat("متن مفصل و کامل مربوط به ماده سه آیین نامه که بخش سوم است.", 12)) + ".";
+
+        var pageText = $"ماده ۱\n{body1}\nماده ۲\n{body2}\nماده ۳\n{body3}";
+        var pages = new List<PageText> { new(1, pageText, 1.0, false) };
+
+        var chunks = _chunker.Chunk(pages, options);
+
+        Assert.True(chunks.Count >= 3);
+        Assert.Equal("ماده ۱", chunks[0].SectionTitle);
+        Assert.Contains("ماده ۱", chunks[0].Text);
+        Assert.DoesNotContain("ماده ۲", chunks[0].Text);
+
+        Assert.Equal("ماده ۲", chunks[1].SectionTitle);
+        Assert.Contains("ماده ۲", chunks[1].Text);
+        Assert.DoesNotContain("ماده ۳", chunks[1].Text);
+
+        Assert.Equal("ماده ۳", chunks[2].SectionTitle);
+        Assert.Contains("ماده ۳", chunks[2].Text);
+    }
+
+    [Fact]
+    public void SectionTitle_WithPersianAndArabicDigits_RetainsOriginalInTitle()
+    {
+        var options = new ChunkingOptions
+        {
+            TargetTokens = 425,
+            MaxTokens = 500,
+            MinTokens = 50,
+            RespectLegalStructure = true,
+            IncludeSectionTitleInEmbedding = true
+        };
+
+        // Persian digits in Article 12, Arabic-Indic digits in Article 13
+        var body1 = string.Join(" ", Enumerable.Repeat("متن ماده دوازدهم با ارقام فارسی.", 15)) + ".";
+        var body2 = string.Join(" ", Enumerable.Repeat("متن ماده سیزدهم با ارقام عربی.", 15)) + ".";
+
+        var pageText = $"فصل ۱\nماده ۱۲\n{body1}\n\nفصل ۲\nماده ١٣\n{body2}";
+        var pages = new List<PageText> { new(1, pageText, 1.0, false) };
+
+        var chunks = _chunker.Chunk(pages, options);
+
+        Assert.True(chunks.Count >= 2);
+
+        // SectionTitle retains display form (original digits)
+        Assert.Contains("فصل ۱", chunks[0].SectionTitle);
+        Assert.Contains("ماده ۱۲", chunks[0].SectionTitle);
+
+        Assert.Contains("فصل ۲", chunks[1].SectionTitle);
+        Assert.Contains("ماده ١٣", chunks[1].SectionTitle);
+
+        // EmbeddingText has normalized ASCII digits for models like bge-m3
+        Assert.Contains("فصل 1", chunks[0].EmbeddingText);
+        Assert.Contains("ماده 12", chunks[0].EmbeddingText);
+
+        Assert.Contains("فصل 2", chunks[1].EmbeddingText);
+        Assert.Contains("ماده 13", chunks[1].EmbeddingText);
+    }
+
+    [Fact]
+    public void ChapterHeading_MergedWithFirstArticle_ReflectsArticleInTitle()
+    {
+        var options = new ChunkingOptions
+        {
+            TargetTokens = 425,
+            MaxTokens = 500,
+            MinTokens = 80,
+            RespectLegalStructure = true,
+            IncludeSectionTitleInEmbedding = true
+        };
+
+        // Standalone chapter heading followed directly by Article 1
+        var body1 = string.Join(" ", Enumerable.Repeat("کلمات متن ماده یک که بخش عمده این بند را تشکیل می‌دهد.", 15)) + ".";
+        var pageText = $"فصل اول کلیات\nماده ۱ تعاریف\n{body1}";
+        var pages = new List<PageText> { new(1, pageText, 1.0, false) };
+
+        var chunks = _chunker.Chunk(pages, options);
+
+        Assert.Single(chunks);
+        Assert.NotNull(chunks[0].SectionTitle);
+        Assert.Contains("فصل اول", chunks[0].SectionTitle);
+        Assert.Contains("ماده ۱", chunks[0].SectionTitle);
+    }
 }

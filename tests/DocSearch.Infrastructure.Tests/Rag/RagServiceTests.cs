@@ -713,6 +713,107 @@ public sealed class RagServiceTests(PostgresFixture fixture)
 
         await Assert.ThrowsAsync<DocSearch.Application.Exceptions.NotFoundException>(() => service.AskAsync(request, CancellationToken.None));
     }
+
+    [Fact]
+    public async Task TwoPart_PartialAnswer_WithRefusal_Keeps_Answer_And_Citations()
+    {
+        await using var db = fixture.CreateDbContext();
+        var collectionId = Guid.NewGuid();
+        var docId = Guid.NewGuid();
+
+        var chunk1 = new ScoredChunk(
+            ChunkId: Guid.NewGuid(),
+            DocumentId: docId,
+            FileName: "regulation.pdf",
+            PageStart: 5,
+            PageEnd: 5,
+            SectionTitle: "ماده ۱۰",
+            Text: "حداکثر واحد مجاز در هر ترم ۲۰ واحد است.",
+            VectorScore: 0.85,
+            FtsScore: null,
+            FusedScore: 0.85);
+
+        var retriever = new StubRetriever(new RetrievalResult([chunk1], BestVectorScore: 0.85, HasFtsHit: false));
+        var accessService = new StubAccessService([collectionId]);
+        var twoPartAnswer = "حداکثر واحد مجاز در هر ترم ۲۰ واحد است [1]. برای دوره تابستان در اسناد موجود پاسخی برای این پرسش پیدا نشد.";
+        var chatClient = new CallCountingChatClient(twoPartAnswer);
+        var promptBuilder = CreatePromptBuilder();
+        var citationParser = new CitationParser();
+
+        var service = new RagService(
+            accessService,
+            retriever,
+            promptBuilder,
+            citationParser,
+            chatClient,
+            db,
+            _ragOptions,
+            _aiOptions,
+            _normalizer,
+            NullLogger<RagService>.Instance);
+
+        var request = new AskRequest("user1", "تعداد واحد در ترم و تابستان چقدر است؟", [collectionId], ConversationId: null, TopK: 5);
+        var result = await service.AskAsync(request, CancellationToken.None);
+
+        Assert.False(result.NotFound);
+        Assert.False(result.Degraded);
+        Assert.NotNull(result.Answer);
+        Assert.Contains("[1]", result.Answer);
+        Assert.Contains("حداکثر واحد مجاز", result.Answer);
+        Assert.Single(result.Sources);
+        Assert.Equal(1, result.Sources[0].Index);
+        Assert.Equal("regulation.pdf", result.Sources[0].FileName);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\r\n\t")]
+    public async Task Empty_Or_Whitespace_LlmResponse_Returns_DegradedMode(string emptyResponse)
+    {
+        await using var db = fixture.CreateDbContext();
+        var collectionId = Guid.NewGuid();
+        var docId = Guid.NewGuid();
+
+        var chunk1 = new ScoredChunk(
+            ChunkId: Guid.NewGuid(),
+            DocumentId: docId,
+            FileName: "regulation.pdf",
+            PageStart: 1,
+            PageEnd: 1,
+            SectionTitle: "ماده ۱",
+            Text: "متن مستند آموزشی دانشگاه.",
+            VectorScore: 0.82,
+            FtsScore: null,
+            FusedScore: 0.82);
+
+        var retriever = new StubRetriever(new RetrievalResult([chunk1], BestVectorScore: 0.82, HasFtsHit: false));
+        var accessService = new StubAccessService([collectionId]);
+        var chatClient = new CallCountingChatClient(emptyResponse);
+        var promptBuilder = CreatePromptBuilder();
+        var citationParser = new CitationParser();
+
+        var service = new RagService(
+            accessService,
+            retriever,
+            promptBuilder,
+            citationParser,
+            chatClient,
+            db,
+            _ragOptions,
+            _aiOptions,
+            _normalizer,
+            NullLogger<RagService>.Instance);
+
+        var request = new AskRequest("user1", "شرایط چیست؟", [collectionId], ConversationId: null, TopK: 5);
+        var result = await service.AskAsync(request, CancellationToken.None);
+
+        Assert.True(result.Degraded);
+        Assert.False(result.NotFound);
+        Assert.Null(result.Answer);
+        Assert.Single(result.Sources);
+        Assert.Equal("regulation.pdf", result.Sources[0].FileName);
+    }
 }
 
 internal sealed class ThrowingChatClient(Exception exception) : IChatClient

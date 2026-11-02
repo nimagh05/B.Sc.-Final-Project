@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DocSearch.Api.Tests.Fixtures;
 using DocSearch.Application.Abstractions;
 using DocSearch.Application.Models;
@@ -22,7 +23,8 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
     };
 
     [Fact]
@@ -42,6 +44,10 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
 
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
+
+        var rawJson = await response.Content.ReadAsStringAsync();
+        using var jsonDoc = JsonDocument.Parse(rawJson);
+        Assert.Equal("Uploaded", jsonDoc.RootElement.GetProperty("status").GetString());
 
         var docResponse = await response.Content.ReadFromJsonAsync<DocumentResponse>(_jsonOptions);
         Assert.NotNull(docResponse);
@@ -299,6 +305,10 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
 
         var detailResponse = await client.GetAsync($"/api/v1/documents/{docResponse.Id}");
         Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+
+        var rawDetailJson = await detailResponse.Content.ReadAsStringAsync();
+        using var jsonDetailDoc = JsonDocument.Parse(rawDetailJson);
+        Assert.Equal("Ready", jsonDetailDoc.RootElement.GetProperty("status").GetString());
 
         var details = await detailResponse.Content.ReadFromJsonAsync<DocumentDetailResponse>(_jsonOptions);
         Assert.NotNull(details);

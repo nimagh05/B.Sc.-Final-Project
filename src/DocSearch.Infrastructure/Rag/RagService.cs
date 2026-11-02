@@ -71,9 +71,12 @@ public sealed partial class RagService : IRagService
         }
 
         // 2. Retrieve candidate chunks
+        var embedRetrieveStopwatch = Stopwatch.StartNew();
         var retrieval = await _retriever
             .RetrieveAsync(request.Question, readableCollectionIds, request.TopK, ct)
             .ConfigureAwait(false);
+        embedRetrieveStopwatch.Stop();
+        var embedRetrieveMs = embedRetrieveStopwatch.ElapsedMilliseconds;
 
         // 3. Pre-LLM Refusal Check: Zero chunks
         if (retrieval.Chunks.Count == 0)
@@ -91,6 +94,8 @@ public sealed partial class RagService : IRagService
                 NoAnswerReason.NoChunksRetrieved,
                 retrieval.Chunks.Count,
                 retrieval.BestVectorScore,
+                embedRetrieveMs,
+                llmMs: 0,
                 stopwatch,
                 ct).ConfigureAwait(false);
         }
@@ -115,6 +120,8 @@ public sealed partial class RagService : IRagService
                 NoAnswerReason.LowSimilarity,
                 retrieval.Chunks.Count,
                 retrieval.BestVectorScore,
+                embedRetrieveMs,
+                llmMs: 0,
                 stopwatch,
                 ct).ConfigureAwait(false);
         }
@@ -145,6 +152,8 @@ public sealed partial class RagService : IRagService
 
         string? rawLlmResponse = null;
         var isDegraded = false;
+        var emptyResponse = false;
+        var llmStopwatch = Stopwatch.StartNew();
 
         for (var attempt = 1; attempt <= 2; attempt++)
         {
@@ -155,6 +164,11 @@ public sealed partial class RagService : IRagService
                     .ConfigureAwait(false);
 
                 rawLlmResponse = response.Text;
+                if (string.IsNullOrWhiteSpace(rawLlmResponse))
+                {
+                    _logger.LogWarning("Chat LLM provider returned empty or whitespace response. Falling back to degraded retrieval-only mode.");
+                    emptyResponse = true;
+                }
                 break;
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -186,7 +200,10 @@ public sealed partial class RagService : IRagService
             }
         }
 
-        if (isDegraded || rawLlmResponse == null)
+        llmStopwatch.Stop();
+        var llmMs = llmStopwatch.ElapsedMilliseconds;
+
+        if (isDegraded || emptyResponse || string.IsNullOrWhiteSpace(rawLlmResponse))
         {
             var degradedResult = new AnswerResult(
                 Answer: null,
@@ -201,6 +218,8 @@ public sealed partial class RagService : IRagService
                 NoAnswerReason.None,
                 retrieval.Chunks.Count,
                 retrieval.BestVectorScore,
+                embedRetrieveMs,
+                llmMs,
                 stopwatch,
                 ct).ConfigureAwait(false);
         }
@@ -225,6 +244,8 @@ public sealed partial class RagService : IRagService
                 NoAnswerReason.ModelRefusal,
                 retrieval.Chunks.Count,
                 retrieval.BestVectorScore,
+                embedRetrieveMs,
+                llmMs,
                 stopwatch,
                 ct).ConfigureAwait(false);
         }
@@ -257,6 +278,8 @@ public sealed partial class RagService : IRagService
             NoAnswerReason.None,
             retrieval.Chunks.Count,
             retrieval.BestVectorScore,
+            embedRetrieveMs,
+            llmMs,
             stopwatch,
             ct).ConfigureAwait(false);
     }
@@ -272,6 +295,9 @@ public sealed partial class RagService : IRagService
     [GeneratedRegex(@"\[(.*?)\]", RegexOptions.CultureInvariant)]
     private static partial Regex CitationBracketRegex();
 
+    private static readonly char[] _refusalTrimChars =
+        [' ', '.', '،', ',', ':', ';', '؛', '!', '?', '؟', '"', '\'', '«', '»', '-', '–', '—', '\r', '\n', '\t'];
+
     private bool IsModelRefusal(string response)
     {
         if (string.IsNullOrWhiteSpace(response))
@@ -283,9 +309,15 @@ public sealed partial class RagService : IRagService
         var normalizedResponse = _textNormalizer.NormalizeForSearch(cleaned);
         var normalizedCore = _textNormalizer.NormalizeForSearch(RagConstants.PersianRefusalCorePhrase);
 
-        return normalizedResponse.Contains(normalizedCore, StringComparison.Ordinal)
-            || response.Contains(RagConstants.PersianRefusalCorePhrase, StringComparison.Ordinal)
-            || response.Contains(RagConstants.PersianRefusalSentence, StringComparison.Ordinal);
+        if (!normalizedResponse.Contains(normalizedCore, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var rest = normalizedResponse.Replace(normalizedCore, "", StringComparison.Ordinal);
+        var trimmedRest = rest.Trim(_refusalTrimChars);
+
+        return trimmedRest.Length <= 15;
     }
 
     private static List<SourceCitation> FormatSources(IReadOnlyList<ScoredChunk> chunks)
@@ -312,6 +344,8 @@ public sealed partial class RagService : IRagService
         NoAnswerReason noAnswerReason,
         int retrievedCount,
         double bestScore,
+        long embedRetrieveMs,
+        long llmMs,
         Stopwatch stopwatch,
         CancellationToken ct)
     {
@@ -385,8 +419,10 @@ public sealed partial class RagService : IRagService
         stopwatch.Stop();
 
         _logger.LogInformation(
-            "AskCompleted: ElapsedMs={ElapsedMs}, RetrievedCount={RetrievedCount}, BestScore={BestScore:F3}, NotFound={NotFound}, Degraded={Degraded}, NoAnswerReason={NoAnswerReason}",
+            "AskCompleted: ElapsedMs={ElapsedMs}, EmbedRetrieveMs={EmbedRetrieveMs}, LlmMs={LlmMs}, RetrievedCount={RetrievedCount}, BestScore={BestScore:F3}, NotFound={NotFound}, Degraded={Degraded}, NoAnswerReason={NoAnswerReason}",
             stopwatch.ElapsedMilliseconds,
+            embedRetrieveMs,
+            llmMs,
             retrievedCount,
             bestScore,
             result.NotFound,

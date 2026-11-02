@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DocSearch.Api.Tests.Fixtures;
 using DocSearch.Application.Abstractions;
 using DocSearch.Application.Models;
@@ -22,7 +23,8 @@ public sealed class AskControllerIntegrationTests(ApiTestFixture fixture)
 {
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
     };
 
     private async Task SeedReadyDocumentWithChunkAsync(Guid collectionId, string text)
