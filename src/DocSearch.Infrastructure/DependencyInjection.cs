@@ -55,8 +55,11 @@ public static class DependencyInjection
         services.AddSingleton<IFileStorage, Storage.LocalFileStorage>();
         services.AddSingleton<IIngestionQueue, Ingestion.IngestionQueue>();
         services.AddScoped<IIngestionService, Ingestion.IngestionService>();
+        services.AddScoped<IAccessService, Identity.AccessService>();
+        services.AddScoped<IRagService, Rag.RagService>();
 
         services.AddEmbeddingProvider(configuration);
+        services.AddChatProvider(configuration);
 
         services.AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>("database", tags: ["ready"])
@@ -64,6 +67,55 @@ public static class DependencyInjection
             .AddCheck<EmbeddingHealthCheck>("embedding", tags: ["ready"]);
 
         return services;
+    }
+
+    public static IServiceCollection AddChatProvider(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddHttpClient("OllamaChatClient", (sp, client) =>
+        {
+            var options = sp.GetRequiredService<IOptions<AiOptions>>().Value.Chat;
+            var endpoint = options.Endpoint;
+            if (!endpoint.EndsWith('/'))
+            {
+                endpoint += "/";
+            }
+
+            client.BaseAddress = new Uri(endpoint);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+        });
+
+        services.AddSingleton<IChatClient>(sp =>
+        {
+            var aiOptions = sp.GetRequiredService<IOptions<AiOptions>>().Value.Chat;
+            var config = sp.GetRequiredService<IConfiguration>();
+
+            return aiOptions.Provider switch
+            {
+                "Fake" => new FakeChatClient(
+                    config.GetValue<bool>("Ai:Chat:Fake:Fail"),
+                    config.GetValue<int>("Ai:Chat:Fake:DelayMs")),
+                "Ollama" => new OllamaApiClient(
+                    sp.GetRequiredService<IHttpClientFactory>().CreateClient("OllamaChatClient"),
+                    aiOptions.Model),
+                "OpenAICompatible" => CreateOpenAiChatClient(aiOptions),
+                _ => throw new InvalidOperationException($"Unsupported chat provider: {aiOptions.Provider}")
+            };
+        });
+
+        return services;
+    }
+
+    private static IChatClient CreateOpenAiChatClient(AiChatOptions options)
+    {
+        var clientOptions = new OpenAIClientOptions
+        {
+            Endpoint = new Uri(options.Endpoint),
+            NetworkTimeout = TimeSpan.FromSeconds(options.TimeoutSeconds)
+        };
+        var credential = new ApiKeyCredential(options.ApiKey ?? "none");
+        var openAiClient = new OpenAIClient(credential, clientOptions);
+        var chatClient = openAiClient.GetChatClient(options.Model);
+        return chatClient.AsIChatClient();
     }
 
     public static IServiceCollection AddEmbeddingProvider(this IServiceCollection services, IConfiguration configuration)

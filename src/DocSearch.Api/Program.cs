@@ -50,37 +50,36 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
-builder.Services.Configure<ApiBehaviorOptions>(options =>
-{
-    options.InvalidModelStateResponseFactory = context =>
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
     {
-        var errors = context.ModelState
-            .Where(x => x.Value?.Errors.Count > 0)
-            .ToDictionary(
-                kvp => kvp.Key,
-                kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
-            );
-
-        var problem = new ProblemDetailsResponse
+        options.InvalidModelStateResponseFactory = context =>
         {
-            Type = "https://docsearch.local/errors/validation.failed",
-            Title = "Validation failed",
-            Status = StatusCodes.Status400BadRequest,
-            Detail = "One or more validation errors occurred.",
-            Code = "validation.failed",
-            TraceId = Activity.Current?.Id ?? context.HttpContext.TraceIdentifier,
-            Errors = errors
-        };
+            var errors = context.ModelState
+                .Where(x => x.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => kvp.Value!.Errors.Select(e => e.ErrorMessage).ToArray()
+                );
 
-        return new ObjectResult(problem)
-        {
-            StatusCode = StatusCodes.Status400BadRequest,
-            ContentTypes = { "application/problem+json; charset=utf-8" }
-        };
-    };
-});
+            var problem = new ProblemDetailsResponse
+            {
+                Type = "https://docsearch.local/errors/validation.failed",
+                Title = "Validation failed",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "One or more validation errors occurred.",
+                Code = "validation.failed",
+                TraceId = Activity.Current?.Id ?? context.HttpContext.TraceIdentifier,
+                Errors = errors
+            };
 
-builder.Services.AddControllers();
+            return new ObjectResult(problem)
+            {
+                StatusCode = StatusCodes.Status400BadRequest,
+                ContentTypes = { "application/problem+json; charset=utf-8" }
+            };
+        };
+    });
 
 // API Versioning (/api/v1)
 builder.Services.AddApiVersioning(options =>

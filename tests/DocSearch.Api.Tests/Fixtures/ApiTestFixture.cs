@@ -39,6 +39,9 @@ public sealed class ApiTestFixture : IAsyncLifetime
         await using var db = new AppDbContext(options);
         await db.Database.MigrateAsync();
 
+        // Clear connection pools so subsequent connections reload types and recognize the newly created 'vector' extension
+        Npgsql.NpgsqlConnection.ClearAllPools();
+
         // Seed dev user and default collection
         await DevDatabaseSeeder.SeedDevUserAndCollectionAsync(db);
     }

@@ -10,4 +10,8 @@
     <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Prompts\*.txt" />
+  </ItemGroup>
+
 </Project>

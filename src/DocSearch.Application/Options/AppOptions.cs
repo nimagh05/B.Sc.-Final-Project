@@ -89,7 +89,7 @@ public sealed class AiChatOptions : IValidatableObject
     public string Provider { get; set; } = "OpenAICompatible";
 
     [Required]
-    public string Model { get; set; } = "gemini-3.8-flash";
+    public string Model { get; set; } = "gemini-3.5-flash-lite";
 
     [Required]
     public string Endpoint { get; set; } = "https://generativelanguage.googleapis.com/v1beta/openai/";
@@ -148,6 +148,9 @@ public sealed class RagOptions : IValidatableObject
 
     [Required]
     public string PromptVersion { get; set; } = "v1";
+
+    [Range(0.0, 2.0)]
+    public double Temperature { get; set; } = 0.1;
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

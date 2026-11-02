@@ -59,6 +59,13 @@ public sealed class OptionsValidationTests
     }
 
     [Fact]
+    public void AiChat_Default_Model_Is_Gemini35FlashLite()
+    {
+        var options = new AiChatOptions();
+        Assert.Equal("gemini-3.5-flash-lite", options.Model);
+    }
+
+    [Fact]
     public void RagOptions_CandidateK_Must_Be_GreaterThan_Or_Equal_To_TopK()
     {
         var options = new RagOptions
