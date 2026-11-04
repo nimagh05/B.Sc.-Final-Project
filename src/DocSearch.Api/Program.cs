@@ -51,6 +51,9 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+builder.Services.ConfigureHttpJsonOptions(
+    o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {

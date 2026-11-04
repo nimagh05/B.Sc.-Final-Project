@@ -14,41 +14,62 @@ namespace DocSearch.Api.Tests.Fixtures;
 
 public sealed class ApiTestFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("pgvector/pgvector:pg16")
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("pgvector/pgvector:pg16")
         .Build();
 
     private readonly string _tempStorageDir = Path.Combine(
         Path.GetTempPath(),
         "DocSearch_Api_Storage_" + Guid.NewGuid().ToString("N"));
 
-    public string ConnectionString => _container.GetConnectionString();
+    public string ConnectionString => _postgres.GetConnectionString();
     public string TempStorageDir => _tempStorageDir;
+    public IServiceProvider? Services { get; set; }
 
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_tempStorageDir);
-        await _container.StartAsync();
+        await _postgres.StartAsync();
 
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", ConnectionString);
 
-        // Run migrations
+        // a) Run migrations and seed on a standalone AppDbContext, then reload types on its connection
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(ConnectionString, o => o.UseVector())
             .Options;
 
-        await using var db = new AppDbContext(options);
-        await db.Database.MigrateAsync();
+        await using (var db = new AppDbContext(options))
+        {
+            await db.Database.MigrateAsync();
 
-        // Clear connection pools so subsequent connections reload types and recognize the newly created 'vector' extension
+            var npgsqlConn = (Npgsql.NpgsqlConnection)db.Database.GetDbConnection();
+            if (npgsqlConn.State != System.Data.ConnectionState.Open)
+            {
+                await npgsqlConn.OpenAsync();
+            }
+            await npgsqlConn.ReloadTypesAsync();
+
+            await DevDatabaseSeeder.SeedDevUserAndCollectionAsync(db);
+        }
+
+        // b) If Services is initialized, also open a connection from Services.CreateScope()'s AppDbContext and call ReloadTypesAsync
+        if (Services != null)
+        {
+            using var scope = Services.CreateScope();
+            var serviceDb = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var conn = (Npgsql.NpgsqlConnection)serviceDb.Database.GetDbConnection();
+            if (conn.State != System.Data.ConnectionState.Open)
+            {
+                await conn.OpenAsync();
+            }
+            await conn.ReloadTypesAsync();
+        }
+
         Npgsql.NpgsqlConnection.ClearAllPools();
-
-        // Seed dev user and default collection
-        await DevDatabaseSeeder.SeedDevUserAndCollectionAsync(db);
     }
 
     public async Task DisposeAsync()
     {
-        await _container.DisposeAsync();
+        await _postgres.DisposeAsync();
 
         if (Directory.Exists(_tempStorageDir))
         {
