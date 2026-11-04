@@ -30,6 +30,7 @@ Because the `FlushParagraph` timing fix and `prevUnit` transition fix alter chun
 2. **RAG & Ingestion Hardening:**
    - Pre-LLM conversation ownership check in `RagService.AskAsync`; `MaxRefusalRemainderLength = 15` in `RagConstants`; `AskTimings(EmbedRetrieveMs, LlmMs)` record struct; `ChatFinishReason.Length` truncation warning; `MaxOutputTokens = 1024`.
    - Structured warning logs in `IngestionService` when any page has `LooksReversed == true` or any chunk has `DefectFlags != ChunkDefectFlags.None` (logging `DocumentId`, page numbers, and flags without document text).
+   - **Contract Change (`Contracts.cs`):** Extended `PageText` record signature to `PageText(int PageNumber, string Text, bool LooksReversed = false)` (defaulted to `false` for backward compatibility) and updated `PageQualityScorer.ScorePage` to populate `LooksReversed` so `IngestionService` can log reversed-text page warnings per SPEC.
 
 ---
 
