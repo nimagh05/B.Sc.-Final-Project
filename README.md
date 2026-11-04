@@ -5,7 +5,13 @@ Answers questions strictly from uploaded PDF documents with exact file name and 
 
 ## Status
 
-PDF extraction adapter and sidecar with quality scoring operational (Task T05 completed).
+Core RAG pipeline operational through **Task T10 + T06b Review Fixes**:
+- FastAPI/PyMuPDF extraction sidecar with page quality scoring (T05)
+- Header/footer cleaning & legal-aware Persian chunking with structural marker hierarchy (T06 & T06b)
+- Offline & local Ollama embedding providers with dimension validation (T07)
+- PostgreSQL / pgvector HNSW vector store & multi-collection ACL retrieval (T08)
+- Background ingestion queue with streaming PDF upload and SHA-256 deduplication (T09)
+- RAG synthesis pipeline, strict grounding prompts, citation parser, self-refusal detection, degraded mode fallback, and versioned `/api/v1/ask` endpoint (T10 & T06b)
 
 ## Prerequisites
 

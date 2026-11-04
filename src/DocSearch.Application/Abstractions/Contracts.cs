@@ -3,7 +3,7 @@ using DocSearch.Domain;
 
 namespace DocSearch.Application.Abstractions;
 
-public sealed record PageText(int PageNumber, string Text, double Quality, bool NeedsOcr);
+public sealed record PageText(int PageNumber, string Text, double Quality, bool NeedsOcr, bool LooksReversed = false);
 
 public interface IPdfExtractor
 {

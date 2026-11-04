@@ -17,7 +17,6 @@ public sealed partial class IngestionService : IIngestionService
     private readonly IFileStorage _fileStorage;
     private readonly IPdfExtractor _pdfExtractor;
     private readonly IChunker _chunker;
-    private readonly HeaderFooterCleaner _headerFooterCleaner;
     private readonly IPassageEmbedder _passageEmbedder;
     private readonly IVectorStore _vectorStore;
     private readonly IOptions<ChunkingOptions> _chunkingOptions;
@@ -33,8 +32,7 @@ public sealed partial class IngestionService : IIngestionService
         IVectorStore vectorStore,
         IOptions<ChunkingOptions> chunkingOptions,
         IOptions<AiOptions> aiOptions,
-        ILogger<IngestionService> logger,
-        HeaderFooterCleaner? headerFooterCleaner = null)
+        ILogger<IngestionService> logger)
     {
         _dbContext = dbContext ?? throw new ArgumentNullException(nameof(dbContext));
         _fileStorage = fileStorage ?? throw new ArgumentNullException(nameof(fileStorage));
@@ -45,7 +43,6 @@ public sealed partial class IngestionService : IIngestionService
         _chunkingOptions = chunkingOptions ?? throw new ArgumentNullException(nameof(chunkingOptions));
         _aiOptions = aiOptions ?? throw new ArgumentNullException(nameof(aiOptions));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _headerFooterCleaner = headerFooterCleaner ?? new HeaderFooterCleaner();
     }
 
     [GeneratedRegex(@"([a-zA-Z]:\\[^ \r\n\t]+|/[^ \r\n\t]+)", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
@@ -126,6 +123,26 @@ public sealed partial class IngestionService : IIngestionService
             if (chunks == null || chunks.Count == 0)
             {
                 throw new InvalidFileException("Document produced no text chunks.");
+            }
+
+            // Log structured warning for text defects or reversed text without logging document text
+            var reversedPages = pages.Where(p => p.LooksReversed).Select(p => p.PageNumber).ToArray();
+            var aggregatedFlags = chunks.Aggregate(ChunkDefectFlags.None, (cur, c) => cur | c.DefectFlags);
+            var defectiveChunkPages = chunks.Where(c => c.DefectFlags != ChunkDefectFlags.None)
+                .SelectMany(c => Enumerable.Range(c.PageStart, c.PageEnd - c.PageStart + 1))
+                .Distinct()
+                .OrderBy(p => p)
+                .ToArray();
+
+            if (reversedPages.Length > 0 || aggregatedFlags != ChunkDefectFlags.None)
+            {
+                var affectedPages = reversedPages.Concat(defectiveChunkPages).Distinct().OrderBy(p => p).ToArray();
+                _logger.LogWarning(
+                    "Document {DocumentId} has text defects detected during ingestion: AggregatedFlags={AggregatedFlags}, ReversedPages={ReversedPages}, AffectedPages={AffectedPages}",
+                    documentId,
+                    aggregatedFlags,
+                    reversedPages,
+                    affectedPages);
             }
 
             var embeddingTexts = chunks.Select(c => c.EmbeddingText).ToList();
