@@ -322,16 +322,17 @@ public sealed partial class LegalAwareChunker : IChunker
         {
             var unit = units[i];
             var unitTokens = _tokenCounter.Count(unit.Text);
+            var prevUnit = i > 0 ? units[i - 1] : null;
 
-            var isNewArticle = options.RespectLegalStructure &&
-                               !string.IsNullOrEmpty(unit.Article) &&
-                               (current == null || current.Article != unit.Article) &&
-                               unit.IsParagraphStart;
+            var isNewArticle = options.RespectLegalStructure
+                && !string.IsNullOrEmpty(unit.Article)
+                && (current == null || unit.Article != prevUnit?.Article)
+                && unit.IsParagraphStart;
 
-            var isNewChapter = options.RespectLegalStructure &&
-                               !string.IsNullOrEmpty(unit.Chapter) &&
-                               (current == null || current.Chapter != unit.Chapter) &&
-                               unit.IsParagraphStart;
+            var isNewChapter = options.RespectLegalStructure
+                && !string.IsNullOrEmpty(unit.Chapter)
+                && (current == null || unit.Chapter != prevUnit?.Chapter)
+                && unit.IsParagraphStart;
 
             if (current != null)
             {
@@ -345,7 +346,7 @@ public sealed partial class LegalAwareChunker : IChunker
                 // When current starts with chapter-only heading and adopts unit.Article/SectionTitle on merge:
                 // compute titleTokens using updated candidate SectionTitle (Math.Max(currentTitleTokens, unitTitleTokens))
                 var candidateTitle = current.SectionTitle;
-                if (options.RespectLegalStructure && current.Article == null && !string.IsNullOrEmpty(unit.Article) && !hardBoundary)
+                if (options.RespectLegalStructure && string.IsNullOrEmpty(current.Article) && !string.IsNullOrEmpty(unit.Article) && !hardBoundary)
                 {
                     candidateTitle = unit.SectionTitle;
                 }
@@ -372,8 +373,9 @@ public sealed partial class LegalAwareChunker : IChunker
                 if (options.OverlapRatio > 0 && chunks.Count > 0)
                 {
                     var prevChunk = chunks[^1];
+                    var lastPrevUnit = prevChunk.Units.Count > 0 ? prevChunk.Units[^1] : null;
                     var sameSection = !options.RespectLegalStructure ||
-                                      (prevChunk.Article == unit.Article && prevChunk.Chapter == unit.Chapter);
+                                      (lastPrevUnit != null && lastPrevUnit.Article == unit.Article && lastPrevUnit.Chapter == unit.Chapter);
 
                     if (sameSection && prevChunk.Units.Count > 0)
                     {
@@ -405,12 +407,12 @@ public sealed partial class LegalAwareChunker : IChunker
                 // Merging unit into existing current chunk: inherit article/section_title if chunk started with chapter-only title
                 if (options.RespectLegalStructure)
                 {
-                    if (current.Article == null && !string.IsNullOrEmpty(unit.Article))
+                    if (string.IsNullOrEmpty(current.Article) && !string.IsNullOrEmpty(unit.Article))
                     {
                         current.Article = unit.Article;
                         current.SectionTitle = unit.SectionTitle;
                     }
-                    if (current.Chapter == null && !string.IsNullOrEmpty(unit.Chapter))
+                    if (string.IsNullOrEmpty(current.Chapter) && !string.IsNullOrEmpty(unit.Chapter))
                     {
                         current.Chapter = unit.Chapter;
                     }
