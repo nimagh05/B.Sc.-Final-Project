@@ -70,6 +70,19 @@ public sealed partial class RagService : IRagService
             throw new NotFoundException("None of the requested collections were found or visible.");
         }
 
+        // 1.5 Early Conversation Ownership Check: ensure conversation exists and belongs to requesting user
+        if (request.ConversationId.HasValue)
+        {
+            var convExists = await _dbContext.Conversations
+                .AnyAsync(c => c.Id == request.ConversationId.Value && c.UserId == request.UserId, ct)
+                .ConfigureAwait(false);
+
+            if (!convExists)
+            {
+                throw new NotFoundException("Conversation was not found.");
+            }
+        }
+
         // 2. Retrieve candidate chunks
         var embedRetrieveStopwatch = Stopwatch.StartNew();
         var retrieval = await _retriever
@@ -94,8 +107,7 @@ public sealed partial class RagService : IRagService
                 NoAnswerReason.NoChunksRetrieved,
                 retrieval.Chunks.Count,
                 retrieval.BestVectorScore,
-                embedRetrieveMs,
-                llmMs: 0,
+                new AskTimings(embedRetrieveMs, 0),
                 stopwatch,
                 ct).ConfigureAwait(false);
         }
@@ -120,8 +132,7 @@ public sealed partial class RagService : IRagService
                 NoAnswerReason.LowSimilarity,
                 retrieval.Chunks.Count,
                 retrieval.BestVectorScore,
-                embedRetrieveMs,
-                llmMs: 0,
+                new AskTimings(embedRetrieveMs, 0),
                 stopwatch,
                 ct).ConfigureAwait(false);
         }
@@ -162,6 +173,11 @@ public sealed partial class RagService : IRagService
                 var response = await _chatClient
                     .GetResponseAsync(chatMessages, chatOptions, linkedCts.Token)
                     .ConfigureAwait(false);
+
+                if (response.FinishReason == ChatFinishReason.Length)
+                {
+                    _logger.LogWarning("LLM response was truncated due to MaxOutputTokens limit (FinishReason=Length).");
+                }
 
                 rawLlmResponse = response.Text;
                 if (string.IsNullOrWhiteSpace(rawLlmResponse))
@@ -218,8 +234,7 @@ public sealed partial class RagService : IRagService
                 NoAnswerReason.None,
                 retrieval.Chunks.Count,
                 retrieval.BestVectorScore,
-                embedRetrieveMs,
-                llmMs,
+                new AskTimings(embedRetrieveMs, llmMs),
                 stopwatch,
                 ct).ConfigureAwait(false);
         }
@@ -244,8 +259,7 @@ public sealed partial class RagService : IRagService
                 NoAnswerReason.ModelRefusal,
                 retrieval.Chunks.Count,
                 retrieval.BestVectorScore,
-                embedRetrieveMs,
-                llmMs,
+                new AskTimings(embedRetrieveMs, llmMs),
                 stopwatch,
                 ct).ConfigureAwait(false);
         }
@@ -278,11 +292,12 @@ public sealed partial class RagService : IRagService
             NoAnswerReason.None,
             retrieval.Chunks.Count,
             retrieval.BestVectorScore,
-            embedRetrieveMs,
-            llmMs,
+            new AskTimings(embedRetrieveMs, llmMs),
             stopwatch,
             ct).ConfigureAwait(false);
     }
+
+    private readonly record struct AskTimings(long EmbedRetrieveMs, long LlmMs);
 
     private static bool IsDegradedException(Exception ex)
     {
@@ -298,7 +313,7 @@ public sealed partial class RagService : IRagService
     private static readonly char[] _refusalTrimChars =
         [' ', '.', '،', ',', ':', ';', '؛', '!', '?', '؟', '"', '\'', '«', '»', '-', '–', '—', '\r', '\n', '\t'];
 
-    private bool IsModelRefusal(string response)
+    internal bool IsModelRefusal(string response)
     {
         if (string.IsNullOrWhiteSpace(response))
         {
@@ -317,7 +332,7 @@ public sealed partial class RagService : IRagService
         var rest = normalizedResponse.Replace(normalizedCore, "", StringComparison.Ordinal);
         var trimmedRest = rest.Trim(_refusalTrimChars);
 
-        return trimmedRest.Length <= 15;
+        return trimmedRest.Length <= RagConstants.MaxRefusalRemainderLength;
     }
 
     private static List<SourceCitation> FormatSources(IReadOnlyList<ScoredChunk> chunks)
@@ -344,8 +359,7 @@ public sealed partial class RagService : IRagService
         NoAnswerReason noAnswerReason,
         int retrievedCount,
         double bestScore,
-        long embedRetrieveMs,
-        long llmMs,
+        AskTimings timings,
         Stopwatch stopwatch,
         CancellationToken ct)
     {
@@ -353,18 +367,7 @@ public sealed partial class RagService : IRagService
 
         try
         {
-            if (effectiveConvId.HasValue)
-            {
-                var conv = await _dbContext.Conversations
-                    .FirstOrDefaultAsync(c => c.Id == effectiveConvId.Value && c.UserId == request.UserId, ct)
-                    .ConfigureAwait(false);
-
-                if (conv == null)
-                {
-                    throw new NotFoundException("Conversation was not found.");
-                }
-            }
-            else
+            if (!effectiveConvId.HasValue)
             {
                 var title = request.Question.Length <= 60
                     ? request.Question
@@ -421,8 +424,8 @@ public sealed partial class RagService : IRagService
         _logger.LogInformation(
             "AskCompleted: ElapsedMs={ElapsedMs}, EmbedRetrieveMs={EmbedRetrieveMs}, LlmMs={LlmMs}, RetrievedCount={RetrievedCount}, BestScore={BestScore:F3}, NotFound={NotFound}, Degraded={Degraded}, NoAnswerReason={NoAnswerReason}",
             stopwatch.ElapsedMilliseconds,
-            embedRetrieveMs,
-            llmMs,
+            timings.EmbedRetrieveMs,
+            timings.LlmMs,
             retrievedCount,
             bestScore,
             result.NotFound,
