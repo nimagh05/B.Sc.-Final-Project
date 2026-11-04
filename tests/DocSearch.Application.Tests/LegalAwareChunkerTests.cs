@@ -435,6 +435,49 @@ public sealed class LegalAwareChunkerTests
     }
 
     [Fact]
+    public void TinyFirstArticle_MergedWithMultiParagraphSecondArticle_DoesNotSplitMidSecondArticle()
+    {
+        var options = new ChunkingOptions
+        {
+            TargetTokens = 400,
+            MaxTokens = 500,
+            MinTokens = 40,
+            RespectLegalStructure = true,
+            IncludeSectionTitleInEmbedding = true
+        };
+
+        // Article 1 is tiny: ~4 words, ~6 tokens (< MinTokens = 40)
+        var art1 = "ماده ۱\nمتن کوتاه.";
+
+        // Article 2 has 3 distinct paragraphs separated by blank lines
+        // Paragraph 1: ~30 words (~40 tokens). Combined with Art 1, total is ~46 tokens (> MinTokens = 40)
+        var p1 = "پاراگراف اول از ماده دو که شامل توضیحات مهم اولیه درباره مقررات آموزشی است و حجم متوسطی دارد.";
+        // Paragraph 2: ~25 words (~35 tokens)
+        var p2 = "پاراگراف دوم از ماده دو که شامل توضیحات تکمیلی و بندهای اجرایی است و نکات بیشتری را بیان می‌کند.";
+        // Paragraph 3: ~25 words (~35 tokens)
+        var p3 = "پاراگراف سوم از ماده دو که شامل شرایط خاتمه و مقررات نهایی این ماده قانونی می‌باشد.";
+
+        var pageText = $"{art1}\n\nماده ۲\n{p1}\n\n{p2}\n\n{p3}";
+        var pages = new List<PageText> { new(1, pageText, 1.0, false) };
+
+        var chunks = _chunker.Chunk(pages, options);
+
+        // All units (Article 1 + all 3 paragraphs of Article 2) must stay in a single chunk
+        // Total tokens (~116) is well below TargetTokens (400), and paragraph 2 must NOT trigger premature split
+        Assert.Single(chunks);
+        Assert.Equal("ماده ۱", chunks[0].SectionTitle);
+        Assert.Contains("ماده ۱", chunks[0].Text);
+        Assert.Contains("ماده ۲", chunks[0].Text);
+        Assert.Contains(p1, chunks[0].Text);
+        Assert.Contains(p2, chunks[0].Text);
+        Assert.Contains(p3, chunks[0].Text);
+    }
+
+    [Fact]
+    public void MultiSection_HeadingsChangeMidPage_CorrectSectionTitles() =>
+        MultiSection_HeadingsChangeMidPage_WithoutBlankLines_CorrectSectionTitles();
+
+    [Fact]
     public void MultiSection_HeadingsChangeMidPage_WithoutBlankLines_CorrectSectionTitles()
     {
         var options = new ChunkingOptions

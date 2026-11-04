@@ -8,6 +8,7 @@ public sealed class FakeChatClient : IChatClient
     private readonly bool _fail;
     private readonly int _delayMs;
     private readonly ChatClientMetadata _metadata = new(nameof(FakeChatClient));
+    private int _callCount;
 
     public FakeChatClient(bool fail = false, int delayMs = 0)
     {
@@ -15,6 +16,7 @@ public sealed class FakeChatClient : IChatClient
         _delayMs = delayMs;
     }
 
+    public int CallCount => _callCount;
     public ChatClientMetadata Metadata => _metadata;
 
     public async Task<ChatResponse> GetResponseAsync(
@@ -23,6 +25,7 @@ public sealed class FakeChatClient : IChatClient
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        Interlocked.Increment(ref _callCount);
 
         if (_fail)
         {

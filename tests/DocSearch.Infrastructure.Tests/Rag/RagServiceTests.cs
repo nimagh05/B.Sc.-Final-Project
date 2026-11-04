@@ -712,6 +712,7 @@ public sealed class RagServiceTests(PostgresFixture fixture)
         var request = new AskRequest(userB, "پرسش با شناسه گفتگوی کاربر دیگر؟", [collectionId], ConversationId: convA.Id, TopK: 5);
 
         await Assert.ThrowsAsync<DocSearch.Application.Exceptions.NotFoundException>(() => service.AskAsync(request, CancellationToken.None));
+        Assert.Equal(0, chat.CallCount);
     }
 
     [Fact]
@@ -763,6 +764,42 @@ public sealed class RagServiceTests(PostgresFixture fixture)
         Assert.Single(result.Sources);
         Assert.Equal(1, result.Sources[0].Index);
         Assert.Equal("regulation.pdf", result.Sources[0].FileName);
+    }
+
+    [Theory]
+    // Exact phrase or with punctuation/brackets (remainder <= 15 chars -> true)
+    [InlineData(RagConstants.PersianRefusalCorePhrase, true)]
+    [InlineData("«در اسناد موجود پاسخی برای این پرسش پیدا نشد.»", true)]
+    [InlineData("متاسفانه در اسناد موجود پاسخی برای این پرسش پیدا نشد.", true)]
+    // Remainder exactly 15 chars (<= 15 chars -> true)
+    [InlineData("یک دو سه چهارده در اسناد موجود پاسخی برای این پرسش پیدا نشد", true)]
+    // Remainder 16 chars (> 15 chars -> false)
+    [InlineData("یک دو سه چهارده۱ در اسناد موجود پاسخی برای این پرسش پیدا نشد", false)]
+    // Two-part substantive answer (> 15 chars -> false)
+    [InlineData("حداکثر واحد مجاز در هر ترم ۲۰ واحد است [1]. برای دوره تابستان در اسناد موجود پاسخی برای این پرسش پیدا نشد.", false)]
+    public void IsModelRefusal_BoundaryTests_AroundMaxRefusalRemainderLength(string input, bool expected)
+    {
+        using var db = fixture.CreateDbContext();
+        var chat = new FakeChatClient();
+        var promptBuilder = CreatePromptBuilder();
+        var citationParser = new CitationParser();
+        var retriever = new StubRetriever(new RetrievalResult([], 0, false));
+        var accessService = new StubAccessService([]);
+
+        var service = new RagService(
+            accessService,
+            retriever,
+            promptBuilder,
+            citationParser,
+            chat,
+            db,
+            _ragOptions,
+            _aiOptions,
+            _normalizer,
+            NullLogger<RagService>.Instance);
+
+        var result = service.IsModelRefusal(input);
+        Assert.Equal(expected, result);
     }
 
     [Theory]

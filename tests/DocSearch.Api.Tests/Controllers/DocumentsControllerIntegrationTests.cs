@@ -47,6 +47,7 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
 
         var rawJson = await response.Content.ReadAsStringAsync();
         using var jsonDoc = JsonDocument.Parse(rawJson);
+        Assert.Equal(JsonValueKind.String, jsonDoc.RootElement.GetProperty("status").ValueKind);
         Assert.Equal("Uploaded", jsonDoc.RootElement.GetProperty("status").GetString());
 
         var docResponse = await response.Content.ReadFromJsonAsync<DocumentResponse>(_jsonOptions);
@@ -308,6 +309,7 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
 
         var rawDetailJson = await detailResponse.Content.ReadAsStringAsync();
         using var jsonDetailDoc = JsonDocument.Parse(rawDetailJson);
+        Assert.Equal(JsonValueKind.String, jsonDetailDoc.RootElement.GetProperty("status").ValueKind);
         Assert.Equal("Ready", jsonDetailDoc.RootElement.GetProperty("status").GetString());
 
         var details = await detailResponse.Content.ReadFromJsonAsync<DocumentDetailResponse>(_jsonOptions);
@@ -315,6 +317,56 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
         Assert.Equal(docResponse.Id, details.Id);
         Assert.Equal(DocumentStatus.Ready, details.Status);
         Assert.True(details.ChunkCount > 0);
+    }
+
+    [Fact]
+    public async Task DocumentResponse_And_DocumentDetailResponse_SerializeStatus_AsJsonString()
+    {
+        using var factory = fixture.CreateFactory();
+        using var client = factory.CreateClient();
+
+        var uniquePdfBytes = Encoding.UTF8.GetBytes($"%PDF-1.7\nStatus string test {Guid.NewGuid()}\n%%EOF");
+        using var content = new MultipartFormDataContent();
+        var fileContent = new ByteArrayContent(uniquePdfBytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        content.Add(fileContent, "file", "status_string_test.pdf");
+
+        // 1. DocumentResponse on POST returns status as JSON string "Uploaded"
+        var postResponse = await client.PostAsync(
+            $"/api/v1/collections/{DevDatabaseSeeder.DefaultCollectionId}/documents",
+            content);
+        Assert.Equal(HttpStatusCode.Accepted, postResponse.StatusCode);
+
+        var rawPostJson = await postResponse.Content.ReadAsStringAsync();
+        using var postJsonDoc = JsonDocument.Parse(rawPostJson);
+        var postStatusProp = postJsonDoc.RootElement.GetProperty("status");
+        Assert.Equal(JsonValueKind.String, postStatusProp.ValueKind);
+        Assert.Equal("Uploaded", postStatusProp.GetString());
+
+        var docResponse = await postResponse.Content.ReadFromJsonAsync<DocumentResponse>(_jsonOptions);
+        Assert.NotNull(docResponse);
+
+        // Wait until document transitions to Ready
+        for (var i = 0; i < 50; i++)
+        {
+            await using var verifyDb = fixture.CreateDbContext();
+            var d = await verifyDb.Documents.AsNoTracking().FirstOrDefaultAsync(x => x.Id == docResponse.Id);
+            if (d?.Status == DocumentStatus.Ready)
+            {
+                break;
+            }
+            await Task.Delay(200);
+        }
+
+        // 2. DocumentDetailResponse on GET returns status as JSON string "Ready"
+        var getResponse = await client.GetAsync($"/api/v1/documents/{docResponse.Id}");
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+
+        var rawGetJson = await getResponse.Content.ReadAsStringAsync();
+        using var getJsonDoc = JsonDocument.Parse(rawGetJson);
+        var getStatusProp = getJsonDoc.RootElement.GetProperty("status");
+        Assert.Equal(JsonValueKind.String, getStatusProp.ValueKind);
+        Assert.Equal("Ready", getStatusProp.GetString());
     }
 
     [Fact]
