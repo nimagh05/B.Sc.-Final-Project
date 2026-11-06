@@ -129,4 +129,30 @@ public sealed class CitationParserTests
         Assert.EndsWith("…", snippet);
         Assert.DoesNotContain("کلم…", snippet); // Not cut mid-word
     }
+
+    [Fact]
+    public void ParseAndValidate_SetsSourceCitationScoreToVectorScore_NotFusedScore()
+    {
+        var parser = new CitationParser();
+        var chunks = new List<ScoredChunk>
+        {
+            new(
+                ChunkId: Guid.NewGuid(),
+                DocumentId: Guid.NewGuid(),
+                FileName: "test.pdf",
+                PageStart: 1,
+                PageEnd: 1,
+                SectionTitle: "ماده 1",
+                Text: "متن مستند",
+                VectorScore: 0.785, // Cosine similarity
+                FtsScore: 0.12,
+                FusedScore: 0.032)  // RRF score ~1/(60+1)
+        };
+
+        var result = parser.ParseAndValidate("پاسخ تستی با ارجاع [1].", chunks);
+
+        Assert.Single(result.Sources);
+        // Citation score MUST be VectorScore (0.785), not FusedScore (0.032)
+        Assert.Equal(0.785, result.Sources[0].Score);
+    }
 }

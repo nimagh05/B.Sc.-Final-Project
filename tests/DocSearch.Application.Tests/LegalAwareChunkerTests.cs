@@ -574,4 +574,145 @@ public sealed class LegalAwareChunkerTests
         Assert.Contains("فصل اول", chunks[0].SectionTitle);
         Assert.Contains("ماده ۱", chunks[0].SectionTitle);
     }
+
+    [Fact]
+    public void ArticleKeys_MergedShortArticles_CollectsAllDistinctArticleKeys()
+    {
+        var options = new ChunkingOptions
+        {
+            TargetTokens = 425,
+            MaxTokens = 500,
+            MinTokens = 80,
+            RespectLegalStructure = true,
+            IncludeSectionTitleInEmbedding = true
+        };
+
+        // Short articles (each ~15 tokens < MinTokens=80), so they merge into a single chunk
+        var pageText = "ماده ۵\nمتن کوتاه ماده پنج.\n\nماده ۶\nمتن کوتاه ماده شش.\n\nماده ۷\nمتن کوتاه ماده هفت.\nتبصره ۱\nمتن تبصره یک ماده هفت.";
+        var pages = new List<PageText> { new(1, pageText, 1.0, false) };
+
+        var chunks = _chunker.Chunk(pages, options);
+
+        Assert.Single(chunks);
+        var chunk = chunks[0];
+        Assert.NotNull(chunk.ArticleKeys);
+        Assert.Equal(3, chunk.ArticleKeys.Count);
+        Assert.Equal("ماده 5", chunk.ArticleKeys[0]);
+        Assert.Equal("ماده 6", chunk.ArticleKeys[1]);
+        Assert.Equal("ماده 7", chunk.ArticleKeys[2]);
+
+        // Standalone note ("تبصره 1") must NEVER be stored in ArticleKeys
+        Assert.DoesNotContain(chunk.ArticleKeys, k => k.Contains("تبصره"));
+    }
+
+    [Fact]
+    public void ArticleKeys_ContinuationChunk_RetainsArticleKey()
+    {
+        var options = new ChunkingOptions
+        {
+            TargetTokens = 200,
+            MaxTokens = 250,
+            MinTokens = 50,
+            RespectLegalStructure = true,
+            IncludeSectionTitleInEmbedding = true
+        };
+
+        // Long article that spans across two chunks
+        var longBody = string.Join(" ", Enumerable.Repeat("جملات طولانی برای ماده هفده که بیش از حد بودجه یک قطعه می باشد.", 30)) + ".";
+        var pageText = $"ماده ۱۷\n{longBody}";
+        var pages = new List<PageText> { new(1, pageText, 1.0, false) };
+
+        var chunks = _chunker.Chunk(pages, options);
+
+        Assert.True(chunks.Count >= 2);
+        // Both the initial and continuation chunks must retain "ماده 17"
+        foreach (var chunk in chunks)
+        {
+            Assert.NotNull(chunk.ArticleKeys);
+            Assert.Contains("ماده 17", chunk.ArticleKeys);
+        }
+    }
+
+    [SkippableFact]
+    public void ArticleKeys_Aein91RealPdf_CapturesAll35Articles_And_PreservesHashes()
+    {
+        var repoRoot = FindRepoRoot(AppDomain.CurrentDomain.BaseDirectory);
+        Skip.If(repoRoot == null, "Repository root not found.");
+
+        var extractDir = Path.Combine(repoRoot, "eval", "experiments", "out", "extract", "pymupdf", "aein-91.pdf");
+        Skip.IfNot(Directory.Exists(extractDir), $"Extracted directory not found at {extractDir}");
+
+        var pages = new List<PageText>();
+        for (var p = 1; p <= 10; p++)
+        {
+            var pPath = Path.Combine(extractDir, $"{p}.txt");
+            if (File.Exists(pPath))
+            {
+                pages.Add(new PageText(p, File.ReadAllText(pPath), 1.0, false));
+            }
+        }
+        Skip.IfNot(pages.Count == 10, "aein-91.pdf pages missing.");
+
+        var options = new ChunkingOptions
+        {
+            TargetTokens = 425,
+            MaxTokens = 500,
+            MinTokens = 80,
+            OverlapRatio = 0.15,
+            RespectLegalStructure = true,
+            IncludeSectionTitleInEmbedding = true,
+            PersianMultiplier = 1.45,
+            LatinMultiplier = 2.25,
+            SymbolsPerToken = 12
+        };
+
+        var chunks = _chunker.Chunk(pages, options);
+
+        // Union of ArticleKeys over all chunks of aein-91.pdf MUST be exactly ماده 1 through ماده 35
+        var unionKeys = chunks
+            .SelectMany(c => c.ArticleKeys ?? [])
+            .Distinct(StringComparer.Ordinal)
+            .ToHashSet();
+
+        for (var i = 1; i <= 35; i++)
+        {
+            var expectedKey = $"ماده {i}";
+            Assert.True(unionKeys.Contains(expectedKey), $"Missing article key '{expectedKey}' in aein-91.pdf chunk union!");
+        }
+
+        Assert.Equal(35, unionKeys.Count);
+
+        // Verify that reference hashes in chunks_legal_t06b.json match current chunks
+        var refJsonPath = Path.Combine(repoRoot, "eval", "experiments", "out", "chunks_legal_t06b.json");
+        if (File.Exists(refJsonPath))
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(refJsonPath));
+            var aeinRefChunks = doc.RootElement.EnumerateArray()
+                .Where(e => e.GetProperty("pdf").GetString() == "aein-91.pdf")
+                .ToList();
+
+            Assert.Equal(aeinRefChunks.Count, chunks.Count);
+            for (var idx = 0; idx < chunks.Count; idx++)
+            {
+                var refChunk = aeinRefChunks[idx];
+                Assert.Equal(refChunk.GetProperty("text").GetString(), chunks[idx].EmbeddingText);
+                Assert.Equal(refChunk.GetProperty("draft_text").GetString(), chunks[idx].Text);
+                Assert.Equal(refChunk.GetProperty("tokens").GetInt32(), chunks[idx].TokenCount);
+            }
+        }
+    }
+
+    private static string? FindRepoRoot(string startDir)
+    {
+        var current = new DirectoryInfo(startDir);
+        while (current != null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "AGENTS.md")))
+            {
+                return current.FullName;
+            }
+            current = current.Parent;
+        }
+        return null;
+    }
 }

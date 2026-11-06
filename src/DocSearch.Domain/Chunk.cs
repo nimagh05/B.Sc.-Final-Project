@@ -18,6 +18,7 @@ public sealed class Chunk
     public Vector Embedding { get; set; } = new(new float[Constants.EmbeddingConstants.VectorDimensions]);
     public string EmbeddingModel { get; set; } = string.Empty;
     public NpgsqlTsVector? Tsv { get; set; }
+    public string[] ArticleKeys { get; set; } = [];
 
     public Document? Document { get; set; }
 }

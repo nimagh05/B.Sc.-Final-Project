@@ -35,7 +35,8 @@ public sealed record ChunkDraft(
     string SearchText,
     string EmbeddingText,
     int TokenCount,
-    ChunkDefectFlags DefectFlags = ChunkDefectFlags.None);
+    ChunkDefectFlags DefectFlags = ChunkDefectFlags.None,
+    IReadOnlyList<string>? ArticleKeys = null);
 
 public interface IChunker
 {
@@ -77,11 +78,43 @@ public sealed record ScoredChunk(
 
 public sealed record ChunkRecord(ChunkDraft Draft, float[] Embedding, string EmbeddingModel);
 
+public sealed record HybridSearchRequest(
+    float[] QueryEmbedding,
+    string QueryText,
+    string? TsQuery,
+    IReadOnlyList<string> ExtractedArticleKeys,
+    int? ExtractedNoteNumber,
+    IReadOnlyCollection<Guid> CollectionIds,
+    string EmbeddingModel,
+    int CandidateK,
+    int TopK,
+    bool UseHybrid);
+
+public sealed record CandidateChunk(
+    Guid ChunkId,
+    Guid DocumentId,
+    string FileName,
+    int PageStart,
+    int PageEnd,
+    string? SectionTitle,
+    string Text,
+    string SearchText,
+    IReadOnlyList<string> ArticleKeys,
+    double VectorScore,
+    double? FtsScore);
+
+public sealed record HybridSearchResult(
+    IReadOnlyList<CandidateChunk> VectorCandidates,
+    IReadOnlyList<CandidateChunk> FtsCandidates,
+    IReadOnlyList<CandidateChunk> RefCandidates,
+    double BestVectorScore);
+
 public interface IVectorStore
 {
     Task AddChunksAsync(Guid documentId, Guid collectionId, IReadOnlyList<ChunkRecord> chunks, CancellationToken ct);
     Task DeleteByDocumentAsync(Guid documentId, CancellationToken ct);
     Task<IReadOnlyList<ScoredChunk>> SearchAsync(SearchRequest request, CancellationToken ct);
+    Task<HybridSearchResult> SearchHybridAsync(HybridSearchRequest request, CancellationToken ct);
 }
 
 public sealed record RetrievalResult(IReadOnlyList<ScoredChunk> Chunks, double BestVectorScore, bool HasFtsHit);

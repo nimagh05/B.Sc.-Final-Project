@@ -111,7 +111,7 @@ public sealed partial class CitationParser : ICitationParser
                 Page: chunk.PageStart,
                 SectionTitle: chunk.SectionTitle,
                 Snippet: snippet,
-                Score: chunk.FusedScore));
+                Score: chunk.VectorScore));
         }
 
         var hasCitations = sources.Count > 0;

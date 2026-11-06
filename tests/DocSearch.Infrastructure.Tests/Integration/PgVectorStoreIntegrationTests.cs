@@ -306,6 +306,190 @@ public sealed class PgVectorStoreIntegrationTests(PostgresFixture fixture)
         }
     }
 
+    [Fact]
+    public async Task Exact_Article_Number_Query_Ranks_Article_First()
+    {
+        await using var db = fixture.CreateDbContext();
+        var user = await CreateTestUserAsync(db);
+        var collection = await CreateTestCollectionAsync(db, user.Id);
+        var document = await CreateTestDocumentAsync(db, collection.Id, user.Id, DocumentStatus.Ready);
+        var store = new PgVectorStore(db);
+
+        // Vector 1 (Chunk 1): Target merged chunk modeling q015.
+        // Title is "ماده 5", but ArticleKeys contains ["ماده 5", "ماده 6", "ماده 7"].
+        // Body mentions Article 7 deep in text. Cosine vector similarity is lower (~0.60).
+        var vecMerged = CreateUnitVector((0, 0.60f), (1, 0.80f));
+        var textMerged = "ماده ۵ شرح وظایف مؤسسه آموزشی است و پس از آن ماده ۶ در مورد تقویم دانشگاهی آمده و در ادامه ماده ۷ با تبصره ۱ در مورد حداقل نمره قبولی تدوین شده است.";
+        var chunkMerged = CreateChunkRecord(0, vecMerged, "bge-m3", textMerged, ["ماده 5", "ماده 6", "ماده 7"], "ماده ۵");
+
+        // Vector 2 (Chunk 2): Generic university chunk with HIGHER vector similarity (~0.90) but ArticleKey "ماده 2"
+        var vecGeneric = CreateUnitVector((0, 0.90f), (1, 0.4358899f));
+        var textGeneric = "ماده ۲ در مورد اهداف دوره های کارشناسی دانشگاه و آیین نامه آموزشی است.";
+        var chunkGeneric = CreateChunkRecord(1, vecGeneric, "bge-m3", textGeneric, ["ماده 2"], "ماده ۲");
+
+        await store.AddChunksAsync(document.Id, collection.Id, [chunkMerged, chunkGeneric], CancellationToken.None);
+
+        // Query vector points along component 0 (dot product with vecGeneric = 0.90, with vecMerged = 0.60)
+        var qVec = CreateUnitVector((0, 1.0f));
+
+        var request = new HybridSearchRequest(
+            QueryEmbedding: qVec,
+            QueryText: "تبصره ۱ ماده ۷ آیین نامه آموزشی",
+            TsQuery: "ماده | 7 | ماده7 | تبصره | 1 | تبصره1",
+            ExtractedArticleKeys: ["ماده 7"],
+            ExtractedNoteNumber: 1,
+            CollectionIds: [collection.Id],
+            EmbeddingModel: "bge-m3",
+            CandidateK: 10,
+            TopK: 5,
+            UseHybrid: true);
+
+        var searchResult = await store.SearchHybridAsync(request, CancellationToken.None);
+
+        // Chunk 1 MUST appear in RefCandidates via GIN article_keys query
+        Assert.Contains(searchResult.RefCandidates, c => c.ArticleKeys.Contains("ماده 7"));
+
+        // In pure vector search, chunkGeneric (0.90) beats chunkMerged (0.60).
+        // But when fused in Retriever with RRF, chunkMerged gains a ref rank boost and ranks #1!
+        var mockEmbedder = new StubQueryEmbedder(qVec);
+        var retriever = new DocSearch.Application.Retrieval.Retriever(
+            mockEmbedder,
+            store,
+            Microsoft.Extensions.Options.Options.Create(new DocSearch.Application.Options.RagOptions { TopK = 2, UseHybrid = true, RrfK = 60 }),
+            Microsoft.Extensions.Options.Options.Create(new DocSearch.Application.Options.AiOptions { Embedding = new DocSearch.Application.Options.AiEmbeddingOptions { Model = "bge-m3" } }));
+
+        var retrievalResult = await retriever.RetrieveAsync("تبصره ۱ ماده ۷ آیین نامه آموزشی", [collection.Id], 2, CancellationToken.None);
+
+        Assert.True(retrievalResult.Chunks.Count >= 2);
+        // Target article chunk ranked first!
+        Assert.Contains("ماده ۷", retrievalResult.Chunks[0].Text);
+    }
+
+    [Fact]
+    public async Task Hybrid_Off_Equals_Vector_Only()
+    {
+        await using var db = fixture.CreateDbContext();
+        var user = await CreateTestUserAsync(db);
+        var collection = await CreateTestCollectionAsync(db, user.Id);
+        var document = await CreateTestDocumentAsync(db, collection.Id, user.Id, DocumentStatus.Ready);
+        var store = new PgVectorStore(db);
+
+        var vec1 = CreateUnitVector((0, 0.95f), (1, 0.3122f));
+        var vec2 = CreateUnitVector((0, 0.75f), (1, 0.6614f));
+
+        await store.AddChunksAsync(document.Id, collection.Id, [
+            CreateChunkRecord(0, vec1, "bge-m3", "متن قطعه اول با شباهت بالا", ["ماده 1"]),
+            CreateChunkRecord(1, vec2, "bge-m3", "متن قطعه دوم با شباهت کمتر", ["ماده 2"])
+        ], CancellationToken.None);
+
+        var qVec = CreateUnitVector((0, 1.0f));
+
+        var hybridReqOff = new HybridSearchRequest(
+            QueryEmbedding: qVec,
+            QueryText: "ماده 2",
+            TsQuery: "ماده | 2",
+            ExtractedArticleKeys: ["ماده 2"],
+            ExtractedNoteNumber: null,
+            CollectionIds: [collection.Id],
+            EmbeddingModel: "bge-m3",
+            CandidateK: 10,
+            TopK: 5,
+            UseHybrid: false);
+
+        var searchResult = await store.SearchHybridAsync(hybridReqOff, CancellationToken.None);
+
+        Assert.Equal(2, searchResult.VectorCandidates.Count);
+        Assert.Empty(searchResult.FtsCandidates);
+        Assert.Empty(searchResult.RefCandidates);
+        Assert.Equal(0.95, searchResult.BestVectorScore, precision: 2);
+    }
+
+    [Fact]
+    public async Task Fts_Only_Match_Is_Included()
+    {
+        await using var db = fixture.CreateDbContext();
+        var user = await CreateTestUserAsync(db);
+        var collection = await CreateTestCollectionAsync(db, user.Id);
+        var document = await CreateTestDocumentAsync(db, collection.Id, user.Id, DocumentStatus.Ready);
+        var store = new PgVectorStore(db);
+
+        // Chunk with low vector similarity (~0.10) but distinct keyword
+        var vecLow = CreateUnitVector((0, 0.10f), (1, 0.9949f));
+        var textFts = "شرایط دانشنامه و گواهی موقت فارغ التحصیلی دانشجویان مقطع کارشناسی.";
+        var chunkFts = CreateChunkRecord(0, vecLow, "bge-m3", textFts);
+
+        await store.AddChunksAsync(document.Id, collection.Id, [chunkFts], CancellationToken.None);
+
+        var qVec = CreateUnitVector((0, 1.0f));
+        var request = new HybridSearchRequest(
+            QueryEmbedding: qVec,
+            QueryText: "گواهی موقت فارغ التحصیلی",
+            TsQuery: "گواهی | موقت | فارغ | التحصیلی",
+            ExtractedArticleKeys: [],
+            ExtractedNoteNumber: null,
+            CollectionIds: [collection.Id],
+            EmbeddingModel: "bge-m3",
+            CandidateK: 10,
+            TopK: 5,
+            UseHybrid: true);
+
+        var searchResult = await store.SearchHybridAsync(request, CancellationToken.None);
+
+        Assert.Single(searchResult.FtsCandidates);
+        var ftsHit = searchResult.FtsCandidates[0];
+        Assert.Equal(textFts, ftsHit.Text);
+        Assert.NotNull(ftsHit.FtsScore);
+        Assert.True(ftsHit.FtsScore > 0);
+        // VectorScore MUST be populated with real cosine distance (1 - distance = 0.10), NOT 0.0
+        Assert.Equal(0.10, ftsHit.VectorScore, precision: 2);
+    }
+
+    [Fact]
+    public async Task ACL_Still_Enforced_In_Hybrid()
+    {
+        await using var db = fixture.CreateDbContext();
+        var user = await CreateTestUserAsync(db);
+
+        var allowedCol = await CreateTestCollectionAsync(db, user.Id);
+        var forbiddenCol = await CreateTestCollectionAsync(db, user.Id);
+
+        var docAllowed = await CreateTestDocumentAsync(db, allowedCol.Id, user.Id, DocumentStatus.Ready);
+        var docForbidden = await CreateTestDocumentAsync(db, forbiddenCol.Id, user.Id, DocumentStatus.Ready);
+
+        var store = new PgVectorStore(db);
+        var vec = CreateUnitVector((0, 1.0f));
+
+        var allowedChunk = CreateChunkRecord(0, vec, "bge-m3", "ماده 12 محرمانه مجاز", ["ماده 12"]);
+        var forbiddenChunk = CreateChunkRecord(0, vec, "bge-m3", "ماده 12 محرمانه غیرمجاز", ["ماده 12"]);
+
+        await store.AddChunksAsync(docAllowed.Id, allowedCol.Id, [allowedChunk], CancellationToken.None);
+        await store.AddChunksAsync(docForbidden.Id, forbiddenCol.Id, [forbiddenChunk], CancellationToken.None);
+
+        var request = new HybridSearchRequest(
+            QueryEmbedding: vec,
+            QueryText: "ماده 12 محرمانه",
+            TsQuery: "ماده | 12 | ماده12 | محرمانه",
+            ExtractedArticleKeys: ["ماده 12"],
+            ExtractedNoteNumber: null,
+            CollectionIds: [allowedCol.Id], // Only allowedCol
+            EmbeddingModel: "bge-m3",
+            CandidateK: 10,
+            TopK: 10,
+            UseHybrid: true);
+
+        var searchResult = await store.SearchHybridAsync(request, CancellationToken.None);
+
+        // VectorCandidates, FtsCandidates, and RefCandidates must ONLY contain chunks from docAllowed
+        Assert.All(searchResult.VectorCandidates, c => Assert.Equal(docAllowed.Id, c.DocumentId));
+        Assert.All(searchResult.FtsCandidates, c => Assert.Equal(docAllowed.Id, c.DocumentId));
+        Assert.All(searchResult.RefCandidates, c => Assert.Equal(docAllowed.Id, c.DocumentId));
+    }
+
+    private sealed class StubQueryEmbedder(float[] vector) : IQueryEmbedder
+    {
+        public Task<float[]> EmbedQueryAsync(string query, CancellationToken ct) => Task.FromResult(vector);
+    }
+
     private static float[] CreateUnitVector(params (int index, float value)[] components)
     {
         var vec = new float[EmbeddingConstants.VectorDimensions];
@@ -316,17 +500,24 @@ public sealed class PgVectorStoreIntegrationTests(PostgresFixture fixture)
         return vec;
     }
 
-    private static ChunkRecord CreateChunkRecord(int index, float[] embedding, string model, string text)
+    private static ChunkRecord CreateChunkRecord(
+        int index,
+        float[] embedding,
+        string model,
+        string text,
+        string[]? articleKeys = null,
+        string? sectionTitle = "ماده ۱")
     {
         var draft = new ChunkDraft(
             Index: index,
             PageStart: 1,
             PageEnd: 1,
-            SectionTitle: "ماده ۱",
+            SectionTitle: sectionTitle,
             Text: text,
             SearchText: text,
             EmbeddingText: text,
-            TokenCount: 10);
+            TokenCount: 10,
+            ArticleKeys: articleKeys);
 
         return new ChunkRecord(draft, embedding, model);
     }

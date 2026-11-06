@@ -65,6 +65,7 @@ public sealed class AskControllerIntegrationTests(ApiTestFixture fixture)
             Text = text,
             SearchText = text,
             TokenCount = 20,
+            ArticleKeys = ["ماده 12"],
             Embedding = vector,
             EmbeddingModel = "bge-m3"
         };

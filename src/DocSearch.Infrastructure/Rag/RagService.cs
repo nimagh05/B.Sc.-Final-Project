@@ -348,7 +348,7 @@ public sealed partial class RagService : IRagService
                 Page: c.PageStart,
                 SectionTitle: c.SectionTitle,
                 Snippet: CitationParser.CreateSnippet(c.Text),
-                Score: c.FusedScore));
+                Score: c.VectorScore));
         }
         return list;
     }

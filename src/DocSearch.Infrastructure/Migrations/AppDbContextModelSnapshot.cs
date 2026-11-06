@@ -33,6 +33,13 @@ namespace DocSearch.Infrastructure.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.PrimitiveCollection<string[]>("ArticleKeys")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("article_keys")
+                        .HasDefaultValueSql("'{}'");
+
                     b.Property<int>("ChunkIndex")
                         .HasColumnType("integer")
                         .HasColumnName("chunk_index");
@@ -90,6 +97,11 @@ namespace DocSearch.Infrastructure.Migrations
                         .HasComputedColumnSql("to_tsvector('simple', search_text)", true);
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ArticleKeys")
+                        .HasDatabaseName("ix_chunks_article_keys");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("ArticleKeys"), "gin");
 
                     b.HasIndex("CollectionId")
                         .HasDatabaseName("ix_chunks_collection");

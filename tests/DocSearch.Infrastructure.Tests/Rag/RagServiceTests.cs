@@ -851,6 +851,51 @@ public sealed class RagServiceTests(PostgresFixture fixture)
         Assert.Single(result.Sources);
         Assert.Equal("regulation.pdf", result.Sources[0].FileName);
     }
+
+    [Fact]
+    public async Task AskAsync_SourcesUseVectorScore_NotFusedScore()
+    {
+        await using var db = fixture.CreateDbContext();
+        var collectionId = Guid.NewGuid();
+        var docId = Guid.NewGuid();
+
+        var chunk1 = new ScoredChunk(
+            ChunkId: Guid.NewGuid(),
+            DocumentId: docId,
+            FileName: "regulation.pdf",
+            PageStart: 1,
+            PageEnd: 1,
+            SectionTitle: "ماده ۱",
+            Text: "متن مستند آموزشی دانشگاه.",
+            VectorScore: 0.795,
+            FtsScore: 0.2,
+            FusedScore: 0.032);
+
+        var retriever = new StubRetriever(new RetrievalResult([chunk1], BestVectorScore: 0.795, HasFtsHit: false));
+        var accessService = new StubAccessService([collectionId]);
+        var chatClient = new CallCountingChatClient("پاسخ کامل به پرسش [1].");
+        var promptBuilder = CreatePromptBuilder();
+        var citationParser = new CitationParser();
+
+        var service = new RagService(
+            accessService,
+            retriever,
+            promptBuilder,
+            citationParser,
+            chatClient,
+            db,
+            _ragOptions,
+            _aiOptions,
+            _normalizer,
+            NullLogger<RagService>.Instance);
+
+        var request = new AskRequest("user1", "شرایط چیست؟", [collectionId], ConversationId: null, TopK: 5);
+        var result = await service.AskAsync(request, CancellationToken.None);
+
+        Assert.Single(result.Sources);
+        // Score in SourceCitation MUST reflect VectorScore (0.795), not RRF FusedScore (0.032)
+        Assert.Equal(0.795, result.Sources[0].Score);
+    }
 }
 
 internal sealed class ThrowingChatClient(Exception exception) : IChatClient

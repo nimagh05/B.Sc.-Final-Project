@@ -1,15 +1,20 @@
+using System.Text.RegularExpressions;
 using DocSearch.Application.Abstractions;
 using DocSearch.Application.Options;
+using DocSearch.Application.Text;
 using Microsoft.Extensions.Options;
 
 namespace DocSearch.Application.Retrieval;
 
-public sealed class Retriever(
+public sealed partial class Retriever(
     IQueryEmbedder queryEmbedder,
     IVectorStore vectorStore,
     IOptions<RagOptions> ragOptions,
-    IOptions<AiOptions> aiOptions) : IRetriever
+    IOptions<AiOptions> aiOptions,
+    ITextNormalizer? normalizer = null) : IRetriever
 {
+    private readonly ITextNormalizer _normalizer = normalizer ?? new PersianTextNormalizer();
+
     public async Task<RetrievalResult> RetrieveAsync(
         string question,
         IReadOnlyCollection<Guid> collectionIds,
@@ -29,26 +34,208 @@ public sealed class Retriever(
 
         var candidateK = ragOptions.Value.CandidateK;
         var model = aiOptions.Value.Embedding.Model;
+        var useHybrid = ragOptions.Value.UseHybrid;
 
         var queryEmbedding = await queryEmbedder.EmbedQueryAsync(question, ct).ConfigureAwait(false);
 
-        var searchRequest = new SearchRequest(
+        var qEmb = _normalizer.NormalizeForEmbedding(question);
+        var refExtraction = LegalReferenceExtractor.Extract(qEmb);
+
+        string? tsQuery = null;
+        string? qSearch = null;
+        if (useHybrid)
+        {
+            qSearch = _normalizer.NormalizeForSearch(question);
+            tsQuery = TsQueryBuilder.BuildTsQuery(qSearch);
+        }
+
+        var hybridRequest = new HybridSearchRequest(
             QueryEmbedding: queryEmbedding,
             QueryText: question,
+            TsQuery: tsQuery,
+            ExtractedArticleKeys: refExtraction.ArticleKeys,
+            ExtractedNoteNumber: refExtraction.NoteNumber,
             CollectionIds: collectionIds,
             EmbeddingModel: model,
             CandidateK: candidateK,
             TopK: effectiveTopK,
-            UseHybrid: false);
+            UseHybrid: useHybrid);
 
-        var candidates = await vectorStore.SearchAsync(searchRequest, ct).ConfigureAwait(false);
+        var searchResult = await vectorStore.SearchHybridAsync(hybridRequest, ct).ConfigureAwait(false);
 
-        var bestVectorScore = candidates.Count > 0
-            ? candidates.Max(c => c.VectorScore)
-            : 0.0;
+        if (!useHybrid)
+        {
+            var vectorOnlyChunks = searchResult.VectorCandidates
+                .Take(effectiveTopK)
+                .Select(c => new ScoredChunk(
+                    c.ChunkId, c.DocumentId, c.FileName, c.PageStart, c.PageEnd,
+                    c.SectionTitle, c.Text, c.VectorScore, null, c.VectorScore))
+                .ToList();
 
-        var finalChunks = candidates.Take(effectiveTopK).ToList();
+            return new RetrievalResult(vectorOnlyChunks, searchResult.BestVectorScore, HasFtsHit: false);
+        }
 
-        return new RetrievalResult(finalChunks, bestVectorScore, HasFtsHit: false);
+        // Hybrid mode: build ranked lists for Vector, FTS, and Ref
+        var vectorList = searchResult.VectorCandidates
+            .Select(c => new ScoredChunk(
+                c.ChunkId, c.DocumentId, c.FileName, c.PageStart, c.PageEnd,
+                c.SectionTitle, c.Text, c.VectorScore, c.FtsScore, c.VectorScore))
+            .ToList();
+
+        var ftsList = searchResult.FtsCandidates
+            .Select(c => new ScoredChunk(
+                c.ChunkId, c.DocumentId, c.FileName, c.PageStart, c.PageEnd,
+                c.SectionTitle, c.Text, c.VectorScore, c.FtsScore, c.FtsScore ?? 0.0))
+            .ToList();
+
+        // Ref candidates:
+        var refCandidates = searchResult.RefCandidates.ToList();
+
+        // Fallback for legacy chunks: if refCandidates is empty but article keys were extracted,
+        // scan vector & FTS candidates for chunks with empty ArticleKeys matching the article in SectionTitle or SearchText[..120]
+        if (refCandidates.Count == 0 && refExtraction.ArticleKeys.Count > 0)
+        {
+            var fallbackCandidates = new List<CandidateChunk>();
+            var seenChunkIds = new HashSet<Guid>();
+
+            foreach (var cand in searchResult.VectorCandidates.Concat(searchResult.FtsCandidates))
+            {
+                if (cand.ArticleKeys.Count == 0 && seenChunkIds.Add(cand.ChunkId))
+                {
+                    if (MatchesLegacyReference(cand, refExtraction.ArticleKeys))
+                    {
+                        fallbackCandidates.Add(cand);
+                    }
+                }
+            }
+
+            refCandidates = fallbackCandidates;
+        }
+
+        // Note-based ordering for ref candidates:
+        // When ExtractedNoteNumber is present, chunks of that article whose SearchText matches تبصره <N> come first
+        var orderedRefCandidates = OrderRefCandidates(refCandidates, refExtraction.NoteNumber);
+
+        var refList = orderedRefCandidates
+            .Select(c => new ScoredChunk(
+                c.ChunkId, c.DocumentId, c.FileName, c.PageStart, c.PageEnd,
+                c.SectionTitle, c.Text, c.VectorScore, c.FtsScore, c.VectorScore))
+            .ToList();
+
+        // Reciprocal Rank Fusion
+        var rankedLists = new List<IReadOnlyList<ScoredChunk>>();
+        if (vectorList.Count > 0) rankedLists.Add(vectorList);
+        if (ftsList.Count > 0) rankedLists.Add(ftsList);
+        if (refList.Count > 0) rankedLists.Add(refList);
+
+        var fusedChunks = RankFusion.Fuse(rankedLists, effectiveTopK, ragOptions.Value.RrfK);
+
+        // Compute HasFtsHit using C# token coverage (and Ref presence)
+        var hasFtsHit = ComputeHasFtsHit(searchResult.FtsCandidates, refList.Count, qSearch);
+
+        return new RetrievalResult(fusedChunks, searchResult.BestVectorScore, hasFtsHit);
+    }
+
+    private static List<CandidateChunk> OrderRefCandidates(List<CandidateChunk> candidates, int? noteNumber)
+    {
+        if (candidates == null || candidates.Count == 0)
+        {
+            return [];
+        }
+
+        if (!noteNumber.HasValue)
+        {
+            return candidates
+                .OrderByDescending(c => c.VectorScore)
+                .ThenBy(c => c.ChunkId)
+                .ToList();
+        }
+
+        var noteRegex = new Regex($@"تبصره\s*{noteNumber.Value}(?![0-9])", RegexOptions.CultureInvariant);
+
+        var noteMatches = new List<CandidateChunk>();
+        var nonNoteMatches = new List<CandidateChunk>();
+
+        foreach (var c in candidates)
+        {
+            if (noteRegex.IsMatch(c.SearchText))
+            {
+                noteMatches.Add(c);
+            }
+            else
+            {
+                nonNoteMatches.Add(c);
+            }
+        }
+
+        return noteMatches
+            .OrderByDescending(c => c.VectorScore)
+            .ThenBy(c => c.ChunkId)
+            .Concat(nonNoteMatches
+                .OrderByDescending(c => c.VectorScore)
+                .ThenBy(c => c.ChunkId))
+            .ToList();
+    }
+
+    private static bool ComputeHasFtsHit(IReadOnlyList<CandidateChunk> ftsCandidates, int refCandidateCount, string? qSearch)
+    {
+        if (refCandidateCount > 0)
+        {
+            return true;
+        }
+
+        if (ftsCandidates == null || ftsCandidates.Count == 0 || string.IsNullOrWhiteSpace(qSearch))
+        {
+            return false;
+        }
+
+        var queryTokens = TsQueryBuilder.ExtractQueryTokens(qSearch);
+        if (queryTokens.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var cand in ftsCandidates)
+        {
+            var candTokens = TsQueryBuilder.TokenizeForCoverage(cand.SearchText);
+            var matchCount = queryTokens.Count(t => candTokens.Contains(t));
+            var coverage = matchCount / (double)queryTokens.Count;
+
+            if (queryTokens.Count == 1 && matchCount >= 1)
+            {
+                return true;
+            }
+
+            if (queryTokens.Count >= 2 && matchCount >= 2 && coverage >= 0.5)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool MatchesLegacyReference(CandidateChunk cand, IReadOnlyList<string> articleKeys)
+    {
+        var normTitle = cand.SectionTitle != null ? new PersianTextNormalizer().NormalizeForEmbedding(cand.SectionTitle) : "";
+        var searchPrefix = cand.SearchText.Length <= 120 ? cand.SearchText : cand.SearchText[..120];
+
+        foreach (var key in articleKeys)
+        {
+            var parts = key.Split(' ', 2);
+            if (parts.Length == 2)
+            {
+                var kw = parts[0];
+                var num = parts[1];
+                var pattern = $@"(?:{Regex.Escape(kw)}\s*{Regex.Escape(num)}(?![0-9]))";
+                if (Regex.IsMatch(normTitle, pattern, RegexOptions.CultureInvariant) ||
+                    Regex.IsMatch(searchPrefix, pattern, RegexOptions.CultureInvariant))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

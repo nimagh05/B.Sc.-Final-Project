@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using DocSearch.Application.Abstractions;
 using DocSearch.Application.Options;
+using DocSearch.Application.Retrieval;
 using DocSearch.Application.Text;
 
 namespace DocSearch.Application.Chunking;
@@ -498,6 +499,22 @@ public sealed partial class LegalAwareChunker : IChunker
 
         var searchText = _normalizer.NormalizeForSearch(rawText);
 
+        // Aggregate distinct canonical article keys across all non-overlap units of this chunk
+        var articleKeys = new List<string>();
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var u in builder.Units)
+        {
+            if (!string.IsNullOrWhiteSpace(u.Article))
+            {
+                var norm = _normalizer.NormalizeForEmbedding(u.Article);
+                var canonical = LegalReferenceExtractor.CanonicalizeArticleKey(norm);
+                if (!string.IsNullOrEmpty(canonical) && seenKeys.Add(canonical))
+                {
+                    articleKeys.Add(canonical);
+                }
+            }
+        }
+
         return new ChunkDraft(
             index,
             pageStart,
@@ -507,7 +524,8 @@ public sealed partial class LegalAwareChunker : IChunker
             searchText,
             finalEmbeddingText,
             finalTokens,
-            flags);
+            flags,
+            articleKeys);
     }
 
     private sealed record DocumentUnit(

@@ -47,7 +47,7 @@ public sealed class RetrieverTests
         Assert.Equal(0.0, result.BestVectorScore);
         Assert.False(result.HasFtsHit);
         Assert.Equal(0, _embedder.CallCount);
-        Assert.Equal(0, _vectorStore.SearchCallCount);
+        Assert.Equal(0, _vectorStore.HybridSearchCallCount);
     }
 
     [Fact]
@@ -68,14 +68,14 @@ public sealed class RetrieverTests
 
         Assert.Equal(1, _embedder.CallCount);
         Assert.Equal("آیین نامه آموزشی", _embedder.LastQuery);
-        Assert.Equal(1, _vectorStore.SearchCallCount);
-        Assert.NotNull(_vectorStore.LastSearchRequest);
+        Assert.Equal(1, _vectorStore.HybridSearchCallCount);
+        Assert.NotNull(_vectorStore.LastHybridSearchRequest);
 
-        Assert.Equal("bge-m3", _vectorStore.LastSearchRequest.EmbeddingModel);
-        Assert.False(_vectorStore.LastSearchRequest.UseHybrid);
-        Assert.Equal(10, _vectorStore.LastSearchRequest.CandidateK);
-        Assert.Equal(2, _vectorStore.LastSearchRequest.TopK);
-        Assert.Contains(collectionId, _vectorStore.LastSearchRequest.CollectionIds);
+        Assert.Equal("bge-m3", _vectorStore.LastHybridSearchRequest.EmbeddingModel);
+        Assert.False(_vectorStore.LastHybridSearchRequest.UseHybrid);
+        Assert.Equal(10, _vectorStore.LastHybridSearchRequest.CandidateK);
+        Assert.Equal(2, _vectorStore.LastHybridSearchRequest.TopK);
+        Assert.Contains(collectionId, _vectorStore.LastHybridSearchRequest.CollectionIds);
 
         // TopK was 2, so only 2 chunks returned
         Assert.Equal(2, result.Chunks.Count);
@@ -104,7 +104,76 @@ public sealed class RetrieverTests
         var result = await retriever.RetrieveAsync("شرایط دفاع پایان نامه", [collectionId], topK: null, CancellationToken.None);
 
         Assert.Equal(3, result.Chunks.Count);
-        Assert.Equal(3, _vectorStore.LastSearchRequest!.TopK);
+        Assert.Equal(3, _vectorStore.LastHybridSearchRequest!.TopK);
+    }
+
+    [Fact]
+    public async Task RetrieveAsync_HybridOn_FusesVectorAndFtsAndRefLists_WithRrf()
+    {
+        var hybridOptions = Microsoft.Extensions.Options.Options.Create(new RagOptions
+        {
+            TopK = 3,
+            CandidateK = 10,
+            UseHybrid = true,
+            RrfK = 60
+        });
+
+        var retriever = new Retriever(_embedder, _vectorStore, hybridOptions, _aiOptions);
+        var collectionId = Guid.NewGuid();
+
+        var chunkA = CreateCandidateChunk(Guid.NewGuid(), "ماده 12", "متن ماده 12 در مورد مرخصی تحصیلی دانشجو", ["ماده 12"], 0.70, null);
+        var chunkB = CreateCandidateChunk(Guid.NewGuid(), "ماده 5", "متن ماده 5 در مورد ثبت نام دانشجو", ["ماده 5"], 0.90, null);
+        var chunkC = CreateCandidateChunk(Guid.NewGuid(), "ماده 12", "تبصره 1 ماده 12 مرخصی زایمان", ["ماده 12"], 0.60, 0.5);
+
+        // chunkC is in Ref candidates, FTS candidates, and vector candidates
+        _vectorStore.HybridSearchResultToReturn = new HybridSearchResult(
+            VectorCandidates: [chunkB, chunkA, chunkC],
+            FtsCandidates: [chunkC, chunkA],
+            RefCandidates: [chunkC, chunkA],
+            BestVectorScore: 0.90);
+
+        var result = await retriever.RetrieveAsync("ماده 12 مرخصی تحصیلی", [collectionId], topK: 3, CancellationToken.None);
+
+        Assert.Equal(3, result.Chunks.Count);
+        Assert.Equal(0.90, result.BestVectorScore);
+        Assert.True(result.HasFtsHit);
+
+        // ChunkA and ChunkC both appeared in multiple lists and receive RRF boosts
+        Assert.Contains(result.Chunks, c => c.ChunkId == chunkA.ChunkId);
+        Assert.Contains(result.Chunks, c => c.ChunkId == chunkC.ChunkId);
+    }
+
+    [Fact]
+    public async Task RetrieveAsync_HybridOn_NoteSpecified_OrdersNoteMatchingChunksFirst()
+    {
+        var hybridOptions = Microsoft.Extensions.Options.Options.Create(new RagOptions
+        {
+            TopK = 3,
+            CandidateK = 10,
+            UseHybrid = true,
+            RrfK = 60
+        });
+
+        var retriever = new Retriever(_embedder, _vectorStore, hybridOptions, _aiOptions);
+        var collectionId = Guid.NewGuid();
+
+        // Chunk1 has ماده 7 without تبصره 1 (higher vector score 0.85)
+        var chunkWithoutNote = CreateCandidateChunk(Guid.NewGuid(), "ماده 7", "متن ماده 7 آیین نامه آموزشی در مورد حداقل نمره قبولی", ["ماده 7"], 0.85, null);
+        // Chunk2 has ماده 7 WITH تبصره 1 (lower vector score 0.75)
+        var chunkWithNote = CreateCandidateChunk(Guid.NewGuid(), "ماده 7", "ماده 7 حداقل نمره قبولی ۱۰ است. تبصره 1 حداقل نمره برای دانشجویان مشروط.", ["ماده 7"], 0.75, null);
+
+        _vectorStore.HybridSearchResultToReturn = new HybridSearchResult(
+            VectorCandidates: [chunkWithoutNote, chunkWithNote],
+            FtsCandidates: [],
+            RefCandidates: [chunkWithoutNote, chunkWithNote],
+            BestVectorScore: 0.85);
+
+        // Query asks for "تبصره 1 ماده 7"
+        var result = await retriever.RetrieveAsync("تبصره 1 ماده 7 آیین نامه آموزشی", [collectionId], topK: 2, CancellationToken.None);
+
+        // In ref list, chunkWithNote comes first because it matches تبصره 1!
+        Assert.Equal(2, result.Chunks.Count);
+        Assert.True(result.HasFtsHit);
     }
 
     private static ScoredChunk CreateScoredChunk(Guid chunkId, double vectorScore)
@@ -120,6 +189,28 @@ public sealed class RetrieverTests
             VectorScore: vectorScore,
             FtsScore: null,
             FusedScore: vectorScore);
+    }
+
+    private static CandidateChunk CreateCandidateChunk(
+        Guid chunkId,
+        string sectionTitle,
+        string text,
+        IReadOnlyList<string> articleKeys,
+        double vectorScore,
+        double? ftsScore)
+    {
+        return new CandidateChunk(
+            ChunkId: chunkId,
+            DocumentId: Guid.NewGuid(),
+            FileName: "regulation.pdf",
+            PageStart: 1,
+            PageEnd: 1,
+            SectionTitle: sectionTitle,
+            Text: text,
+            SearchText: text,
+            ArticleKeys: articleKeys,
+            VectorScore: vectorScore,
+            FtsScore: ftsScore);
     }
 
     private sealed class StubQueryEmbedder : IQueryEmbedder
@@ -157,6 +248,26 @@ public sealed class RetrieverTests
             SearchCallCount++;
             LastSearchRequest = request;
             return Task.FromResult(ChunksToReturn);
+        }
+
+        public int HybridSearchCallCount { get; private set; }
+        public HybridSearchRequest? LastHybridSearchRequest { get; private set; }
+        public HybridSearchResult? HybridSearchResultToReturn { get; set; }
+
+        public Task<HybridSearchResult> SearchHybridAsync(HybridSearchRequest request, CancellationToken ct)
+        {
+            HybridSearchCallCount++;
+            LastHybridSearchRequest = request;
+            if (HybridSearchResultToReturn != null)
+            {
+                return Task.FromResult(HybridSearchResultToReturn);
+            }
+
+            var vectorCandidates = ChunksToReturn.Select(c => new CandidateChunk(
+                c.ChunkId, c.DocumentId, c.FileName, c.PageStart, c.PageEnd, c.SectionTitle, c.Text, c.Text, [], c.VectorScore, c.FtsScore
+            )).ToList();
+            var bestVector = vectorCandidates.Count > 0 ? vectorCandidates.Max(c => c.VectorScore) : 0.0;
+            return Task.FromResult(new HybridSearchResult(vectorCandidates, [], [], bestVector));
         }
     }
 }

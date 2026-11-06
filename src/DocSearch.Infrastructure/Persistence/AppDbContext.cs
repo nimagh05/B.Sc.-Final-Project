@@ -260,11 +260,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
                 .HasColumnType("tsvector")
                 .HasComputedColumnSql("to_tsvector('simple', search_text)", stored: true);
 
+            b.Property(c => c.ArticleKeys)
+                .HasColumnName("article_keys")
+                .HasColumnType("text[]")
+                .HasDefaultValueSql("'{}'")
+                .IsRequired();
+
             b.HasIndex(c => new { c.DocumentId, c.ChunkIndex })
                 .IsUnique();
 
             b.HasIndex(c => c.CollectionId)
                 .HasDatabaseName("ix_chunks_collection");
+
+            b.HasIndex(c => c.ArticleKeys)
+                .HasDatabaseName("ix_chunks_article_keys")
+                .HasMethod("gin");
 
             b.HasIndex(c => c.Embedding)
                 .HasDatabaseName("ix_chunks_embedding_hnsw")
