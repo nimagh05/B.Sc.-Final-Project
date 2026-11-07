@@ -158,13 +158,15 @@ public sealed class RetrieverTests
         var collectionId = Guid.NewGuid();
 
         // Chunk1 has ماده 7 without تبصره 1 (higher vector score 0.85)
-        var chunkWithoutNote = CreateCandidateChunk(Guid.NewGuid(), "ماده 7", "متن ماده 7 آیین نامه آموزشی در مورد حداقل نمره قبولی", ["ماده 7"], 0.85, null);
-        // Chunk2 has ماده 7 WITH تبصره 1 (lower vector score 0.75)
-        var chunkWithNote = CreateCandidateChunk(Guid.NewGuid(), "ماده 7", "ماده 7 حداقل نمره قبولی ۱۰ است. تبصره 1 حداقل نمره برای دانشجویان مشروط.", ["ماده 7"], 0.75, null);
+        var chunkWithoutNoteId = Guid.NewGuid();
+        var chunkWithoutNote = CreateCandidateChunk(chunkWithoutNoteId, "ماده 7", "متن ماده 7 آیین نامه آموزشی در مورد حداقل نمره قبولی", ["ماده 7"], 0.85, null);
+        // Chunk2 has ماده 7 WITH تبصره 1 (lower vector score 0.75, but matches note)
+        var chunkWithNoteId = Guid.NewGuid();
+        var chunkWithNote = CreateCandidateChunk(chunkWithNoteId, "ماده 7", "ماده 7 حداقل نمره قبولی ۱۰ است. تبصره 1 حداقل نمره برای دانشجویان مشروط.", ["ماده 7"], 0.75, 0.9);
 
         _vectorStore.HybridSearchResultToReturn = new HybridSearchResult(
             VectorCandidates: [chunkWithoutNote, chunkWithNote],
-            FtsCandidates: [],
+            FtsCandidates: [chunkWithNote],
             RefCandidates: [chunkWithoutNote, chunkWithNote],
             BestVectorScore: 0.85);
 
@@ -173,7 +175,43 @@ public sealed class RetrieverTests
 
         // In ref list, chunkWithNote comes first because it matches تبصره 1!
         Assert.Equal(2, result.Chunks.Count);
+        Assert.Equal(chunkWithNoteId, result.Chunks[0].ChunkId);
+        Assert.Equal(chunkWithoutNoteId, result.Chunks[1].ChunkId);
         Assert.True(result.HasFtsHit);
+    }
+
+    [Fact]
+    public async Task RetrieveAsync_OffTopicQuestionWithValidArticleNumber_SetsHasFtsHitFalse()
+    {
+        var hybridOptions = Microsoft.Extensions.Options.Options.Create(new RagOptions
+        {
+            TopK = 5,
+            CandidateK = 10,
+            UseHybrid = true,
+            RrfK = 60
+        });
+
+        var retriever = new Retriever(_embedder, _vectorStore, hybridOptions, _aiOptions);
+        var collectionId = Guid.NewGuid();
+
+        var chunkArticle7 = CreateCandidateChunk(
+            Guid.NewGuid(),
+            "ماده 7",
+            "ماده 7 حداقل نمره قبولی ۱۰ است. تبصره 1 حداقل نمره برای دانشجویان مشروط.",
+            ["ماده 7"],
+            0.70,
+            null);
+
+        _vectorStore.HybridSearchResultToReturn = new HybridSearchResult(
+            VectorCandidates: [chunkArticle7],
+            FtsCandidates: [],
+            RefCandidates: [chunkArticle7],
+            BestVectorScore: 0.70);
+
+        var result = await retriever.RetrieveAsync("ماده 7 درباره پیتزا چیست؟", [collectionId], topK: 5, CancellationToken.None);
+
+        Assert.Single(result.Chunks);
+        Assert.False(result.HasFtsHit);
     }
 
     private static ScoredChunk CreateScoredChunk(Guid chunkId, double vectorScore)

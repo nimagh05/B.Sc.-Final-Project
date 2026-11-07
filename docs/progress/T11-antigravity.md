@@ -11,7 +11,7 @@
 1. **`TsQueryBuilder` (`DocSearch.Application/Retrieval/TsQueryBuilder.cs`):**
    - Pure static class implementing PostgreSQL websearch/tsquery normalization:
    - Strips Persian and English stopwords, preserves digit-only tokens, sanitizes tsquery syntax characters (`&`, `|`, `!`, `:`, `*`, `(`, `)`).
-   - Handles attached/separated legal keywords symmetrically (`"ماده 7"` or `"ماده7"` $\rightarrow$ `'ماده' & '7' | 'ماده7'`).
+   - Handles attached/separated legal keywords symmetrically (`"ماده 7"` or `"ماده7"` $\rightarrow$ `'ماده' | '7' | 'ماده7'`).
    - Implements `ExtractQueryTokens` and `TokenizeForCoverage` for discrete word boundary splitting (`[^\p{L}0-9]+`), enabling exact set intersection for token coverage.
 2. **`LegalReferenceExtractor` (`DocSearch.Application/Retrieval/LegalReferenceExtractor.cs`):**
    - Pure static class in `DocSearch.Application/Retrieval/`.
@@ -32,10 +32,10 @@
    - Wires `UseHybrid`, `CandidateK`, and `RrfK` from `RagOptions`.
    - Note-based ordering for `RefCandidates`: when `ExtractedArticleKeys` and `NoteNumber` are present, chunks containing `تبصره <N>` in `SearchText` are ordered first (sorted by `VectorScore` desc, then `ChunkId` asc).
    - Legacy fallback: if `RefCandidates` is empty, scans Vector and FTS candidates for chunks with empty `ArticleKeys` whose `SectionTitle` or first 120 chars of `SearchText` match the target article regex.
-   - Reciprocal Rank Fusion (`RankFusion.Fuse`) with $k=60$ and weights $w_{vec}=1.0$, $w_{fts}=1.0$, $w_{ref}=2.0$.
-   - Token coverage calculation using exact token intersection `queryTokens.Count(t => candidateTokens.Contains(t))` setting `HasFtsHit = true` if coverage $\ge 0.50$ (or $\ge 2$ tokens for queries with $\ge 4$ tokens) or if `refList.Count > 0`.
+   - Reciprocal Rank Fusion (`RankFusion.Fuse`) with $k=60$ using standard unweighted RRF ($\sum \frac{1}{k + r_m(d)}$) across active candidate lists.
+   - Token coverage calculation using exact token intersection `queryTokens.Count(t => candidateTokens.Contains(t))` setting `HasFtsHit = true` if coverage $\ge 0.50$ (or $\ge 2$ tokens for queries with $\ge 4$ tokens), or if `refList.Count > 0` and either the query has no non-legal terms or at least one non-legal term matches a ref candidate chunk's search text.
 6. **Grounding Citation Score Fix (`CitationParser.cs` & `RagService.cs`):**
-   - Fixed `SourceCitation.Score` in both `CitationParser.ParseAndValidate` and `RagService.FormatSources` to use `VectorScore` (cosine similarity) instead of `FusedScore` (reciprocal sum $0.016 \dots 0.049$), preserving the `RagConstants.MinSimilarity = 0.55` contract.
+   - Fixed `SourceCitation.Score` in both `CitationParser.ParseAndValidate` and `RagService.FormatSources` to use `VectorScore` (cosine similarity) instead of `FusedScore` (reciprocal sum $0.016 \dots 0.049$), preserving the `RagOptions.MinSimilarity = 0.55` contract.
 7. **Offline Benchmark & ADR 0005:**
    - Created `eval/experiments/export_embedding_cache.py` exporting 447 embedding vectors (1024 dims) from `embed_cache_by_hash.npz` to `eval/experiments/out/embed_cache.json`.
    - Added `--benchmark-sanity` and `--benchmark-hybrid` modes to `eval/experiments/chunker_probe/Program.cs`:

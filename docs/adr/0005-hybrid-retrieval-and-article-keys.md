@@ -16,9 +16,9 @@ In previous tasks (T06 / T06b), Persian legal-aware document chunking (`LegalAwa
 2. **Prose Cross-Reference Collisions:**
    Scanning regular expressions over the entire chunk text produces false-positive boosts on cross-references inside prose (e.g., *"مطابق ماده ۷ آیین‌نامه..."*). A chunk must only be identified by the articles it *defines* or *continues*, not incidental citations.
 3. **Citation Score vs RRF Fusion Score Mismatch:**
-   Under Reciprocal Rank Fusion (RRF), fused scores are reciprocal sums:
-   $$\text{RRF}(d) = \sum_{m \in \{vec, fts, ref\}} \frac{w_m}{k + r_m(d)} \approx 0.016 \dots 0.060$$
-   Assigning `FusedScore` to `SourceCitation.Score` violated grounding threshold contracts (`RagConstants.MinSimilarity = 0.55`), causing `ParseAndValidate` and `RagService` to inappropriately filter valid sources. Frontend consumers expect cosine similarity ($1 - \text{distance} \approx 0.60 \dots 0.85$).
+   Under standard Reciprocal Rank Fusion (RRF), fused scores are reciprocal sums across active candidate lists:
+   $$\text{RRF}(d) = \sum_{m \in M(d)} \frac{1}{k + r_m(d)} \approx 0.016 \dots 0.049$$
+   Assigning `FusedScore` to `SourceCitation.Score` violated grounding threshold contracts (`RagOptions.MinSimilarity = 0.55`), causing `ParseAndValidate` and `RagService` to inappropriately filter valid sources. Frontend consumers expect cosine similarity ($1 - \text{distance} \approx 0.60 \dots 0.85$).
 4. **False Positive Substring Matches in Token Coverage (`HasFtsHit`):**
    Using substring `.Contains(token)` caused false matches for single digits (e.g. `"7"` matching `"1397"` or `"27"`) and short Persian words inside other roots. Discrete word boundary tokenization and exact set intersection was required.
 
@@ -33,7 +33,7 @@ In previous tasks (T06 / T06b), Persian legal-aware document chunking (`LegalAwa
 
 ### 2.2 Extraction & Query Building
 - **`LegalReferenceExtractor`:** Pure class in `DocSearch.Application.Retrieval`. Extracts canonical article keys (`ماده\s*([0-9]+)(?:\s*مکرر)?` $\rightarrow$ `"ماده N"`, `ماده\s+واحده` $\rightarrow$ `"ماده واحده"`, `article\s+([0-9]+)` $\rightarrow$ `"article N"`) and optional note numbers (`تبصره\s*([0-9]+)` $\rightarrow$ `int`). Never boosts on a note alone when no article is extracted.
-- **`TsQueryBuilder`:** Pure class in `DocSearch.Application.Retrieval`. Strips Persian/English stopwords, sanitizes tsquery syntax characters (`&`, `|`, `!`, `:`, `*`, `(`, `)`), preserves digit-only tokens, and handles attached/separated legal keywords symmetrically (`"ماده 7"` or `"ماده7"` $\rightarrow$ `'ماده' & '7' | 'ماده7'`). Provides `ExtractQueryTokens` and `TokenizeForCoverage` for discrete token intersection.
+- **`TsQueryBuilder`:** Pure class in `DocSearch.Application.Retrieval`. Strips Persian/English stopwords, sanitizes tsquery syntax characters (`&`, `|`, `!`, `:`, `*`, `(`, `)`), preserves digit-only tokens, and handles attached/separated legal keywords symmetrically (`"ماده 7"` or `"ماده7"` $\rightarrow$ `'ماده' | '7' | 'ماده7'`). Provides `ExtractQueryTokens` and `TokenizeForCoverage` for discrete token intersection.
 
 ### 2.3 Persistence & Hybrid Search (`PgVectorStore`)
 - Extended `IVectorStore` with `SearchHybridAsync(HybridSearchRequest request, CancellationToken ct)`.
@@ -43,9 +43,10 @@ In previous tasks (T06 / T06b), Persian legal-aware document chunking (`LegalAwa
 ### 2.4 Retrieval, Fusion & Note Ordering (`Retriever`)
 - **Note-Based Ordering:** When `ExtractedArticleKeys` and `NoteNumber` are present, `Retriever` partitions `RefCandidates` so chunks matching `تبصره\s*<N>(?![0-9])` in `SearchText` precede non-note chunks (both subgroups ordered by `VectorScore` desc, then `ChunkId` asc).
 - **Legacy Fallback:** If `RefCandidates` is empty, scans Vector and FTS candidates for chunks with empty `ArticleKeys` whose `SectionTitle` or first 120 characters of `SearchText` match the target article regex.
-- **Reciprocal Rank Fusion:** Fuses candidate lists using `RankFusion.Fuse` with $k = 60$ and weights:
-  $$w_{vec} = 1.0, \quad w_{fts} = 1.0, \quad w_{ref} = 2.0$$
-- **Token Coverage (`HasFtsHit`):** Computes exact token intersection `queryTokens.Count(t => candidateTokens.Contains(t))`. Sets `HasFtsHit = true` if coverage $\ge 0.50$ (or $\ge 2$ tokens for long queries) or if `refList.Count > 0`.
+- **Reciprocal Rank Fusion:** Fuses candidate lists using `RankFusion.Fuse` with standard unweighted Reciprocal Rank Fusion:
+  $$\text{RRF}(d) = \sum_{m \in M(d)} \frac{1}{k + r_m(d)}$$
+  with $k = 60$ across the active candidate lists ($M(d) \subseteq \{vec, fts, ref\}$). Ties are broken by `MaxVectorScore` descending, then `ChunkId` ascending.
+- **Token Coverage (`HasFtsHit`):** Computes exact token intersection `queryTokens.Count(t => candidateTokens.Contains(t))`. Sets `HasFtsHit = true` if coverage $\ge 0.50$ (or $\ge 2$ tokens for long queries), or if `refList.Count > 0` and either the query has no non-legal terms (e.g., pure article/note lookups) or at least one non-legal query term matches a ref candidate chunk's search text (guarding against off-topic queries that happen to mention a valid article number).
 - **Citation Score Contract Fix:** Updated both `CitationParser.ParseAndValidate` and `RagService.FormatSources` to assign `VectorScore` (cosine similarity) to `SourceCitation.Score` instead of `FusedScore`.
 
 ---
@@ -63,13 +64,14 @@ Sanity check with `UseHybrid = false` verified 100% exact parity with `embed_res
 | **Arm (c) Legal Vector (T06b)** | dev / test / **all** | 16 / 36 / **52** | 81.2% / 72.2% / **75.0%** | 87.5% / 88.9% / **88.5%** | 93.8% / 88.9% / **90.4%** | 93.8% / 94.4% / **94.2%** | 0.8651 / 0.8118 / **0.8282** |
 | **Arm (d) Hybrid RRF (T11)** | dev / test / **all** | 16 / 36 / **52** | 87.5% / 72.2% / **76.9%** | 93.8% / 97.2% / **96.2%** | 93.8% / 97.2% / **96.2%** | 100.0% / 97.2% / **98.1%** | 0.9141 / 0.8380 / **0.8614** |
 
-- **Recall@3:** jumped from 88.5% to **96.2%** (+7.7% absolute).
-- **Recall@5:** jumped from 90.4% to **96.2%** (+5.8% absolute).
+- **Recall@3:** jumped from 88.5% to **96.2%** (+7.7 percentage points absolute, 4 gained vs 0 lost).
+- **Recall@5:** jumped from 90.4% to **96.2%** (+5.8 percentage points absolute, 3 gained vs 0 lost).
 - **MRR:** increased from 0.8282 to **0.8614** (+0.0332 absolute gain).
 - **Paired Bootstrap 95% CI (5,000 iterations):**
   $$\text{Mean } \Delta\text{RR} = +0.0332, \quad 95\% \text{ CI} = [-0.0310, +0.1042]$$
   Hits gained at $k=3$: only Arm (d) = 4, only Arm (c) = 0.
   Hits gained at $k=5$: only Arm (d) = 3, only Arm (c) = 0.
+  *Statistical Note:* While `Recall@3` (+7.7 pp) and `Recall@5` (+5.8 pp) exhibit a consistent directional improvement across both splits with zero regressions, the overall MRR difference ($\Delta\text{MRR} = +0.0332$, 95% bootstrap CI $[-0.0310, +0.1042]$) is an observed improvement that is not statistically significant at $\alpha = 0.05$ on $n = 52$ because the confidence interval crosses zero.
 
 #### Strict Hit Rule (Page Overlap AND Chunk Span $\le 3$ Pages)
 | Arm | Split | Q Count | Recall@1 | Recall@3 | Recall@5 | Recall@10 | Strict MRR |
@@ -79,6 +81,7 @@ Sanity check with `UseHybrid = false` verified 100% exact parity with `embed_res
 
 - **Paired Bootstrap 95% CI (Strict):**
   $$\text{Mean } \Delta\text{RR} = +0.0340, \quad 95\% \text{ CI} = [-0.0302, +0.1044]$$
+  Similarly, under the strict rule the CI crosses zero, reflecting small-sample variance ($n=52$) despite monotonic recall gains.
 
 ---
 
@@ -120,7 +123,7 @@ Sanity check with `UseHybrid = false` verified 100% exact parity with `embed_res
 
 On the dev split (16 answerable questions, 4 not-in-docs questions):
 - **Answerable Questions (n=16):**
-  - Minimum cosine similarity: `0.5902` (all 16 exceed `RagConstants.MinSimilarity = 0.55`).
+  - Minimum cosine similarity: `0.5902` (all 16 exceed `RagOptions.MinSimilarity = 0.55`).
   - `HasFtsHit` evaluation: 16/16 (100%) exhibit lexical and reference token coverage $\ge 0.50$.
 - **Not-in-Docs Questions (n=4):**
   - None match document article references or corpus lexical tokens, validating `HasFtsHit` as a reliable refusal guard against hallucination.

@@ -131,7 +131,7 @@ public sealed partial class Retriever(
         var fusedChunks = RankFusion.Fuse(rankedLists, effectiveTopK, ragOptions.Value.RrfK);
 
         // Compute HasFtsHit using C# token coverage (and Ref presence)
-        var hasFtsHit = ComputeHasFtsHit(searchResult.FtsCandidates, refList.Count, qSearch);
+        var hasFtsHit = ComputeHasFtsHit(searchResult.FtsCandidates, orderedRefCandidates, qSearch);
 
         return new RetrievalResult(fusedChunks, searchResult.BestVectorScore, hasFtsHit);
     }
@@ -177,20 +177,79 @@ public sealed partial class Retriever(
             .ToList();
     }
 
-    private static bool ComputeHasFtsHit(IReadOnlyList<CandidateChunk> ftsCandidates, int refCandidateCount, string? qSearch)
+    private static readonly HashSet<string> _legalStructuralKeywords = new(StringComparer.OrdinalIgnoreCase)
     {
-        if (refCandidateCount > 0)
+        "ماده", "تبصره", "بند", "فصل", "جزء", "اصل", "واحده", "مکرر",
+        "article", "section", "clause", "chapter", "part"
+    };
+
+    [GeneratedRegex(@"^(ماده|تبصره|بند|فصل|جزء|اصل|واحده|مکرر|article|section|clause|chapter|part)([0-9]+)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex AttachedLegalKeywordRegex();
+
+    private static bool IsLegalOrNumericToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
         {
             return true;
         }
 
-        if (ftsCandidates == null || ftsCandidates.Count == 0 || string.IsNullOrWhiteSpace(qSearch))
+        if (_legalStructuralKeywords.Contains(token))
         {
-            return false;
+            return true;
+        }
+
+        if (token.All(char.IsAsciiDigit))
+        {
+            return true;
+        }
+
+        if (AttachedLegalKeywordRegex().IsMatch(token))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool ComputeHasFtsHit(
+        IReadOnlyList<CandidateChunk> ftsCandidates,
+        List<CandidateChunk> refCandidates,
+        string? qSearch)
+    {
+        if (string.IsNullOrWhiteSpace(qSearch))
+        {
+            return refCandidates != null && refCandidates.Count > 0;
         }
 
         var queryTokens = TsQueryBuilder.ExtractQueryTokens(qSearch);
         if (queryTokens.Count == 0)
+        {
+            return refCandidates != null && refCandidates.Count > 0;
+        }
+
+        if (refCandidates != null && refCandidates.Count > 0)
+        {
+            var nonLegalTokens = queryTokens.Where(t => !IsLegalOrNumericToken(t)).ToList();
+            if (nonLegalTokens.Count == 0)
+            {
+                // Query has NO non-legal tokens (e.g. literally "ماده 7" or "تبصره 1 ماده 7")
+                return true;
+            }
+
+            // Query HAS non-legal tokens: check if at least 1 non-legal query token is present in SearchText of at least 1 ref candidate
+            var hasRefTopicHit = refCandidates.Any(c =>
+            {
+                var candTokens = TsQueryBuilder.TokenizeForCoverage(c.SearchText);
+                return nonLegalTokens.Any(candTokens.Contains);
+            });
+
+            if (hasRefTopicHit)
+            {
+                return true;
+            }
+        }
+
+        if (ftsCandidates == null || ftsCandidates.Count == 0)
         {
             return false;
         }
@@ -215,9 +274,9 @@ public sealed partial class Retriever(
         return false;
     }
 
-    private static bool MatchesLegacyReference(CandidateChunk cand, IReadOnlyList<string> articleKeys)
+    private bool MatchesLegacyReference(CandidateChunk cand, IReadOnlyList<string> articleKeys)
     {
-        var normTitle = cand.SectionTitle != null ? new PersianTextNormalizer().NormalizeForEmbedding(cand.SectionTitle) : "";
+        var normTitle = cand.SectionTitle != null ? _normalizer.NormalizeForEmbedding(cand.SectionTitle) : "";
         var searchPrefix = cand.SearchText.Length <= 120 ? cand.SearchText : cand.SearchText[..120];
 
         foreach (var key in articleKeys)
