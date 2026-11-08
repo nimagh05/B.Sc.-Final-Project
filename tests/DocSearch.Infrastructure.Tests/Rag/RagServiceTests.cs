@@ -952,6 +952,21 @@ internal sealed class StubAccessService(IReadOnlyCollection<Guid> readableIds) :
             : readableIds.ToList();
         return Task.FromResult<IReadOnlyCollection<Guid>>(filtered);
     }
+
+    public Task<CollectionRole?> GetCollectionRoleAsync(string userId, Guid collectionId, CancellationToken ct)
+    {
+        var role = readableIds.Contains(collectionId) ? CollectionRole.Viewer : (CollectionRole?)null;
+        return Task.FromResult(role);
+    }
+
+    public Task EnsureAccessAsync(string userId, Guid collectionId, CollectionRole requiredRole, CancellationToken ct, string notFoundMessage = "Collection was not found or is not visible.")
+    {
+        if (!readableIds.Contains(collectionId))
+        {
+            throw new DocSearch.Application.Exceptions.NotFoundException(notFoundMessage);
+        }
+        return Task.CompletedTask;
+    }
 }
 
 internal sealed class CallCountingChatClient(string responseText) : IChatClient

@@ -52,6 +52,20 @@ public static class DependencyInjection
 
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .Configure(options =>
+            {
+                if (string.IsNullOrWhiteSpace(options.SigningKey))
+                {
+                    var fallbackKey = configuration["Auth:Jwt:SigningKey"]
+                        ?? configuration["Jwt__SigningKey"]
+                        ?? configuration["Auth__Jwt__SigningKey"];
+
+                    if (!string.IsNullOrWhiteSpace(fallbackKey))
+                    {
+                        options.SigningKey = fallbackKey;
+                    }
+                }
+            })
             .ValidateDataAnnotations()
             .ValidateOnStart();
 

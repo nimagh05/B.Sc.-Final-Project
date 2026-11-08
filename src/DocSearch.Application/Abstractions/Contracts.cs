@@ -170,4 +170,23 @@ public interface IAccessService
         string userId,
         IReadOnlyCollection<Guid>? requested,
         CancellationToken ct);
+
+    Task<CollectionRole?> GetCollectionRoleAsync(
+        string userId,
+        Guid collectionId,
+        CancellationToken ct);
+
+    Task EnsureAccessAsync(
+        string userId,
+        Guid collectionId,
+        CollectionRole requiredRole,
+        CancellationToken ct,
+        string notFoundMessage = "Collection was not found or is not visible.");
+}
+
+public sealed record GeneratedToken(string AccessToken, DateTimeOffset ExpiresAtUtc, IReadOnlyList<string> Roles);
+
+public interface IJwtTokenGenerator
+{
+    GeneratedToken GenerateToken(string userId, string email, IEnumerable<string> roles);
 }

@@ -58,6 +58,22 @@ public static class DependencyInjection
         services.AddScoped<IAccessService, Identity.AccessService>();
         services.AddScoped<IRagService, Rag.RagService>();
 
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUser, Identity.CurrentUser>();
+        services.AddSingleton<IJwtTokenGenerator, Identity.JwtTokenGenerator>();
+
+        services.AddIdentityCore<Identity.ApplicationUser>(options =>
+        {
+            options.Password.RequiredLength = 10;
+            options.Password.RequireUppercase = true;
+            options.Password.RequireLowercase = true;
+            options.Password.RequireDigit = true;
+            options.Password.RequireNonAlphanumeric = false;
+            options.User.RequireUniqueEmail = true;
+        })
+        .AddRoles<Microsoft.AspNetCore.Identity.IdentityRole>()
+        .AddEntityFrameworkStores<AppDbContext>();
+
         services.AddEmbeddingProvider(configuration);
         services.AddChatProvider(configuration);
 

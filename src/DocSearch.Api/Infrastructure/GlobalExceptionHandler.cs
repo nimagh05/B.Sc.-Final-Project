@@ -59,6 +59,14 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
                 _logger.LogWarning("Forbidden access attempt: {Detail}", detail);
                 break;
 
+            case UnauthorizedException unauthorizedException:
+                statusCode = unauthorizedException.StatusCode;
+                errorCode = unauthorizedException.ErrorCode;
+                title = "Unauthorized";
+                detail = unauthorizedException.Message;
+                _logger.LogWarning("Unauthorized access attempt: {Detail}", detail);
+                break;
+
             case ConflictException conflictException:
                 statusCode = conflictException.StatusCode;
                 errorCode = conflictException.ErrorCode;
@@ -137,6 +145,7 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
             Title = title,
             Status = statusCode,
             Detail = detail,
+            Instance = httpContext.Request.Path,
             Code = errorCode,
             TraceId = traceId,
             Errors = errors
@@ -161,6 +170,7 @@ public sealed class ProblemDetailsResponse
     public required string Title { get; init; }
     public required int Status { get; init; }
     public required string Detail { get; init; }
+    public string? Instance { get; init; }
     public required string Code { get; init; }
     public required string TraceId { get; init; }
     public IReadOnlyDictionary<string, string[]>? Errors { get; init; }

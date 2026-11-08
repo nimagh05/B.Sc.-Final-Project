@@ -6,6 +6,8 @@ namespace DocSearch.Infrastructure.Identity;
 
 public static class DevDatabaseSeeder
 {
+    public const string DefaultUserId = "00000000-0000-0000-0000-000000000001";
+    public const string DefaultEmail = "dev@docsearch.local";
     public static readonly Guid DefaultCollectionId = Guid.Parse("00000000-0000-0000-0000-000000000002");
 
     public static async Task SeedDevUserAndCollectionAsync(AppDbContext dbContext, CancellationToken ct = default)
@@ -13,18 +15,18 @@ public static class DevDatabaseSeeder
         ArgumentNullException.ThrowIfNull(dbContext);
 
         var existingUser = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == DevCurrentUser.DefaultUserId, ct)
+            .FirstOrDefaultAsync(u => u.Id == DefaultUserId, ct)
             .ConfigureAwait(false);
 
         if (existingUser == null)
         {
             var user = new ApplicationUser
             {
-                Id = DevCurrentUser.DefaultUserId,
-                UserName = DevCurrentUser.DefaultEmail,
-                NormalizedUserName = DevCurrentUser.DefaultEmail.ToUpperInvariant(),
-                Email = DevCurrentUser.DefaultEmail,
-                NormalizedEmail = DevCurrentUser.DefaultEmail.ToUpperInvariant(),
+                Id = DefaultUserId,
+                UserName = DefaultEmail,
+                NormalizedUserName = DefaultEmail.ToUpperInvariant(),
+                Email = DefaultEmail,
+                NormalizedEmail = DefaultEmail.ToUpperInvariant(),
                 SecurityStamp = Guid.NewGuid().ToString()
             };
 
@@ -43,7 +45,7 @@ public static class DevDatabaseSeeder
                 Id = DefaultCollectionId,
                 Name = "مجموعه پیش‌فرض",
                 Description = "مجموعه اسناد پیش‌فرض برای توسعه و آزمایش",
-                OwnerId = DevCurrentUser.DefaultUserId,
+                OwnerId = DefaultUserId,
                 CreatedAt = DateTimeOffset.UtcNow
             };
 
@@ -52,7 +54,7 @@ public static class DevDatabaseSeeder
             var member = new CollectionMember
             {
                 CollectionId = DefaultCollectionId,
-                UserId = DevCurrentUser.DefaultUserId,
+                UserId = DefaultUserId,
                 Role = CollectionRole.Owner
             };
 

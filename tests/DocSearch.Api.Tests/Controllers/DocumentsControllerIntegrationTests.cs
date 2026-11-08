@@ -482,7 +482,7 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
             SizeBytes = 1024,
             ContentHash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
             Status = DocumentStatus.Processing, // Currently processing!
-            UploadedBy = DevCurrentUser.DefaultUserId,
+            UploadedBy = DevDatabaseSeeder.DefaultUserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
         await db.Documents.AddAsync(document);
@@ -517,7 +517,7 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
             SizeBytes = _validPdfBytes.Length,
             ContentHash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
             Status = DocumentStatus.Processing, // Stuck in Processing
-            UploadedBy = DevCurrentUser.DefaultUserId,
+            UploadedBy = DevDatabaseSeeder.DefaultUserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -586,7 +586,7 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
             SizeBytes = _validPdfBytes.Length,
             ContentHash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
             Status = DocumentStatus.Ready,
-            UploadedBy = DevCurrentUser.DefaultUserId,
+            UploadedBy = DevDatabaseSeeder.DefaultUserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
         await db.Documents.AddAsync(doc);
@@ -666,7 +666,7 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
             SizeBytes = _validPdfBytes.Length,
             ContentHash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
             Status = DocumentStatus.Ready,
-            UploadedBy = DevCurrentUser.DefaultUserId,
+            UploadedBy = DevDatabaseSeeder.DefaultUserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
         await db.Documents.AddAsync(doc);
@@ -723,7 +723,7 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
             SizeBytes = _validPdfBytes.Length,
             ContentHash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
             Status = DocumentStatus.Processing,
-            UploadedBy = DevCurrentUser.DefaultUserId,
+            UploadedBy = DevDatabaseSeeder.DefaultUserId,
             CreatedAt = DateTimeOffset.UtcNow
         });
         docIds.Add(processingDocId);
@@ -744,7 +744,7 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
                 SizeBytes = _validPdfBytes.Length,
                 ContentHash = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N"),
                 Status = DocumentStatus.Uploaded,
-                UploadedBy = DevCurrentUser.DefaultUserId,
+                UploadedBy = DevDatabaseSeeder.DefaultUserId,
                 CreatedAt = DateTimeOffset.UtcNow.AddSeconds(i)
             });
             docIds.Add(id);

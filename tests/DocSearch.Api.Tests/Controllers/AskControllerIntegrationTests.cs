@@ -41,7 +41,7 @@ public sealed class AskControllerIntegrationTests(ApiTestFixture fixture)
             SizeBytes = 1024,
             ContentHash = Guid.NewGuid().ToString("N"),
             Status = DocumentStatus.Ready,
-            UploadedBy = DevCurrentUser.DefaultUserId,
+            UploadedBy = DevDatabaseSeeder.DefaultUserId,
             PageCount = 1,
             CreatedAt = DateTimeOffset.UtcNow,
             ProcessedAt = DateTimeOffset.UtcNow
@@ -290,9 +290,9 @@ public sealed class AskControllerIntegrationTests(ApiTestFixture fixture)
         await db.SaveChangesAsync();
 
         using var factory = fixture.CreateFactory();
-        using var client = factory.CreateClient(); // Default user is DevCurrentUser
+        using var client = factory.CreateClient(); // Default user is DevDatabaseSeeder.DefaultUserId
 
-        // DevCurrentUser attempts to post into User A's conversation
+        // Default user attempts to post into User A's conversation
         var payload = new AskRequestDto(
             Question: "تلاش برای دسترسی به گفتگوی کاربر دیگر؟",
             CollectionIds: [collectionId],
@@ -330,7 +330,7 @@ public sealed class AskControllerIntegrationTests(ApiTestFixture fixture)
         await db.SaveChangesAsync();
 
         using var factory = fixture.CreateFactory();
-        using var client = factory.CreateClient(); // Default user is DevCurrentUser
+        using var client = factory.CreateClient(); // Default user is DevDatabaseSeeder.DefaultUserId
 
         // GET another user's messages -> 404
         var getResp = await client.GetAsync($"/api/v1/conversations/{convA.Id}/messages");

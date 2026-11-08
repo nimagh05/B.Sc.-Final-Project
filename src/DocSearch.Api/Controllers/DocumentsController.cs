@@ -6,6 +6,7 @@ using DocSearch.Application.Options;
 using DocSearch.Domain;
 using DocSearch.Infrastructure.Persistence;
 using DocSearch.Infrastructure.Storage;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -15,12 +16,14 @@ namespace DocSearch.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}")]
+[Authorize]
 public sealed class DocumentsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;
     private readonly IFileStorage _fileStorage;
     private readonly IIngestionQueue _queue;
     private readonly ICurrentUser _currentUser;
+    private readonly IAccessService _accessService;
     private readonly IOptions<StorageOptions> _storageOptions;
     private readonly ILogger<DocumentsController> _logger;
 
@@ -29,6 +32,7 @@ public sealed class DocumentsController : ControllerBase
         IFileStorage fileStorage,
         IIngestionQueue queue,
         ICurrentUser currentUser,
+        IAccessService accessService,
         IOptions<StorageOptions> storageOptions,
         ILogger<DocumentsController> logger)
     {
@@ -36,6 +40,7 @@ public sealed class DocumentsController : ControllerBase
         _fileStorage = fileStorage ?? throw new ArgumentNullException(nameof(fileStorage));
         _queue = queue ?? throw new ArgumentNullException(nameof(queue));
         _currentUser = currentUser ?? throw new ArgumentNullException(nameof(currentUser));
+        _accessService = accessService ?? throw new ArgumentNullException(nameof(accessService));
         _storageOptions = storageOptions ?? throw new ArgumentNullException(nameof(storageOptions));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -53,7 +58,7 @@ public sealed class DocumentsController : ControllerBase
         [FromForm] IFormFile? file,
         CancellationToken ct)
     {
-        await EnsureUserHasCollectionRoleAsync(collectionId, CollectionRole.Editor, ct);
+        await _accessService.EnsureAccessAsync(_currentUser.UserId, collectionId, CollectionRole.Editor, ct);
 
         if (file == null || file.Length == 0)
         {
@@ -67,6 +72,11 @@ public sealed class DocumentsController : ControllerBase
         }
 
         var maxUploadBytes = (long)_storageOptions.Value.MaxUploadMb * 1024 * 1024;
+        if (file.Length > maxUploadBytes)
+        {
+            throw new FileTooLargeException($"File size exceeds the maximum limit of {_storageOptions.Value.MaxUploadMb} MB.");
+        }
+
         await using var fileStream = file.OpenReadStream();
         using var validatingStream = new PdfValidatingStream(fileStream, maxUploadBytes);
 
@@ -152,7 +162,7 @@ public sealed class DocumentsController : ControllerBase
         [FromQuery] DocumentStatus? status = null,
         CancellationToken ct = default)
     {
-        await EnsureUserHasCollectionRoleAsync(collectionId, CollectionRole.Viewer, ct);
+        await _accessService.EnsureAccessAsync(_currentUser.UserId, collectionId, CollectionRole.Viewer, ct);
 
         var query = _dbContext.Documents
             .Where(d => d.CollectionId == collectionId);
@@ -196,7 +206,7 @@ public sealed class DocumentsController : ControllerBase
             throw new NotFoundException("Document was not found or is not visible.");
         }
 
-        await EnsureUserHasCollectionRoleAsync(document.CollectionId, CollectionRole.Viewer, ct, "Document was not found or is not visible.");
+        await _accessService.EnsureAccessAsync(_currentUser.UserId, document.CollectionId, CollectionRole.Viewer, ct, "Document was not found or is not visible.");
 
         var chunkCount = await _dbContext.Chunks
             .CountAsync(c => c.DocumentId == id, ct);
@@ -230,7 +240,7 @@ public sealed class DocumentsController : ControllerBase
             throw new NotFoundException("Document was not found or is not visible.");
         }
 
-        await EnsureUserHasCollectionRoleAsync(document.CollectionId, CollectionRole.Viewer, ct, "Document was not found or is not visible.");
+        await _accessService.EnsureAccessAsync(_currentUser.UserId, document.CollectionId, CollectionRole.Viewer, ct, "Document was not found or is not visible.");
 
         var stream = await _fileStorage.OpenReadAsync(document.StoragePath, ct);
 
@@ -251,7 +261,7 @@ public sealed class DocumentsController : ControllerBase
             throw new NotFoundException("Document was not found or is not visible.");
         }
 
-        await EnsureUserHasCollectionRoleAsync(document.CollectionId, CollectionRole.Editor, ct, "Document was not found or is not visible.");
+        await _accessService.EnsureAccessAsync(_currentUser.UserId, document.CollectionId, CollectionRole.Editor, ct, "Document was not found or is not visible.");
 
         await _fileStorage.DeleteAsync(document.StoragePath, ct);
 
@@ -279,7 +289,7 @@ public sealed class DocumentsController : ControllerBase
             throw new NotFoundException("Document was not found or is not visible.");
         }
 
-        await EnsureUserHasCollectionRoleAsync(document.CollectionId, CollectionRole.Editor, ct, "Document was not found or is not visible.");
+        await _accessService.EnsureAccessAsync(_currentUser.UserId, document.CollectionId, CollectionRole.Editor, ct, "Document was not found or is not visible.");
 
         var rowsUpdated = await _dbContext.Documents
             .Where(d => d.Id == id && d.Status != DocumentStatus.Processing)
@@ -306,47 +316,5 @@ public sealed class DocumentsController : ControllerBase
             document.CreatedAt);
 
         return Accepted($"/api/v1/documents/{document.Id}", response);
-    }
-
-    private async Task EnsureUserHasCollectionRoleAsync(
-        Guid collectionId,
-        CollectionRole requiredRole,
-        CancellationToken ct,
-        string notFoundMessage = "Collection was not found or is not visible.")
-    {
-        var collectionExists = await _dbContext.Collections
-            .AnyAsync(c => c.Id == collectionId, ct);
-
-        if (!collectionExists)
-        {
-            throw new NotFoundException(notFoundMessage);
-        }
-
-        if (_currentUser.IsAdmin)
-        {
-            return;
-        }
-
-        var member = await _dbContext.CollectionMembers
-            .FirstOrDefaultAsync(m => m.CollectionId == collectionId && m.UserId == _currentUser.UserId, ct);
-
-        if (member == null)
-        {
-            // Security checklist: non-members get 404 to avoid leaking collection/document existence
-            throw new NotFoundException(notFoundMessage);
-        }
-
-        var hasPermission = requiredRole switch
-        {
-            CollectionRole.Viewer => true, // Viewer, Editor, or Owner is sufficient
-            CollectionRole.Editor => member.Role is CollectionRole.Editor or CollectionRole.Owner,
-            CollectionRole.Owner => member.Role == CollectionRole.Owner,
-            _ => false
-        };
-
-        if (!hasPermission)
-        {
-            throw new ForbiddenException("You do not have permission to perform this action.");
-        }
     }
 }

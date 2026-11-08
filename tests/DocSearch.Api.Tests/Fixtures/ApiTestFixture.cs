@@ -1,3 +1,7 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http.Headers;
+using System.Security.Claims;
+using System.Text;
 using DocSearch.Application.Abstractions;
 using DocSearch.Infrastructure.Identity;
 using DocSearch.Infrastructure.Persistence;
@@ -6,7 +10,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
+using Microsoft.IdentityModel.Tokens;
 using Testcontainers.PostgreSql;
 using Xunit;
 
@@ -14,6 +18,8 @@ namespace DocSearch.Api.Tests.Fixtures;
 
 public sealed class ApiTestFixture : IAsyncLifetime
 {
+    public const string TestSigningKey = "test_environment_jwt_signing_key_at_least_32_chars_long";
+
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("pgvector/pgvector:pg16")
         .Build();
 
@@ -25,6 +31,36 @@ public sealed class ApiTestFixture : IAsyncLifetime
     public string TempStorageDir => _tempStorageDir;
     public IServiceProvider? Services { get; set; }
 
+    public static string CreateJwtToken(string userId, string email, params string[] roles)
+    {
+        var effectiveRoles = roles.Length > 0 ? roles : ["User"];
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId),
+            new(ClaimTypes.NameIdentifier, userId),
+            new(JwtRegisteredClaimNames.Email, email),
+            new(ClaimTypes.Email, email),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        foreach (var role in effectiveRoles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+            claims.Add(new Claim("role", role));
+        }
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(TestSigningKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var tokenDescriptor = new JwtSecurityToken(
+            issuer: "docsearch",
+            audience: "docsearch",
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(2),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
+    }
+
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_tempStorageDir);
@@ -32,7 +68,7 @@ public sealed class ApiTestFixture : IAsyncLifetime
 
         Environment.SetEnvironmentVariable("ConnectionStrings__Default", ConnectionString);
 
-        // a) Run migrations and seed on a standalone AppDbContext, then reload types on its connection
+        // Run migrations and seed on a standalone AppDbContext, then reload types on its connection
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseNpgsql(ConnectionString, o => o.UseVector())
             .Options;
@@ -51,7 +87,6 @@ public sealed class ApiTestFixture : IAsyncLifetime
             await DevDatabaseSeeder.SeedDevUserAndCollectionAsync(db);
         }
 
-        // b) If Services is initialized, also open a connection from Services.CreateScope()'s AppDbContext and call ReloadTypesAsync
         if (Services != null)
         {
             using var scope = Services.CreateScope();
@@ -84,72 +119,11 @@ public sealed class ApiTestFixture : IAsyncLifetime
         }
     }
 
-    public WebApplicationFactory<Program> CreateFactory(
+    public ApiWebApplicationFactory CreateFactory(
         Action<IServiceCollection>? configureServices = null,
         IReadOnlyDictionary<string, string?>? extraConfiguration = null)
     {
-        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Testing");
-
-            builder.ConfigureAppConfiguration((_, config) =>
-            {
-                var dict = new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:Default"] = ConnectionString,
-                    ["Ai:Embedding:Provider"] = "Fake",
-                    ["Ai:Chat:Provider"] = "Fake",
-                    ["Storage:RootPath"] = _tempStorageDir,
-                    ["Storage:MaxUploadMb"] = "50",
-                    ["Ingestion:MaxConcurrentDocuments"] = "1",
-                    ["Ingestion:QueueCapacity"] = "50",
-                    ["Jwt:SigningKey"] = "test_environment_jwt_signing_key_at_least_32_chars_long"
-                };
-
-                if (extraConfiguration != null)
-                {
-                    foreach (var (k, v) in extraConfiguration)
-                    {
-                        dict[k] = v;
-                    }
-                }
-
-                config.AddInMemoryCollection(dict);
-            });
-
-            builder.ConfigureServices(services =>
-            {
-                // Re-register AppDbContext with container connection string
-                var dbContextDescriptors = services.Where(d =>
-                    d.ServiceType == typeof(DbContextOptions<AppDbContext>) ||
-                    d.ServiceType == typeof(DbContextOptions) ||
-                    d.ServiceType == typeof(AppDbContext)).ToList();
-
-                foreach (var d in dbContextDescriptors)
-                {
-                    services.Remove(d);
-                }
-
-                services.AddDbContext<AppDbContext>(options =>
-                {
-                    options.UseNpgsql(ConnectionString, npgsqlOptions =>
-                    {
-                        npgsqlOptions.UseVector();
-                    });
-                });
-
-                // Replace IPdfExtractor with an offline test stub
-                var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IPdfExtractor));
-                if (descriptor != null)
-                {
-                    services.Remove(descriptor);
-                }
-
-                services.AddSingleton<IPdfExtractor, StubApiPdfExtractor>();
-
-                configureServices?.Invoke(services);
-            });
-        });
+        return new ApiWebApplicationFactory(ConnectionString, _tempStorageDir, configureServices, extraConfiguration);
     }
 
     public AppDbContext CreateDbContext()
@@ -158,6 +132,118 @@ public sealed class ApiTestFixture : IAsyncLifetime
             .UseNpgsql(ConnectionString, o => o.UseVector())
             .Options;
         return new AppDbContext(options);
+    }
+
+    public async Task SeedUserAsync(string userId, string email)
+    {
+        await using var db = CreateDbContext();
+        var exists = await db.Users.AnyAsync(u => u.Id == userId);
+        if (!exists)
+        {
+            await db.Users.AddAsync(new ApplicationUser
+            {
+                Id = userId,
+                UserName = email,
+                NormalizedUserName = email.ToUpperInvariant(),
+                Email = email,
+                NormalizedEmail = email.ToUpperInvariant(),
+                EmailConfirmed = true,
+                SecurityStamp = Guid.NewGuid().ToString("D")
+            });
+            await db.SaveChangesAsync();
+        }
+    }
+}
+
+public sealed class ApiWebApplicationFactory(
+    string connectionString,
+    string tempStorageDir,
+    Action<IServiceCollection>? configureServices = null,
+    IReadOnlyDictionary<string, string?>? extraConfiguration = null) : WebApplicationFactory<Program>
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        builder.UseEnvironment("Testing");
+
+        builder.ConfigureAppConfiguration((_, config) =>
+        {
+            var dict = new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Default"] = connectionString,
+                ["Ai:Embedding:Provider"] = "Fake",
+                ["Ai:Chat:Provider"] = "Fake",
+                ["Storage:RootPath"] = tempStorageDir,
+                ["Storage:MaxUploadMb"] = "50",
+                ["Ingestion:MaxConcurrentDocuments"] = "1",
+                ["Ingestion:QueueCapacity"] = "50",
+                ["Jwt:SigningKey"] = ApiTestFixture.TestSigningKey
+            };
+
+            if (extraConfiguration != null)
+            {
+                foreach (var (k, v) in extraConfiguration)
+                {
+                    dict[k] = v;
+                }
+            }
+
+            config.AddInMemoryCollection(dict);
+        });
+
+        builder.ConfigureServices(services =>
+        {
+            var dbContextDescriptors = services.Where(d =>
+                d.ServiceType == typeof(DbContextOptions<AppDbContext>) ||
+                d.ServiceType == typeof(DbContextOptions) ||
+                d.ServiceType == typeof(AppDbContext)).ToList();
+
+            foreach (var d in dbContextDescriptors)
+            {
+                services.Remove(d);
+            }
+
+            services.AddDbContext<AppDbContext>(options =>
+            {
+                options.UseNpgsql(connectionString, npgsqlOptions =>
+                {
+                    npgsqlOptions.UseVector();
+                });
+            });
+
+            var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IPdfExtractor));
+            if (descriptor != null)
+            {
+                services.Remove(descriptor);
+            }
+
+            services.AddSingleton<IPdfExtractor, StubApiPdfExtractor>();
+
+            configureServices?.Invoke(services);
+        });
+    }
+
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            ApiTestFixture.CreateJwtToken(DevDatabaseSeeder.DefaultUserId, DevDatabaseSeeder.DefaultEmail, "User"));
+    }
+
+    public HttpClient CreateAnonymousClient()
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = null;
+        return client;
+    }
+
+    public HttpClient CreateAuthenticatedClient(string userId, string email, params string[] roles)
+    {
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            ApiTestFixture.CreateJwtToken(userId, email, roles));
+        return client;
     }
 }
 

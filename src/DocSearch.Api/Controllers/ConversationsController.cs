@@ -4,6 +4,7 @@ using DocSearch.Application.Abstractions;
 using DocSearch.Application.Exceptions;
 using DocSearch.Application.Models;
 using DocSearch.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +13,7 @@ namespace DocSearch.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}")]
+[Authorize]
 public sealed class ConversationsController : ControllerBase
 {
     private readonly AppDbContext _dbContext;

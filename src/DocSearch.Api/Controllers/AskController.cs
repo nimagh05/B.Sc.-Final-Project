@@ -2,6 +2,7 @@ using Asp.Versioning;
 using DocSearch.Application.Abstractions;
 using DocSearch.Application.Exceptions;
 using DocSearch.Application.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DocSearch.Api.Controllers;
@@ -9,6 +10,7 @@ namespace DocSearch.Api.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}")]
+[Authorize]
 public sealed class AskController : ControllerBase
 {
     private readonly IRagService _ragService;

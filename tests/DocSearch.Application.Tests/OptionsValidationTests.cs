@@ -157,10 +157,13 @@ public sealed class OptionsValidationTests
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(ExtractionOptions.ExtractorBaseUrl)));
     }
 
-    [Fact]
-    public void JwtOptions_SigningKey_Shorter_Than_32_Chars_Fails_Validation()
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("short_key_under_32_chars")]
+    public void JwtOptions_Empty_Or_Short_SigningKey_Fails_Validation(string key)
     {
-        var options = new JwtOptions { SigningKey = "too_short_key" };
+        var options = new JwtOptions { SigningKey = key };
         var results = ValidateModel(options);
 
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(JwtOptions.SigningKey)));

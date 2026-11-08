@@ -21,10 +21,18 @@ public sealed class NotFoundException : DocSearchException
     }
 }
 
+public sealed class UnauthorizedException : DocSearchException
+{
+    public UnauthorizedException(string message = "Authentication is required to access this resource.", string errorCode = "auth.unauthorized")
+        : base(message, errorCode, 401)
+    {
+    }
+}
+
 public sealed class ForbiddenException : DocSearchException
 {
-    public ForbiddenException(string message = "You do not have permission to access this resource.")
-        : base(message, "auth.forbidden", 403)
+    public ForbiddenException(string message = "You do not have permission to access this resource.", string errorCode = "auth.forbidden")
+        : base(message, errorCode, 403)
     {
     }
 }

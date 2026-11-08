@@ -27,7 +27,11 @@ public sealed class FakeChatClient : IChatClient
         cancellationToken.ThrowIfCancellationRequested();
         Interlocked.Increment(ref _callCount);
 
-        if (_fail)
+        var lastUserMessage = messages
+            .LastOrDefault(m => m.Role == ChatRole.User)?
+            .Text ?? string.Empty;
+
+        if (_fail || lastUserMessage.Contains("degraded", StringComparison.OrdinalIgnoreCase))
         {
             throw new HttpRequestException("Simulated chat provider outage.");
         }
@@ -36,10 +40,6 @@ public sealed class FakeChatClient : IChatClient
         {
             await Task.Delay(_delayMs, cancellationToken).ConfigureAwait(false);
         }
-
-        var lastUserMessage = messages
-            .LastOrDefault(m => m.Role == ChatRole.User)?
-            .Text ?? string.Empty;
 
         string responseText;
         if (lastUserMessage.Contains("[1]", StringComparison.Ordinal))
