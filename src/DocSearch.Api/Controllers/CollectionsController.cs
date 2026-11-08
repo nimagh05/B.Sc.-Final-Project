@@ -313,8 +313,7 @@ public sealed class CollectionsController(
         }
 
         var targetEmail = request.Email.Trim();
-        var targetUser = await userManager.FindByEmailAsync(targetEmail)
-            ?? await dbContext.Users.FirstOrDefaultAsync(u => u.Email == targetEmail, ct);
+        var targetUser = await userManager.FindByEmailAsync(targetEmail);
         if (targetUser == null)
         {
             throw new NotFoundException("User with this email was not found.");

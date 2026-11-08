@@ -31,7 +31,7 @@ public sealed class FakeChatClient : IChatClient
             .LastOrDefault(m => m.Role == ChatRole.User)?
             .Text ?? string.Empty;
 
-        if (_fail || lastUserMessage.Contains("degraded", StringComparison.OrdinalIgnoreCase))
+        if (_fail)
         {
             throw new HttpRequestException("Simulated chat provider outage.");
         }

@@ -45,11 +45,9 @@ public static class AdminBootstrapSeeder
 
             // 2. Identify configured bootstrap admin credentials
             var adminEmail = authOptions?.BootstrapAdmin?.Email
-                ?? configuration["Auth:AdminEmail"]
                 ?? configuration["Auth:BootstrapAdmin:Email"];
 
             var adminPassword = authOptions?.BootstrapAdmin?.Password
-                ?? configuration["Auth:AdminPassword"]
                 ?? configuration["Auth:BootstrapAdmin:Password"];
 
             if (string.IsNullOrWhiteSpace(adminEmail) || string.IsNullOrWhiteSpace(adminPassword))

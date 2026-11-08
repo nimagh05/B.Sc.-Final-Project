@@ -1,8 +1,5 @@
-using System.Text.Json.Serialization;
-
 namespace DocSearch.Domain;
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum DocumentStatus
 {
     Uploaded,
@@ -11,7 +8,6 @@ public enum DocumentStatus
     Failed
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum CollectionRole
 {
     Viewer,
@@ -19,14 +15,12 @@ public enum CollectionRole
     Owner
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum MessageRole
 {
     User,
     Assistant
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ReindexJobStatus
 {
     Queued,

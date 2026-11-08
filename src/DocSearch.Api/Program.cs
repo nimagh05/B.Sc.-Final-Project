@@ -146,9 +146,11 @@ builder.Services.AddControllers()
             var isPayloadTooLarge = context.ModelState.Values.Any(v =>
                 v.Errors.Any(e =>
                     e.Exception is BadHttpRequestException badHttp && badHttp.StatusCode == StatusCodes.Status413PayloadTooLarge ||
+                    e.Exception?.InnerException is BadHttpRequestException innerBadHttp && innerBadHttp.StatusCode == StatusCodes.Status413PayloadTooLarge ||
+                    e.Exception is InvalidDataException ||
+                    e.Exception?.InnerException is InvalidDataException ||
                     e.ErrorMessage.Contains("Request body too large", StringComparison.OrdinalIgnoreCase) ||
-                    e.ErrorMessage.Contains("Multipart body length limit", StringComparison.OrdinalIgnoreCase) ||
-                    e.ErrorMessage.Contains("too large", StringComparison.OrdinalIgnoreCase)));
+                    e.ErrorMessage.Contains("Multipart body length limit", StringComparison.OrdinalIgnoreCase)));
 
             if (isPayloadTooLarge)
             {

@@ -18,11 +18,7 @@ namespace DocSearch.Api.Tests.Security;
 [Collection(ApiTestCollection.Name)]
 public sealed class AclAndSecurityIntegrationTests(ApiTestFixture fixture)
 {
-    private static readonly JsonSerializerOptions _jsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        Converters = { new JsonStringEnumConverter() }
-    };
+    private static readonly JsonSerializerOptions _jsonOptions = ApiTestFixture.JsonOptions;
     private static readonly byte[] _validPdfBytes = Encoding.UTF8.GetBytes("%PDF-1.7\nSample PDF for ACL Tests\n%%EOF");
 
     [Fact]

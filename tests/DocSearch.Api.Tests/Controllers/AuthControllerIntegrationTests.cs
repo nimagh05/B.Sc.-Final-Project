@@ -11,7 +11,7 @@ namespace DocSearch.Api.Tests.Controllers;
 [Collection(ApiTestCollection.Name)]
 public sealed class AuthControllerIntegrationTests(ApiTestFixture fixture)
 {
-    private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions _jsonOptions = ApiTestFixture.JsonOptions;
 
     [Fact]
     public async Task Register_And_Login_HappyPath()

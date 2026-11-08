@@ -2,6 +2,8 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using DocSearch.Application.Abstractions;
 using DocSearch.Infrastructure.Identity;
 using DocSearch.Infrastructure.Persistence;
@@ -19,6 +21,12 @@ namespace DocSearch.Api.Tests.Fixtures;
 public sealed class ApiTestFixture : IAsyncLifetime
 {
     public const string TestSigningKey = "test_environment_jwt_signing_key_at_least_32_chars_long";
+
+    public static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
 
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("pgvector/pgvector:pg16")
         .Build();
