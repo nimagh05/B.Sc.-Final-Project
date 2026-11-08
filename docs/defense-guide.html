@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>سامانه هوشمند DocSearch | داشبورد علمی، معماری و آمادگی دفاع کارشناسی</title>
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.85);
+            --bg-card-hover: rgba(31, 41, 55, 0.95);
+            --border-color: #1f2937;
+            --border-highlight: #374151;
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent-primary: #3b82f6;
+            --accent-primary-hover: #2563eb;
+            --accent-secondary: #8b5cf6;
+            --accent-success: #10b981;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --font-family: system-ui, -apple-system, "Segoe UI", Roboto, Vazirmatn, Tahoma, sans-serif;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+            --glass-backdrop: blur(12px);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --bg-card-hover: rgba(241, 245, 249, 1);
+            --border-color: #e2e8f0;
+            --border-highlight: #cbd5e1;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --accent-primary: #2563eb;
+            --accent-primary-hover: #1d4ed8;
+            --accent-secondary: #7c3aed;
+            --accent-success: #059669;
+            --accent-warning: #d97706;
+            --accent-danger: #dc2626;
+            --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.65;
+            padding: 0;
+            direction: rtl;
+            overflow-x: hidden;
+        }
+
+        /* Container */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        /* Header / Hero */
+        .hero {
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 36px 32px;
+            margin-bottom: 28px;
+            position: relative;
+            backdrop-filter: var(--glass-backdrop);
+            box-shadow: var(--card-shadow);
+        }
+
+        .hero-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .badge-verified {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--accent-success);
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .theme-toggle-btn, .print-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: inherit;
+        }
+
+        .theme-toggle-btn:hover, .print-btn:hover {
+            border-color: var(--accent-primary);
+            background: var(--bg-card-hover);
+        }
+
+        .hero h1 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            background: linear-gradient(to left, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            max-width: 900px;
+            margin-bottom: 20px;
+        }
+
+        .tech-stack-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .tech-pill {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .tech-pill.accent {
+            border-color: rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        /* Search Bar */
+        .search-box-wrapper {
+            position: relative;
+            max-width: 700px;
+        }
+
+        .search-box {
+            width: 100%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 14px 20px 14px 48px;
+            border-radius: 14px;
+            font-size: 1rem;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .search-box:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-family: inherit;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+        }
+
+        .tab-btn.active {
+            color: #ffffff;
+            background: var(--accent-primary);
+            box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.35);
+        }
+
+        /* Tab Content */
+        .tab-panel {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Grid Layouts */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 20px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: var(--card-shadow);
+            backdrop-filter: var(--glass-backdrop);
+        }
+
+        .card:hover {
+            border-color: var(--border-highlight);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Simulator Styles */
+        .sim-container {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 20px;
+            margin-top: 16px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: var(--border-highlight);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+
+        .metric-display-box {
+            display: flex;
+            gap: 16px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .metric-item {
+            flex: 1;
+            min-width: 130px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .metric-val {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent-primary);
+            font-family: monospace;
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Clean Architecture Interactive Map */
+        .arch-diagram-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-bottom: 24px;
+        }
+
+        .arch-layer-bar {
+            background: var(--bg-card);
+            border: 2px solid var(--border-color);
+            border-radius: 14px;
+            padding: 18px 24px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .arch-layer-bar:hover, .arch-layer-bar.selected {
+            border-color: var(--accent-primary);
+            transform: translateX(-4px);
+            background: var(--bg-card-hover);
+        }
+
+        .arch-layer-bar.selected {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+            border-color: #60a5fa;
+        }
+
+        .arch-layer-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .arch-detail-panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 24px;
+            margin-top: 16px;
+        }
+
+        /* Stepper Flow */
+        .stepper-header {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .flow-switch-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .flow-switch-btn.active {
+            background: var(--accent-secondary);
+            color: white;
+            border-color: var(--accent-secondary);
+        }
+
+        .steps-container {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            margin-bottom: 24px;
+            padding-bottom: 6px;
+        }
+
+        .step-pill {
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            white-space: nowrap;
+            color: var(--text-secondary);
+        }
+
+        .step-pill.active {
+            background: var(--accent-primary);
+            color: white;
+            font-weight: 700;
+            border-color: var(--accent-primary);
+        }
+
+        .step-detail-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 28px;
+        }
+
+        /* Table */
+        .styled-table-wrapper {
+            overflow-x: auto;
+            margin-top: 16px;
+        }
+
+        table.styled-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+            text-align: right;
+        }
+
+        table.styled-table th, table.styled-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        table.styled-table th {
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            font-weight: 700;
+        }
+
+        table.styled-table tr:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Flashcard Arena */
+        .filter-tags-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .tag-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .tag-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }
+
+        .flashcard {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 22px;
+            margin-bottom: 16px;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+
+        .flashcard:hover {
+            border-color: var(--border-highlight);
+        }
+
+        .flashcard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .badge-difficulty {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 700;
+        }
+
+        .diff-easy { background: rgba(16, 185, 129, 0.15); color: var(--accent-success); }
+        .diff-medium { background: rgba(245, 158, 11, 0.15); color: var(--accent-warning); }
+        .diff-hard { background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); }
+
+        .question-text {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 14px;
+        }
+
+        .answer-reveal-btn {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--accent-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: inherit;
+        }
+
+        .answer-box {
+            display: none;
+            margin-top: 16px;
+            padding: 16px;
+            border-radius: 10px;
+            background: var(--bg-secondary);
+            border-right: 4px solid var(--accent-primary);
+            line-height: 1.75;
+            color: var(--text-primary);
+        }
+
+        .answer-box.visible {
+            display: block;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .key-terms-box {
+            margin-top: 12px;
+            padding: 8px 12px;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #c4b5fd;
+        }
+
+        /* Code block badge */
+        .code-tag {
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85em;
+            color: #93c5fd;
+        }
+
+        /* Print CSS */
+        @media print {
+            body {
+                background: white !important;
+                color: black !important;
+                font-size: 11pt;
+            }
+            .hero, .card, .sim-container, .arch-detail-panel, .step-detail-card {
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+                background: white !important;
+                color: black !important;
+                backdrop-filter: none !important;
+                break-inside: avoid;
+            }
+            .theme-toggle-btn, .print-btn, .search-box-wrapper, .nav-tabs, .slider-label, input[type="range"], .answer-reveal-btn {
+                display: none !important;
+            }
+            .tab-panel {
+                display: block !important;
+                margin-bottom: 24px;
+            }
+            .answer-box {
+                display: block !important;
+                border: 1px solid #ddd;
+                background: #f9f9f9 !important;
+                color: black !important;
+            }
+            .hero h1 {
+                background: none !important;
+                -webkit-text-fill-color: black !important;
+                color: black !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Hero Header -->
+    <header class="hero">
+        <div class="hero-top">
+            <span class="badge-verified">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                آماده دفاع کارشناسی و ارائه به استاد راهنما
+            </span>
+            <div style="display: flex; gap: 10px;">
+                <button class="print-btn" onclick="window.print()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    چاپ / ذخیره PDF
+                </button>
+                <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                    حالت روشن / تاریک
+                </button>
+            </div>
+        </div>
+
+        <h1>سامانه هوشمند DocSearch</h1>
+        <p>موتور سازمانی جستجوی معنایی و پرسش‌وپاسخ استنادمحور از اسناد و مقررات دانشگاهی بر پایه معماری RAG ترکیبی (Hybrid)، پایگاه داده برداری pgvector و مدل زبان فارسی.</p>
+
+        <div class="tech-stack-pills">
+            <span class="tech-pill accent">.NET 10 LTS (C# 14)</span>
+            <span class="tech-pill">Clean Architecture</span>
+            <span class="tech-pill accent">PostgreSQL 16 + pgvector (HNSW)</span>
+            <span class="tech-pill">PyMuPDF Sidecar (FastAPI)</span>
+            <span class="tech-pill accent">Ollama bge-m3 (1024-dim)</span>
+            <span class="tech-pill">Gemini Flash (OpenAI-compatible)</span>
+            <span class="tech-pill">Reciprocal Rank Fusion (RRF)</span>
+            <span class="tech-pill">Full-Text Search (tsvector)</span>
+            <span class="tech-pill">۳۵۲ تست سبز (xUnit + Testcontainers)</span>
+        </div>
+
+        <div class="search-box-wrapper">
+            <input type="text" id="globalSearchInput" class="search-box" placeholder="جستجوی سریع میان مفاهیم، گام‌های پایپلاین، تصمیمات ADR و سوالات دفاع..." oninput="handleGlobalSearch(this.value)">
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" id="mainNavTabs">
+        <button class="tab-btn active" onclick="switchTab('tab-concepts', this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            ۱. مربی مفاهیم پایه و شبیه‌سازها
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-arch', this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+            ۲. کاوشگر معماری تمیز (Clean Architecture)
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-pipelines', this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+            ۳. شبیه‌ساز گام‌به‌گام پایپلاین‌ها
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-adr', this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            ۴. ماتریس تصمیمات مهندسی (ADR)
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-qa', this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            ۵. شبیه‌ساز دفاع: ۲۰ سؤال طلایی
+        </button>
+        <button class="tab-btn" onclick="switchTab('tab-progress', this)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+            ۶. گزارش پیشرفت و تسک‌ها
+        </button>
+    </nav>
+
+    <!-- ==================== TAB 1: CONCEPTS & SIMULATORS ==================== -->
+    <section id="tab-concepts" class="tab-panel active">
+        <div class="grid-2">
+            <!-- Concept 1: RAG vs Fine-Tuning -->
+            <div class="card searchable-item">
+                <div class="card-header">
+                    <h3 class="card-title">📖 معماری RAG در برابر Fine-Tuning</h3>
+                    <span class="badge-difficulty diff-easy">مفهوم کلیدی</span>
+                </div>
+                <p><strong>تمثیل ملموس:</strong> امتحان کتاب‌باز در برابر امتحان حفظی. مدل‌های زبانی در امتحان حفظی دچار «توهم» (Hallucination) می‌شوند زیرا اسناد محرمانه دانشگاهی در وزن‌های آن‌ها وجود ندارد. در RAG، ما ابتدا اسناد مرتبط را واکشی کرده، پیش روی مدل قرار داده و پاسخ استنادمحور می‌گیریم.</p>
+                <div style="margin-top: 14px; font-size: 0.9rem; color: var(--text-secondary);">
+                    • <strong>چرا Fine-Tuning مناسب اسناد نیست؟</strong> هزینه سرسام‌آور GPU، زمان طولانی آموزش، ناتوانی در ارائه شماره صفحه و عدم امکان حذف آنی اسناد ابطال‌شده.
+                </div>
+            </div>
+
+            <!-- Concept 2: HNSW vs Flat -->
+            <div class="card searchable-item">
+                <div class="card-header">
+                    <h3 class="card-title">🌐 گراف برداری HNSW در pgvector</h3>
+                    <span class="badge-difficulty diff-medium">پایگاه داده</span>
+                </div>
+                <p><strong>Hierarchical Navigable Small World:</strong> ساختار گرافی چندلایه مشابه Skip-List در فضا با پیچیدگی جستجوی <code>O(log N)</code>. برخلاف جستجوی خطی Flat با <code>O(N)</code> و کلاستربندی IVFFlat (که با فیلتر دسترسی کالکشن‌ها به شدت افت بازخوانی دارد)، HNSW پایداری کامل دارد.</p>
+                <div style="margin-top: 14px; font-size: 0.9rem; color: var(--text-secondary);">
+                    • در کوئری‌های ما: <span class="code-tag">SET LOCAL hnsw.ef_search = 100</span> و <span class="code-tag">iterative_scan = strict_order</span> جهت تضمین Recall حتی در فیلترینگ شدید.
+                </div>
+            </div>
+
+            <!-- Simulator 1: Cosine Similarity Visualizer -->
+            <div class="card searchable-item">
+                <div class="card-header">
+                    <h3 class="card-title">📐 شبیه‌ساز تعاملی فاصله و شباهت کسینوسی</h3>
+                    <span class="badge-difficulty diff-medium">ریاضیات بردار</span>
+                </div>
+                <p>در مدل <code>bge-m3</code> بردارها با ابعاد ۱۰۲۴ تولید و به طول ۱ نرمال‌سازی هندسی (L2 Normalized) می‌شوند. عملگر <code>&lt;=&gt;</code> در pgvector فاصله کسینوسی را برمی‌گرداند.</p>
+                
+                <div class="sim-container">
+                    <div class="slider-label">
+                        <span>زاویه بین بردار سوال و بردار چانک سند (θ):</span>
+                        <span id="angleValue" style="color: var(--accent-primary); font-family: monospace; font-size: 1.1rem;">50°</span>
+                    </div>
+                    <input type="range" id="angleSlider" min="0" max="90" value="50" oninput="updateCosineSim(this.value)">
+
+                    <div class="metric-display-box">
+                        <div class="metric-item">
+                            <div class="metric-val" id="cosSimVal">0.6428</div>
+                            <div class="metric-label">شباهت کسینوسی (Similarity)</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-val" id="cosDistVal">0.3572</div>
+                            <div class="metric-label">فاصله در pgvector (&lt;=&gt;)</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-val" id="simStatus" style="font-size: 1rem;">مرزی / مرتبط</div>
+                            <div class="metric-label">وضعیت فیلتر (Cutoff: 0.55)</div>
+                        </div>
+                    </div>
+                    <p id="simExplanation" style="margin-top: 12px; font-size: 0.85rem; color: var(--text-secondary);">
+                        در داده‌های ارزیابی، سوالات کاملاً بی‌ربط به شباهت ~0.36 می‌رسند، سوالات پاسخ‌پذیر در بازه 0.59 تا 0.77 قرار دارند.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Simulator 2: RRF Rank Fusion Calculator -->
+            <div class="card searchable-item">
+                <div class="card-header">
+                    <h3 class="card-title">🧮 ماشین‌حساب ادغام رتبه متقابل (RRF)</h3>
+                    <span class="badge-difficulty diff-medium">الگوریتم بازیابی</span>
+                </div>
+                <p>فرمول استاندارد ادغام: <span class="code-tag">RRF(d) = Σ 1 / (60 + r_m(d))</span>. به جای جمع بستن امتیازهای ناهمگن کسینوسی و متنی، رتبه‌های سه‌گانه با هم ادغام می‌شوند.</p>
+
+                <div class="sim-container">
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 120px;">
+                            <label style="font-size: 0.85rem; font-weight: 600;">رتبه در برداری (Vector):</label>
+                            <input type="number" id="rrfRankVec" class="search-box" style="padding: 8px 12px; margin-top: 4px;" value="2" min="1" max="100" oninput="calculateRRF()">
+                        </div>
+                        <div style="flex: 1; min-width: 120px;">
+                            <label style="font-size: 0.85rem; font-weight: 600;">رتبه در متنی (FTS):</label>
+                            <input type="number" id="rrfRankFts" class="search-box" style="padding: 8px 12px; margin-top: 4px;" value="1" min="1" max="100" oninput="calculateRRF()">
+                        </div>
+                        <div style="flex: 1; min-width: 120px;">
+                            <label style="font-size: 0.85rem; font-weight: 600;">رتبه ارجاع ماده (Ref):</label>
+                            <input type="number" id="rrfRankRef" class="search-box" style="padding: 8px 12px; margin-top: 4px;" value="1" min="1" max="100" oninput="calculateRRF()">
+                        </div>
+                    </div>
+
+                    <div class="metric-display-box">
+                        <div class="metric-item">
+                            <div class="metric-val" id="rrfScoreVal">0.0489</div>
+                            <div class="metric-label">امتیاز ادغام RRF (k=60)</div>
+                        </div>
+                        <div class="metric-item">
+                            <div class="metric-val" id="rrfInterpretation" style="font-size: 1.1rem; color: var(--accent-success);">عالی (رتبه ۱ نهایی)</div>
+                            <div class="metric-label">وضعیت در Top-K</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== TAB 2: CLEAN ARCHITECTURE ==================== -->
+    <section id="tab-arch" class="tab-panel">
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="card-header">
+                <h3 class="card-title">🏗️ معماری تمیز ۴ لایه سیستم (.NET 10 LTS) + سایدکار پایتون</h3>
+                <span class="badge-verified">تست‌پذیری ۱۰۰٪ با Fake Providers</span>
+            </div>
+            <p>روی هر یک از لایه‌های زیر کلیک کنید تا جزئیات کلاسی، قراردادها و مرزبندی لایه‌ها نمایش داده شود:</p>
+        </div>
+
+        <div class="arch-diagram-wrapper">
+            <div class="arch-layer-bar selected" onclick="selectArchLayer('api', this)">
+                <div class="arch-layer-title">
+                    <span style="color: #60a5fa; font-family: monospace;">[Layer 4]</span>
+                    <strong>DocSearch.Api (نقطه ورود، کنترلرها و Composition Root)</strong>
+                </div>
+                <span class="code-tag">ASP.NET Core Web API • JWT Auth</span>
+            </div>
+
+            <div class="arch-layer-bar" onclick="selectArchLayer('infra', this)">
+                <div class="arch-layer-title">
+                    <span style="color: #c084fc; font-family: monospace;">[Layer 3]</span>
+                    <strong>DocSearch.Infrastructure (پایگاه داده، صف ناهمگام و ابزارهای بیرونی)</strong>
+                </div>
+                <span class="code-tag">EF Core • PgVector • Channels • Ollama</span>
+            </div>
+
+            <div class="arch-layer-bar" onclick="selectArchLayer('app', this)">
+                <div class="arch-layer-title">
+                    <span style="color: #34d399; font-family: monospace;">[Layer 2]</span>
+                    <strong>DocSearch.Application (قراردادها، منطق چانکینگ و موتور بازیابی)</strong>
+                </div>
+                <span class="code-tag">Pure Logic • Contracts • Retriever • Normalizer</span>
+            </div>
+
+            <div class="arch-layer-bar" onclick="selectArchLayer('domain', this)">
+                <div class="arch-layer-title">
+                    <span style="color: #fbbf24; font-family: monospace;">[Layer 1]</span>
+                    <strong>DocSearch.Domain (موجودیت‌های ناب و اینام‌ها)</strong>
+                </div>
+                <span class="code-tag">Entities • Enums • Zero Dependencies</span>
+            </div>
+
+            <div class="arch-layer-bar" onclick="selectArchLayer('sidecar', this)">
+                <div class="arch-layer-title">
+                    <span style="color: #f87171; font-family: monospace;">[Sidecar]</span>
+                    <strong>Microservice Sidecar (FastAPI + PyMuPDF)</strong>
+                </div>
+                <span class="code-tag">tools/extractor • Port 8000 • MuPDF C++</span>
+            </div>
+        </div>
+
+        <!-- Detail panel for selected layer -->
+        <div id="archDetailPanel" class="arch-detail-panel">
+            <h4 id="archDetailTitle" style="font-size: 1.3rem; margin-bottom: 10px; color: var(--accent-primary);">DocSearch.Api</h4>
+            <div id="archDetailContent" style="color: var(--text-secondary); line-height: 1.8;">
+                مسئول دریافت درخواست‌های HTTP، اعتبارسنجی احراز هویت با JWT، کنترل دسترسی کاربران و نگاشت استثناها به استاندارد RFC 7807 (ProblemDetails).<br>
+                <strong>کنترلرهای اصلی:</strong> DocumentsController, AskController, CollectionsController, AuthController, AdminController.<br>
+                <strong>امنیت سوکت:</strong> پیکربندی 50MB Headroom در Kestrel برای تضمین صدور خطای 413 Payload Too Large به جای قطع ناگهانی کانکشن TCP.
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== TAB 3: PIPELINES STEPPER ==================== -->
+    <section id="tab-pipelines" class="tab-panel">
+        <div class="stepper-header">
+            <button class="flow-switch-btn active" id="btnFlowIngestion" onclick="switchPipeline('ingestion')">
+                📥 پایپلاین ورود و پردازش سند (Ingestion Flow)
+            </button>
+            <button class="flow-switch-btn" id="btnFlowAsk" onclick="switchPipeline('ask')">
+                ❓ پایپلاین پرسش و پاسخ (Ask / Hybrid RAG Flow)
+            </button>
+        </div>
+
+        <!-- Step Pills -->
+        <div class="steps-container" id="stepsPillsContainer">
+            <!-- Dynamically populated by JS -->
+        </div>
+
+        <!-- Active Step Detail Card -->
+        <div class="step-detail-card" id="stepDetailCard">
+            <!-- Dynamically populated by JS -->
+        </div>
+    </section>
+
+    <!-- ==================== TAB 4: ADR BENCHMARK MATRIX ==================== -->
+    <section id="tab-adr" class="tab-panel">
+        <div class="grid-2">
+            <!-- Benchmark 1: PDF Extractor -->
+            <div class="card searchable-item">
+                <div class="card-header">
+                    <h3 class="card-title">📊 مقایسه تجربی موتورهای استخراج PDF (ADR-0002)</h3>
+                    <span class="badge-difficulty diff-hard">۱۲ سند، ۱۳۰ صفحه</span>
+                </div>
+                <p>در آزمون فاز صفر روی اسناد فارسی و مقررات، کتابخانه‌های مبتنی بر C# دچار خطای جهت‌دهی بصری شدند:</p>
+                
+                <div class="styled-table-wrapper">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>موتور استخراج</th>
+                                <th>میانگین کیفیت</th>
+                                <th>صفحات متن معکوس</th>
+                                <th>زمان استخراج کل</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr style="background: rgba(16, 185, 129, 0.1); font-weight: bold;">
+                                <td>PyMuPDF (سایدکار پایتون)</td>
+                                <td>0.892</td>
+                                <td style="color: var(--accent-success);">۰ از ۱۳۰ (۰.۰٪)</td>
+                                <td>1.54 ثانیه (0.012 s/p)</td>
+                            </tr>
+                            <tr>
+                                <td>pdfplumber</td>
+                                <td>0.700</td>
+                                <td style="color: var(--accent-danger);">۵۰ از ۱۳۰ (۳۸.۵٪)</td>
+                                <td>17.43 ثانیه</td>
+                            </tr>
+                            <tr>
+                                <td>PdfPig (داخلی دات‌نت)</td>
+                                <td>0.700</td>
+                                <td style="color: var(--accent-danger);">۵۰ از ۱۳۰ (۳۸.۵٪)</td>
+                                <td>3.26 ثانیه</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p style="margin-top: 12px; font-size: 0.85rem; color: var(--text-secondary);">
+                    <strong>تصمیم:</strong> استقرار PyMuPDF در قالب سایدکار ایزوله Docker جهت حفظ سلامت و ترتیب خوانش ۱۰۰٪ کلمات فارسی.
+                </p>
+            </div>
+
+            <!-- Benchmark 2: Token Counter Calibration -->
+            <div class="card searchable-item">
+                <div class="card-header">
+                    <h3 class="card-title">🎯 کالیبراسیون شمارنده توکن بر پایه صدک ۹۰ (ADR-0003)</h3>
+                    <span class="badge-difficulty diff-medium">مدل bge-m3</span>
+                </div>
+                <p>چرا بهینه‌سازی میانگین خطای مطلق (MAPE) رد شد و ضریب P90 انتخاب شد؟</p>
+                <div class="styled-table-wrapper">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>زبان / ساختار متن</th>
+                                <th>ضریب بهینه MAPE</th>
+                                <th>نرخ کم‌تخمینی در MAPE</th>
+                                <th>ضریب مصوب P90</th>
+                                <th>پوشش بدون کم‌تخمینی</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>فارسی</strong> (متون سازمانی)</td>
+                                <td>1.35</td>
+                                <td style="color: var(--accent-danger);">54.3% (بسیار خطرناک)</td>
+                                <td style="color: var(--accent-success); font-weight: bold;">1.45</td>
+                                <td><strong>94.3%</strong> (امن در برابر سرریز)</td>
+                            </tr>
+                            <tr>
+                                <td><strong>لاتین / فرمول‌ها</strong></td>
+                                <td>1.80</td>
+                                <td style="color: var(--accent-danger);">60.0%</td>
+                                <td style="color: var(--accent-success); font-weight: bold;">2.25</td>
+                                <td><strong>92.0%</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p style="margin-top: 12px; font-size: 0.85rem; color: var(--text-secondary);">
+                    <strong>علت رد MAPE:</strong> دست‌کم گرفتن توکن باعث ارسال متن بیشتر از سقف ۵۰۰ توکن به پردازنده CPU، کندی نمایی و بروز خطای Context Limit می‌شد.
+                </p>
+            </div>
+
+            <!-- Benchmark 3: Hybrid Retrieval Impact -->
+            <div class="card searchable-item" style="grid-column: 1 / -1;">
+                <div class="card-header">
+                    <h3 class="card-title">🚀 جهش بازخوانی با جستجوی ترکیبی و ArticleKeys (ADR-0005)</h3>
+                    <span class="badge-verified">ارزیابی بر روی ۵۲ سوال پاسخ‌پذیر دانشگاهی</span>
+                </div>
+                <p>افزودن تطابق کلمات کلیدی (FTS) و ایندکس GIN روی مواد قانونی (<code>article_keys</code>) پاشنه آشیل بردارها را در سوالات ارجاع‌محور حل کرد:</p>
+
+                <div class="styled-table-wrapper">
+                    <table class="styled-table">
+                        <thead>
+                            <tr>
+                                <th>روش بازیابی</th>
+                                <th>Recall@1</th>
+                                <th>Recall@3</th>
+                                <th>Recall@5</th>
+                                <th>Recall@10</th>
+                                <th>MRR (میانگین رتبه متقابل)</th>
+                                <th>وضعیت سوال بحرانی q015 (ماده ۷)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>جستجوی برداری خالص (Legal Vector)</td>
+                                <td>75.0%</td>
+                                <td>88.5%</td>
+                                <td>90.4%</td>
+                                <td>94.2%</td>
+                                <td>0.8282</td>
+                                <td style="color: var(--accent-danger);">رتبه ۱۲ (عدم پاسخ در Top-5)</td>
+                            </tr>
+                            <tr style="background: rgba(59, 130, 246, 0.12); font-weight: bold;">
+                                <td>جستجوی ترکیبی RRF + ArticleKeys (پروژه نهایی)</td>
+                                <td>76.9%</td>
+                                <td style="color: var(--accent-success);">96.2% (+7.7%)</td>
+                                <td style="color: var(--accent-success);">96.2% (+5.8%)</td>
+                                <td>98.1%</td>
+                                <td style="color: var(--accent-success);">0.8614 (+0.0332)</td>
+                                <td style="color: var(--accent-success);">صعود به رتبه ۱ (Hit@1 = True)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================== TAB 5: DEFENSE FLASHCARDS ==================== -->
+    <section id="tab-qa" class="tab-panel">
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="card-header">
+                <h3 class="card-title">🎓 شبیه‌ساز جلسه دفاع: ۲۰ پرسش چالش‌برانگیز اساتید و پاسخ‌های طلایی</h3>
+                <button class="answer-reveal-btn" onclick="revealRandomQuestion()">
+                    🎲 تمرین تصادفی (Random Question)
+                </button>
+            </div>
+            <p>این پرسش‌ها مستقیماً بر اساس مباحث چالش‌برانگیز داوران هوش مصنوعی و نرم‌افزار گردآوری شده است:</p>
+            
+            <div class="filter-tags-row" style="margin-top: 14px;">
+                <button class="tag-btn active" onclick="filterFlashcards('all', this)">همه پرسش‌ها (۲۰)</button>
+                <button class="tag-btn" onclick="filterFlashcards('معماری', this)">معماری نرم‌افزار</button>
+                <button class="tag-btn" onclick="filterFlashcards('هوش مصنوعی', this)">هوش مصنوعی و RAG</button>
+                <button class="tag-btn" onclick="filterFlashcards('امنیت', this)">امنیت و کنترل دسترسی</button>
+                <button class="tag-btn" onclick="filterFlashcards('زبان فارسی', this)">پردازش زبان فارسی</button>
+            </div>
+        </div>
+
+        <div id="flashcardsContainer">
+            <!-- 20 Flashcards populated below -->
+        </div>
+    </section>
+
+    <!-- ==================== TAB 6: PROGRESS REPORT ==================== -->
+    <section id="tab-progress" class="tab-panel">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">📋 جدول گزارش پیشرفت تفصیلی برای استاد راهنما (T00 تا T13)</h3>
+                <span class="badge-verified">تمامی ۳۵۲ تست سبز</span>
+            </div>
+            <p>خلاصه فعالیت‌ها، خروجی‌های مهندسی و تعهدات پیاده‌سازی‌شده در برنچ‌های گیت:</p>
+
+            <div class="styled-table-wrapper">
+                <table class="styled-table">
+                    <thead>
+                        <tr>
+                            <th>شناسه تسک</th>
+                            <th>عنوان دستاورد</th>
+                            <th>برنچ گیت</th>
+                            <th>خروجی‌های کلیدی و تاییدیه</th>
+                            <th>وضعیت</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>T00</strong></td>
+                            <td>راه‌اندازی اسکلت و استانداردهای رپو</td>
+                            <td><code>feature/T00-bootstrap</code></td>
+                            <td>تنظیم global.json، editorconfig، اسناد اولیه و ADR-0001</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T01</strong></td>
+                            <td>بنچمارک فاز صفر (اکسترکتور و امبدینگ)</td>
+                            <td><code>feature/T01-phase0-experiments</code></td>
+                            <td>انتخاب PyMuPDF (کیفیت 0.892) و مدل bge-m3 (Recall@5: 90.4%) و ثبت ADR-0002</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T01B</strong></td>
+                            <td>طراحی سوئیت آزمون جعبه‌سیاه انطباق (Conformance)</td>
+                            <td><code>feature/T01B-conformance-skeleton</code></td>
+                            <td>۲۴ تست انطباق در pytest با اعتبارسنجی مستقل از پیاده‌سازی</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T02</strong></td>
+                            <td>اسکلت سلوشن دات‌نت ۱۰ و داکر پستگرس</td>
+                            <td><code>feature/T02-skeleton-db-health</code></td>
+                            <td>۴ لایه Clean Architecture، پرابلم دیتیلز RFC 7807 و هلث‌چک</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T03</strong></td>
+                            <td>مدل دامنه و ماندگاری داده با pgvector</td>
+                            <td><code>feature/T03-domain-persistence</code></td>
+                            <td>مایگریشن‌های EF Core، شاخص‌های HNSW برداری و تست‌های Testcontainers</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T04</strong></td>
+                            <td>موتور نرمال‌سازی ۳ لایه‌ای فارسی</td>
+                            <td><code>feature/T04-persian-normalizer</code></td>
+                            <td>PersianTextNormalizer با ۵۲ تست واحد و آزمون خودتوانی (Idempotency)</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T05</strong></td>
+                            <td>سایدکار استخراجگر پایتونی PyMuPDF</td>
+                            <td><code>feature/T05-extractor-adapter</code></td>
+                            <td>سرویس FastAPI، کلاینت HttpPdfExtractor با تلاش مجدد و امتیازدهی PageQualityScorer</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T06 / T06b</strong></td>
+                            <td>چانکر آگاه از ساختار حقوقی و تصحیح مرزها</td>
+                            <td><code>feature/T06b-chunker-hardening</code></td>
+                            <td>LegalAwareChunker، شمارنده P90 توکن، شناسایی عیوب فونت و ثبت ADR-0003 و 0004</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T07</strong></td>
+                            <td>ارائه‌دهنده امبدینگ و دکوراتورهای تاب‌آوری</td>
+                            <td><code>feature/T07-embedding-provider</code></td>
+                            <td>اتصال به Ollama، دکوراتور Batching (دسته‌های ۴تایی) و Retrying نمایی</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T08</strong></td>
+                            <td>مخزن برداری و بازیابی پایه</td>
+                            <td><code>feature/T08-vector-store-retrieval</code></td>
+                            <td>PgVectorStore و Retriever برداری و تضمین ایزولاسیون مجموعه‌ها</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T09</strong></td>
+                            <td>پایپلاین ورود و صف پردازش پس‌زمینه سند</td>
+                            <td><code>feature/T09-upload-and-ingestion</code></td>
+                            <td>LocalFileStorage امن، IngestionQueue با کانال محدود، IngestionWorker با خودترمیمی در استارتاپ</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T10</strong></td>
+                            <td>اندپوینت پرسش و پاسخ (RAG Ask)</td>
+                            <td><code>feature/T10-rag-ask-endpoint</code></td>
+                            <td>RagService، PromptBuilder، اعتبارسنجی ارجاعات CitationParser و حالت تنزل‌یافته (Degraded)</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T11</strong></td>
+                            <td>بازیابی ترکیبی (Hybrid)، کلید مواد و RRF</td>
+                            <td><code>feature/T11-hybrid-retrieval</code></td>
+                            <td>جهش Recall@5 به 96.2%، افزودن ArticleKeys، رتبه‌بندی RRF و ثبت ADR-0005</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>T13</strong></td>
+                            <td>احراز هویت JWT، مدیریت مجموعه‌ها و ACL</td>
+                            <td><code>feature/T13-auth-collections-acl</code></td>
+                            <td>سیستم Identity، رول‌های Viewer/Editor/Owner، اصل عدم افشای منبع (Non-enumeration) و پاس شدن ۲۴ تست کانفورمنس</td>
+                            <td><span class="badge-verified">تکمیل</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<script>
+    // Global Theme Toggle
+    function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('docsearch_theme', newTheme);
+    }
+
+    // Initialize Theme
+    const savedTheme = localStorage.getItem('docsearch_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+
+    // Tab Switching
+    function switchTab(tabId, btnElement) {
+        document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        if (btnElement) btnElement.classList.add('active');
+    }
+
+    // Cosine Sim Visualizer
+    function updateCosineSim(angleDeg) {
+        const rad = angleDeg * (Math.PI / 180);
+        const cosSim = Math.cos(rad);
+        const cosDist = 1.0 - cosSim;
+
+        document.getElementById('angleValue').innerText = angleDeg + '°';
+        document.getElementById('cosSimVal').innerText = cosSim.toFixed(4);
+        document.getElementById('cosDistVal').innerText = cosDist.toFixed(4);
+
+        const statusEl = document.getElementById('simStatus');
+        if (cosSim >= 0.65) {
+            statusEl.innerText = "مرتبط قطعی (قوی)";
+            statusEl.style.color = "var(--accent-success)";
+        } else if (cosSim >= 0.55) {
+            statusEl.innerText = "مرتبط مرزی (پذیرفته در گیت)";
+            statusEl.style.color = "var(--accent-warning)";
+        } else {
+            statusEl.innerText = "رد زودهنگام (Pre-LLM Reject)";
+            statusEl.style.color = "var(--accent-danger)";
+        }
+    }
+
+    // RRF Calculator
+    function calculateRRF() {
+        const rVec = parseInt(document.getElementById('rrfRankVec').value) || 100;
+        const rFts = parseInt(document.getElementById('rrfRankFts').value) || 100;
+        const rRef = parseInt(document.getElementById('rrfRankRef').value) || 100;
+        const k = 60;
+
+        const score = (1.0 / (k + rVec)) + (1.0 / (k + rFts)) + (1.0 / (k + rRef));
+        document.getElementById('rrfScoreVal').innerText = score.toFixed(4);
+
+        const interpEl = document.getElementById('rrfInterpretation');
+        if (score >= 0.04) {
+            interpEl.innerText = "عالی (رتبه ۱ یا ۲ نهایی)";
+            interpEl.style.color = "var(--accent-success)";
+        } else if (score >= 0.025) {
+            interpEl.innerText = "خوب (در بین ۵ چانک برتر)";
+            interpEl.style.color = "var(--accent-primary)";
+        } else {
+            interpEl.innerText = "پایین (احتمال خروج از کانتکست)";
+            interpEl.style.color = "var(--accent-warning)";
+        }
+    }
+
+    // Clean Architecture Details
+    const archDetails = {
+        api: {
+            title: "DocSearch.Api (Composition Root & Controllers)",
+            content: `
+                مسئول دریافت درخواست‌های HTTP، اعتبارسنجی احراز هویت با JWT، کنترل دسترسی کاربران و نگاشت استثناها به استاندارد RFC 7807 (ProblemDetails).<br>
+                • <strong>کنترلرهای اصلی:</strong> <span class="code-tag">DocumentsController</span>, <span class="code-tag">AskController</span>, <span class="code-tag">CollectionsController</span>, <span class="code-tag">AuthController</span>, <span class="code-tag">AdminController</span>.<br>
+                • <strong>امنیت سوکت:</strong> ایجاد 50MB Headroom در پیکربندی Kestrel جهت جلوگیری از خطای ناگهانی سوکت و بازگرداندن خطای معتبر 413.<br>
+                • <strong>تزریق وابستگی (DI):</strong> ثبت و راه‌اندازی تمامی سرویس‌های لایه‌های زیرین بدون درز جزئیات پیاده‌سازی.
+            `
+        },
+        infra: {
+            title: "DocSearch.Infrastructure (Persistence & External Providers)",
+            content: `
+                پیاده‌سازی تمامی اینترفیس‌های لایه Application با ابزارهای واقعی سخت‌افزاری و نرم‌افزاری:<br>
+                • <strong>پایگاه داده:</strong> <span class="code-tag">PgVectorStore</span> بر بستر Npgsql و EF Core با تنظیم دستورات گراف HNSW.<br>
+                • <strong>صف و پردازش پس‌زمینه:</strong> <span class="code-tag">IngestionQueue</span> مبتنی بر Bounded Channels و ورکر خودترمیم‌شونده <span class="code-tag">IngestionWorker</span>.<br>
+                • <strong>هوش مصنوعی:</strong> اتصال به Ollama با مدل bge-m3 و دکوراتورهای Batching (دسته‌های ۴تایی با نرمال‌سازی L2) و Retrying نمایی.<br>
+                • <strong>ذخیره‌سازی دیسک:</strong> <span class="code-tag">LocalFileStorage</span> با تولید شناسه‌های تصادفی امن و جلوگیری از Path Traversal.
+            `
+        },
+        app: {
+            title: "DocSearch.Application (Pure Business Logic & Contracts)",
+            content: `
+                هسته خالص قوانین تجاری و الگوریتم‌های پردازشی پروژه، مستقل از نوع دیتابیس و فرم‌ورک وب:<br>
+                • <strong>قراردادها:</strong> تعریف تمامی اینترفیس‌ها در <span class="code-tag">Contracts.cs</span> که تست‌پذیری با Fake Providers را به ارمغان می‌آورد.<br>
+                • <strong>پردازش زبان فارسی:</strong> <span class="code-tag">PersianTextNormalizer</span> در ۳ لایه مجزا با آزمون‌های خودتوانی (Idempotency).<br>
+                • <strong>چانکینگ حقوقی:</strong> <span class="code-tag">LegalAwareChunker</span>، شمارنده کالیبره‌شده P90 در <span class="code-tag">HeuristicTokenCounter</span> و عیب‌یاب <span class="code-tag">TextDefectDetector</span>.<br>
+                • <strong>بازیابی و فیوژن:</strong> ادغام رتبه متقابل در <span class="code-tag">RankFusion</span> و استخراج مواد در <span class="code-tag">LegalReferenceExtractor</span>.
+            `
+        },
+        domain: {
+            title: "DocSearch.Domain (Pure Entities & Enums)",
+            content: `
+                پایه‌ای‌ترین لایه سامانه با صفر وابستگی به فریم‌ورک‌ها و پکیج‌های شخص ثالث:<br>
+                • <strong>موجودیت‌ها (Entities):</strong> <span class="code-tag">Document</span>, <span class="code-tag">Chunk</span>, <span class="code-tag">Collection</span>, <span class="code-tag">CollectionMember</span>, <span class="code-tag">Conversation</span>, <span class="code-tag">Message</span>, <span class="code-tag">ReindexJob</span>.<br>
+                • <strong>وضعیت‌ها و نقش‌ها:</strong> <span class="code-tag">DocumentStatus</span> (Uploaded, Processing, Ready, Failed) و <span class="code-tag">CollectionRole</span> (Viewer, Editor, Owner).<br>
+                • بدون هرگونه انوتیشن خاص EF Core، تضمین‌کننده اصول استقلال دامنه.
+            `
+        },
+        sidecar: {
+            title: "Microservice Sidecar (FastAPI + PyMuPDF)",
+            content: `
+                سرویس سبک پایتونی مستقر در پوشه <span class="code-tag">tools/extractor</span> روی پورت 8000:<br>
+                • <strong>دلیل معماری:</strong> رفع مشکل حیاتی معکوس‌سازی متون فارسی در لایبرری‌های C# (مانند PdfPig) و بهره‌گیری از سرعت و دقت بالای موتور C++ کتابخانه MuPDF.<br>
+                • <strong>امنیت و ایزولاسیون:</strong> محافظت از پروسس اصلی وب دات‌نت در برابر کرش‌های احتمالی حافظه در فایل‌های آسیب‌دیده PDF.<br>
+                • <strong>لایسنس:</strong> ایزوله‌سازی لایسنس AGPL-3.0 در مرز وب‌سرویس HTTP.
+            `
+        }
+    };
+
+    function selectArchLayer(layerKey, element) {
+        document.querySelectorAll('.arch-layer-bar').forEach(bar => bar.classList.remove('selected'));
+        element.classList.add('selected');
+
+        const detail = archDetails[layerKey];
+        document.getElementById('archDetailTitle').innerText = detail.title;
+        document.getElementById('archDetailContent').innerHTML = detail.content;
+    }
+
+    // Pipelines Stepper Data
+    const pipelineData = {
+        ingestion: [
+            {
+                title: "۱. دریافت و اعتبارسنجی اولیه",
+                class: "DocumentsController.UploadDocument",
+                desc: "بررسی دسترسی کاربر (Editor)، فرمت PDF، محدودیت حجم فایل و امضای استریم.",
+                inOut: "ورودی: IFormFile و CollectionId | خروجی: شناسه سند و وضعیت 202 Accepted"
+            },
+            {
+                title: "۲. استریم امن و ذخیره دیسک",
+                class: "PdfValidatingStream & LocalFileStorage",
+                desc: "بررسی بایت‌های جادویی %PDF-، محاسبه همزمان هش SHA-256، جلوگیری از حملات Path Traversal با Guid.CreateVersion7() و رد فایل‌های تکراری (409 Conflict).",
+                inOut: "ورودی: استریم فایل | خروجی: هش SHA-256 و مسیر فیزیکی امن روی دیسک"
+            },
+            {
+                title: "۳. صف ناهمگام و ادعای اتمیک",
+                class: "IngestionQueue & IngestionWorker",
+                desc: "تزریق شناسه به BoundedChannel با سیاست Backpressure. تغییر وضعیت اتمیک با ExecuteUpdateAsync از Uploaded به Processing.",
+                inOut: "ورودی: شناسه سند | خروجی: شروع پردازش در ورکر پس‌زمینه"
+            },
+            {
+                title: "۴. استخراج متن در سایدکار",
+                class: "HttpPdfExtractor -> tools/extractor",
+                desc: "ارسال فایل به سایدکار PyMuPDF با مکانیزم تلاش مجدد نمایی (Exponential Retry در فواصل ۲۰۰ و ۸۰۰ میلی‌ثانیه). استخراج ترتیبی صفحات.",
+                inOut: "ورودی: بایت‌های PDF | خروجی: لیست صفحات و متن خام بدون خطای وارونگی حروف"
+            },
+            {
+                title: "۵. پاکسازی و چانکینگ قانونی",
+                class: "HeaderFooterCleaner & LegalAwareChunker",
+                desc: "حذف سرصفحه/پاصفحه در اسناد بالای ۴ صفحه، تشخیص عیوب قلم در TextDefectDetector، مرزبندی دقیق مواد قانونی و تبصره‌ها، و کالیبراسیون توکن با ضریب P90 برابر 1.45.",
+                inOut: "ورودی: متن تمیز صفحات | خروجی: لیست ChunkDraft با سقف ۵۰۰ توکن و کلیدهای ArticleKeys"
+            },
+            {
+                title: "۶. تولید بردار دستههای ۴تایی",
+                class: "PassageEmbedder -> Ollama (bge-m3)",
+                desc: "ارسال چانک‌ها در دسته‌های ۴تایی به Ollama، استخراج بردارهای ۱۰۲۴ بعدی و نرمال‌سازی هندسی L2 بردارها.",
+                inOut: "ورودی: متن چانک‌ها | خروجی: بردارهای ۱۰۲۴ بعدی واحد (Unit Vectors)"
+            },
+            {
+                title: "۷. تراکنش کوتاه ذخیره نهایی",
+                class: "PgVectorStore.AddChunksAsync",
+                desc: "در یک تراکنش اتمیک کوتاه: حذف چانک‌های قبلی، درج چانک‌ها با بردارها و آرایه article_keys، و تغییر وضعیت سند به Ready.",
+                inOut: "ورودی: ChunkRecords | خروجی: سند آماده جستجو و در دسترس کاربران"
+            }
+        ],
+        ask: [
+            {
+                title: "۱. دریافت سوال و فیلتر امنیتی ACL",
+                class: "AskController.Ask & AccessService",
+                desc: "دریافت سوال، استخراج کاربر از JWT، فیلتر کالکشن‌های مجاز مستقیماً در دیتابیس (عدم نشت اطلاعات) و بررسی مالکیت ConversationId.",
+                inOut: "ورودی: AskRequest (متن سوال و شناسه‌ها) | خروجی: لیست کالکشن‌های مجاز"
+            },
+            {
+                title: "۲. استخراج ارجاعات و ساخت FTS",
+                class: "LegalReferenceExtractor & TsQueryBuilder",
+                desc: "نرمال‌سازی سوال در PersianTextNormalizer، استخراج عبارات قانونی (مانند 'ماده ۱۵')، حذف کلمات توقف (Stopwords) و ساخت کوئری امن tsquery.",
+                inOut: "ورودی: سوال کاربر | خروجی: بردار سوال، ارجاع مواد، و رشته tsquery"
+            },
+            {
+                title: "۳. جستجوی هیبریدی در پستگرس",
+                class: "PgVectorStore.SearchHybridAsync",
+                desc: "اجرای ترتیبی ۳ کوئری در یک کانکشن: جستجوی گراف HNSW، تطابق متنی ts_rank_cd، و فیلتر ایندکس GIN روی article_keys. محاسبه شباهت کسینوسی واقعی برای همه.",
+                inOut: "ورودی: بردار، tsquery و کلیدها | خروجی: کاندیداهای برداری، متنی و ارجاعی"
+            },
+            {
+                title: "۴. ادغام رتبه‌ها با RRF",
+                class: "Retriever & RankFusion.Fuse",
+                desc: "مرتب‌سازی تبصره‌ها و ترکیب رتبه‌ها با فرمول RRF با ثابت هموارسازی k=60. تعیین امتیاز ترکیبی FusedScore برای چانک‌های برتر.",
+                inOut: "ورودی: ۳ لیست کاندیدا | خروجی: لیست ScoredChunks رتبه‌بندی‌شده"
+            },
+            {
+                title: "۵. گیت امتناع زودهنگام (Pre-LLM Guard)",
+                class: "RagService (Short-Circuit Guard)",
+                desc: "اگر بالاترین شباهت کسینوسی کمتر از 0.55 بوده و هیچ تطابق متنی معتبری نباشد، بلافاصله پاسخ 'در اسناد موجود پاسخی پیدا نشد' بازگردانده شده و LLM صدا زده نمی‌شود (صفر کردن هزینه).",
+                inOut: "ورودی: نتایج بازیابی | خروجی: خروج سریع یا مجوز ادامه به لایه مدل زبانی"
+            },
+            {
+                title: "۶. چیدمان کانتکست و فراخوانی LLM",
+                class: "PromptBuilder & IChatClient (Gemini)",
+                desc: "تزریق چانک‌ها در سقف بودجه توکن (MaxContextTokens) همراه با نام فایل و شماره صفحه. فراخوانی امن مدل. در صورت قطعی یا تحریم: ورود به حالت تنزل‌یافته (Degraded Mode).",
+                inOut: "ورودی: پرامپت ساخت‌یافته | خروجی: پاسخ تولیدشده توسط مدل با کروشه‌های استناد"
+            },
+            {
+                title: "۷. اعتبارسنجی ارجاعات و ذخیره",
+                class: "CitationParser & CompleteAndPersistAsync",
+                desc: "بررسی صحت ارجاعات کروشه‌ای [1]، حذف رفرنس‌های نامعتبر، بازشماری ترتیبی، برش اسنیپت حداکثر ۳۰۰ کاراکتری و ثبت در پیام‌ها.",
+                inOut: "ورودی: متن خام LLM | خروجی: AnswerResult نهایی مستند به همراه قطعات منبع"
+            }
+        ]
+    };
+
+    let currentPipeline = 'ingestion';
+    let currentStepIndex = 0;
+
+    function switchPipeline(pipelineKey) {
+        currentPipeline = pipelineKey;
+        currentStepIndex = 0;
+
+        document.getElementById('btnFlowIngestion').classList.toggle('active', pipelineKey === 'ingestion');
+        document.getElementById('btnFlowAsk').classList.toggle('active', pipelineKey === 'ask');
+
+        renderStepPills();
+        renderActiveStepDetail();
+    }
+
+    function renderStepPills() {
+        const container = document.getElementById('stepsPillsContainer');
+        container.innerHTML = '';
+        const steps = pipelineData[currentPipeline];
+
+        steps.forEach((step, idx) => {
+            const pill = document.createElement('div');
+            pill.className = `step-pill ${idx === currentStepIndex ? 'active' : ''}`;
+            pill.innerText = `گام ${idx + 1}: ${step.title.split(' ')[1] || step.title}`;
+            pill.onclick = () => {
+                currentStepIndex = idx;
+                renderStepPills();
+                renderActiveStepDetail();
+            };
+            container.appendChild(pill);
+        });
+    }
+
+    function renderActiveStepDetail() {
+        const step = pipelineData[currentPipeline][currentStepIndex];
+        const card = document.getElementById('stepDetailCard');
+        card.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+                <h3 style="font-size: 1.3rem; color: var(--accent-primary);">${step.title}</h3>
+                <span class="code-tag" style="font-size: 0.9rem;">${step.class}</span>
+            </div>
+            <p style="font-size: 1.05rem; line-height: 1.8; margin-bottom: 18px; color: var(--text-primary);">${step.desc}</p>
+            <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; font-size: 0.9rem;">
+                <strong style="color: #60a5fa;">جریان داده:</strong> ${step.inOut}
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+                <button class="flow-switch-btn" ${currentStepIndex === 0 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''} onclick="prevStep()">
+                    ← گام قبلی
+                </button>
+                <button class="flow-switch-btn" ${currentStepIndex === pipelineData[currentPipeline].length - 1 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : ''} onclick="nextStep()">
+                    گام بعدی →
+                </button>
+            </div>
+        `;
+    }
+
+    function prevStep() {
+        if (currentStepIndex > 0) {
+            currentStepIndex--;
+            renderStepPills();
+            renderActiveStepDetail();
+        }
+    }
+
+    function nextStep() {
+        if (currentStepIndex < pipelineData[currentPipeline].length - 1) {
+            currentStepIndex++;
+            renderStepPills();
+            renderActiveStepDetail();
+        }
+    }
+
+    // Flashcard Q&A Data (20 Gold Questions)
+    const flashcardsData = [
+        {
+            id: 1,
+            category: "معماری",
+            difficulty: "ساده",
+            q: "چرا به جای دیتابیس برداری مستقل (Pinecone/Milvus/Qdrant) از PostgreSQL با افزونه pgvector استفاده کردید؟",
+            a: "یکپارچگی تراکنشی ACID، جلوگیری از ناهماهنگی در حذف داده‌ها، ترکیب جستجوی برداری HNSW با FTS در یک کوئری سریع، و سادگی نگهداری در محیط دانشگاهی بدون تحمیل هزینه‌های کلاسترهای جداگانه.",
+            keywords: "ACID Transactions • HNSW + tsvector در یک دیتابیس • عدم نیاز به کلاستر مجزا"
+        },
+        {
+            id: 2,
+            category: "امنیت",
+            difficulty: "چالش‌برانگیز",
+            q: "پدیده تزریق پرامپت غیرمستقیم (Indirect Prompt Injection) چیست و چگونه مهار شده است؟",
+            a: "زمانی رخ می‌دهد که هکر در متن PDF دستوری علیه سیستم بنویسد. مهار آن با اعلام صریح در پرامپت سیستمی مبنی بر untrusted بودن کانتکست اسناد، الزام مدل به پاسخ فقط بر پایه حقایق، و عدم اجرای خروجی مدل به عنوان اسکریپت یا کوئری صورت گرفته است.",
+            keywords: "Untrusted Data Boundary • پرامپت سیستمی system.v1.txt • Escaped Text Rendering"
+        },
+        {
+            id: 3,
+            category: "هوش مصنوعی",
+            difficulty: "فنی",
+            q: "تفاوت ساختاری ایندکس گراف HNSW با ایندکس کلاستربندی IVFFlat چیست؟",
+            a: "ایندکس IVFFlat بر پایه K-Means کار می‌کند و با فیلتر دسترسی کالکشن‌ها افت شدید Recall دارد و نیاز به آموزش مجدد دارد. HNSW بر پایه گراف چندلایه‌ای پیاده شده، پیچیدگی O(log N) دارد، پویا است و با iterative_scan = strict_order بالاترین بازخوانی را حفظ می‌کند.",
+            keywords: "گراف چندلایه Skip-List • O(log N) • بدون نیاز به Re-train • پایداری در فیلتر دسترسی"
+        },
+        {
+            id: 4,
+            category: "هوش مصنوعی",
+            difficulty: "فنی",
+            q: "چرا شمارنده توکن به صورت فرمول ریاضی کالیبره شد و از tiktoken استفاده نکردید؟",
+            a: "توکنایزرهای پایتونی سربار شدید فراخوانی شبکه و تاخیر داشتند، و کتابخانه‌های BPE در C# نیازمند بارگذاری واژگان سنگین در رم بودند. فرمول ریاضی روی صدک ۹۰ با ضریب ۱.۴۵ برای فارسی کالیبره شد تا با تضمین ۹۴.۳٪ مانع از سرریز پنجره کانتکست در CPU شود.",
+            keywords: "کالیبراسیون صدک ۹۰ (P90) • ضریب ۱.۴۵ فارسی • سرعت پردازش در کسری از میلی‌ثانیه"
+        },
+        {
+            id: 5,
+            category: "معماری",
+            difficulty: "ساده",
+            q: "اگر ماده‌ای با شماره یکسان (مثلاً ماده ۱۲) در دو فصل مختلف تکرار شود، سیستم چه می‌کند؟",
+            a: "عنوان بخش چانک به صورت سلسله‌مراتبی '<فصل> › <ماده>' ذخیره می‌شود. علاوه بر این، در جستجوی ترکیبی، بردار سوال و تطابق متنی کلمات زمینه، چانک مربوط به فصل مدنظر را در بالاترین رتبه قرار می‌دهند.",
+            keywords: "سلسله‌مراتب عنوان بخش • تمایز زمینه با تطابق برداری و FTS"
+        },
+        {
+            id: 6,
+            category: "معماری",
+            difficulty: "فنی",
+            q: "راهبرد شما در مواجهه با قطعی کامل اینترنت، تحریم یا داون شدن LLM چیست؟",
+            a: "ورود به حالت تنزل‌یافته هوشمند (Graceful Degradation). سیستم کرش نکرده و خطای ۵۰۰ نمی‌دهد، بلکه پرچم degraded: true فعال شده و پاراگراف‌های استخراج‌شده از اسناد مستقیماً به کاربر نشان داده می‌شوند.",
+            keywords: "Degraded Mode • بازگرداندن Sources بدون پاسخ متنی • صفر کردن خطاهای ۵۰۰"
+        },
+        {
+            id: 7,
+            category: "زبان فارسی",
+            difficulty: "چالش‌برانگیز",
+            q: "چرا برای استخراج PDF از سایدکار پایتونی PyMuPDF استفاده کردید، در حالی که پروژه با .NET 10 است؟",
+            a: "در بنچمارک ADR-0002 مشخص شد که کتابخانه‌های دات‌نت مانند PdfPig روی ۳۸.۵٪ از صفحات فارسی متن را برعکس (Visual Order) استخراج می‌کردند. PyMuPDF با خطای معکوس‌سازی ۰.۰٪ و سرعت ۰.۰۱۲ ثانیه در هر صفحه، تنها گزینه مطمئن بود.",
+            keywords: "خطای معکوس‌سازی Visual Order در PdfPig • دقت ۱۰۰٪ PyMuPDF • ایزولاسیون حافظه و لایسنس"
+        },
+        {
+            id: 8,
+            category: "هوش مصنوعی",
+            difficulty: "فنی",
+            q: "چرا آستانه شباهت کسینوسی در سیستم روی عدد 0.55 تنظیم شده است؟",
+            a: "بر اساس تحلیل آماری دادگان، شباهت سوالات معتبر بین ۰.۵۹ تا ۰.۷۷ است. آستانه‌های بالاتر (مثل ۰.۶۵) باعث ۵۰٪ رد کاذب سوالات صحیح می‌شدند. مقدار ۰.۵۵ به عنوان فیلتر کلان تنها سوالات کاملاً بی‌ربط را حذف می‌کند.",
+            keywords: "جلوگیری از False Reject • بازه تجربی ۰.۵۹ تا ۰.۷۷ در bge-m3 • فیلتر کلان"
+        },
+        {
+            id: 9,
+            category: "هوش مصنوعی",
+            difficulty: "فنی",
+            q: "چرا از ادغام رتبه متقابل (RRF) به جای ترکیب وزن‌دار نمرات خام استفاده کردید؟",
+            a: "نمره برداری بین ۰ تا ۱ است، اما نمره FTS نامحدود است. جمع کردن آنها مستلزم نرمال‌سازی ناپایدار است. فرمول RRF با ثابت k=60 تنها بر پایه رتبه ترتیبی ادغام را انجام داده و در برابر داده‌های پرت کاملاً مقاوم است.",
+            keywords: "مقیاس‌های ناهمگن نمرات • پایداری رتبه‌ای RRF • پارامتر هموارسازی k=60"
+        },
+        {
+            id: 10,
+            category: "هوش مصنوعی",
+            difficulty: "ساده",
+            q: "چگونه از پدیده توهم (Hallucination) مدل زبانی در پاسخ‌ها جلوگیری می‌کنید؟",
+            a: "گیت امتناع پیش از مدل (BestVectorScore < 0.55 و عدم FTS)، پرامپت محدودکننده به CONTEXT، الزام و اعتبارسنجی ارجاعات کروشه‌ای در CitationParser و بررسی خود-امتناعی پس از تولید پاسخ.",
+            keywords: "Pre-LLM Guard • Citation Validation • حذف رفرنس‌های نامعتبر • پرامپت محدودکننده"
+        },
+        {
+            id: 11,
+            category: "معماری",
+            difficulty: "فنی",
+            q: "در صورت همزمانی آپلود فایل‌های سنگین، سیستم چگونه از اشغال تمام منابع سرور جلوگیری می‌کند؟",
+            a: "با الگوی تولیدکننده-مصرف‌کننده روی System.Threading.Channels. فایل روی دیسک ذخیره شده و فقط شناسه در صف محدود (BoundedChannel) قرار می‌گیرد و ورکر پس‌زمینه با سقف همزمانی کنترل‌شده پردازش را انجام می‌دهد.",
+            keywords: "BoundedChannel • ایجاد Backpressure • پس‌زمینه IngestionWorker • پاسخ فوری ۲۰۲"
+        },
+        {
+            id: 12,
+            category: "امنیت",
+            difficulty: "چالش‌برانگیز",
+            q: "کنترل دسترسی (ACL) چگونه از نشت اسناد محرمانه جلوگیری می‌کند؟",
+            a: "فیلتر کالکشن‌های مجاز کاربر مستقیماً درون کوئری SQL پستگرس اعمال می‌شود (c.collection_id = ANY(@allowed))؛ بنابراین داده غیرمجاز اصلاً از دیسک خوانده نمی‌شود. همچنین برای جلوگیری از کشف منابع، خطای ۴۰۴ به جای ۴۰۳ صادر می‌شود.",
+            keywords: "اعمال فیلتر درون SQL • اصل عدم افشای منبع (Non-enumeration 404) • تفکیک رول‌ها"
+        },
+        {
+            id: 13,
+            category: "زبان فارسی",
+            difficulty: "فنی",
+            q: "مفهوم عیوب لایه فونت (Font CMap Corruption) چیست و چگونه حل شده است؟",
+            a: "در برخی PDFهای قدیمی، حروف ترکیبی فارسی مثل 'لا' به صورت کد معکوس 'ال' ذخیره شده‌اند. TextDefectDetector با سنجش آماری این نسبت، عیب را تشخیص داده و پرچم CorruptLigatureLamAlef را بدون دستکاری متن خام به متادیتا الصاق می‌کند.",
+            keywords: "خرابی جدول CMap قلم • نسبت 'لا' به 'ال' • پرچم‌های متادیتا بدون جهش متن"
+        },
+        {
+            id: 14,
+            category: "هوش مصنوعی",
+            difficulty: "فنی",
+            q: "چرا در پردازش برداری از دسته‌بندی و نرمال‌سازی L2 استفاده شده است؟",
+            a: "پردازش تکی در CPU سربار شبکه دارد و دسته‌های بزرگ باعث داغی پردازنده و پر شدن رم می‌شود؛ دسته‌های ۴تایی نقطه بهینه است. نرمال‌سازی L2 طول بردارها را به ۱ تبدیل می‌کند تا ضرب داخلی مستقیماً معادل شباهت کسینوسی شود.",
+            keywords: "دسته‌بندی ۴تایی در CPU • نرمال‌سازی برداری L2 • انطباق ضرب داخلی با شباهت کسینوسی"
+        },
+        {
+            id: 15,
+            category: "زبان فارسی",
+            difficulty: "ساده",
+            q: "پایپلاین نرمال‌سازی چگونه متون حاوی حروف عربی، ارقام و علائم نگارشی را استاندارد می‌کند؟",
+            a: "در ۳ لایه: لایه نمایش (حفظ شکل، اصلاح ی/ک و ZWNJ)، لایه امبدینگ (تبدیل ارقام به اسکی، حذف اعراب و اتصال کلمات لاتین انتهای خط)، و لایه جستجو (تبدیل نیم‌فاصله به فاصله عادی و کوچک‌سازی حروف انگلیسی).",
+            keywords: "۳ لایه Display, Embedding, Search • تبدیل ۰-۹ به 0-9 • مدیریت نیم‌فاصله"
+        },
+        {
+            id: 16,
+            category: "معماری",
+            difficulty: "فنی",
+            q: "نقش Guid.CreateVersion7() در ذخیره‌سازی داده‌ها و فایل‌ها چیست؟",
+            a: "شناسه‌های GUID v4 کاملاً تصادفی بوده و باعث تکه‌تکه شدن شاخص‌های B-Tree دیتابیس (Index Fragmentation) می‌شوند. نسخه ۷ زمان‌محور (Time-ordered) است و رکوردها مرتب در انتهای ایندکس الحاق می‌شوند.",
+            keywords: "Time-ordered GUID v7 • جلوگیری از B-Tree Index Fragmentation • کارایی بالای درج"
+        },
+        {
+            id: 17,
+            category: "معماری",
+            difficulty: "فنی",
+            q: "چرا استخراج متن و تولید بردار در IngestionService بیرون از تراکنش دیتابیس انجام می‌شود؟",
+            a: "چون تولید بردار و استخراج PDF چند ده ثانیه طول می‌کشد. اگر در تراکنش باز انجام می‌شد، کانکشن دیتابیس قفل مانده و پول کانکشن دچار قحطی (Connection Starvation) می‌شد. پردازش بیرون انجام شده و ذخیره در تراکنشی میلی‌ثانیه‌ای ثبت می‌شود.",
+            keywords: "جلوگیری از Connection Starvation • تفکیک پردازش سنگین از تراکنش ACID"
+        },
+        {
+            id: 18,
+            category: "معماری",
+            difficulty: "چالش‌برانگیز",
+            q: "چگونه اطمینان حاصل کردید که تست‌های پروژه صوری نیستند و رفتار واقعی را می‌سنجند؟",
+            a: "تست‌های یکپارچه‌سازی با Testcontainers کانتینر واقعی داکر pgvector را بالا می‌آورند، تست‌های بنچمارک ChunkerProbe روی ۱۲ سند واقعی اجرا شده‌اند، و ۲۴ تست انطباق Conformance پایتونی به عنوان ناظر مستقل کل سیستم را محک می‌زنند.",
+            keywords: "Testcontainers داکر واقعی • تست‌های انطباق Conformance • ۳۵۲ تست سبز بدون Mock صوری"
+        },
+        {
+            id: 19,
+            category: "هوش مصنوعی",
+            difficulty: "فنی",
+            q: "چه تفاوتی میان Recall@K و MRR در ارزیابی سامانه بازیابی اسناد وجود دارد؟",
+            a: "معیار Recall@K درصد دفعاتی است که سند درست در میان K نتیجه اول باشد، اما MRR رتبه اولین سند درست را وزن‌دهی می‌کند (رتبه ۱ نمره ۱، رتبه ۲ نمره ۰.۵). دستیابی به MRR=0.8614 در سیستم ما نشان می‌دهد اکثر نتایج در رتبه ۱ یا ۲ تحویل شده‌اند.",
+            keywords: "Recall@K بازخوانی کلی • MRR کیفیت رتبه‌بندی رتبه اول • دستیابی به MRR=0.8614"
+        },
+        {
+            id: 20,
+            category: "معماری",
+            difficulty: "ساده",
+            q: "مسیر توسعه آینده (Roadmap) و کارهای تکمیلی سامانه چیست؟",
+            a: "افزودن مدل بازرتبه‌بندی کراس‌انکور (Reranker با bge-reranker-v2-m3)، بازنویسی سوالات گفتگو با کانتکست تاریخچه، گسترش کانتکست با چانک‌های مجاور (Context Expansion)، و سیستم RAG عاملی (Agentic RAG) برای استنتاج بین‌سندی.",
+            keywords: "کراس‌انکور Reranking • Agentic RAG • بسط کانتکست همسایه • بازنویسی چندمرحله‌ای سوال"
+        }
+    ];
+
+    function renderFlashcards(filter = 'all') {
+        const container = document.getElementById('flashcardsContainer');
+        container.innerHTML = '';
+
+        const filtered = filter === 'all' 
+            ? flashcardsData 
+            : flashcardsData.filter(item => item.category === filter);
+
+        filtered.forEach(card => {
+            const cardEl = document.createElement('div');
+            cardEl.className = 'flashcard searchable-item';
+            cardEl.innerHTML = `
+                <div class="flashcard-header">
+                    <div>
+                        <span class="code-tag" style="margin-left: 8px;">پرسش #${card.id}</span>
+                        <span class="tech-pill">${card.category}</span>
+                    </div>
+                    <span class="badge-difficulty ${card.difficulty === 'ساده' ? 'diff-easy' : (card.difficulty === 'فنی' ? 'diff-medium' : 'diff-hard')}">
+                        ${card.difficulty}
+                    </span>
+                </div>
+                <div class="question-text">${card.q}</div>
+                <button class="answer-reveal-btn" onclick="toggleAnswer(${card.id}, this)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                    نمایش پاسخ طلایی
+                </button>
+                <div class="answer-box" id="ans-${card.id}">
+                    <p>${card.a}</p>
+                    <div class="key-terms-box">
+                        <strong>کلمات کلیدی که باید بگویید:</strong> ${card.keywords}
+                    </div>
+                </div>
+            `;
+            container.appendChild(cardEl);
+        });
+    }
+
+    function toggleAnswer(cardId, btn) {
+        const ansBox = document.getElementById(`ans-${cardId}`);
+        const isVisible = ansBox.classList.contains('visible');
+
+        if (isVisible) {
+            ansBox.classList.remove('visible');
+            btn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                نمایش پاسخ طلایی
+            `;
+        } else {
+            ansBox.classList.add('visible');
+            btn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                بستن پاسخ
+            `;
+        }
+    }
+
+    function filterFlashcards(category, btn) {
+        document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderFlashcards(category);
+    }
+
+    function revealRandomQuestion() {
+        const randomCard = flashcardsData[Math.floor(Math.random() * flashcardsData.length)];
+        renderFlashcards('all');
+        const targetAns = document.getElementById(`ans-${randomCard.id}`);
+        const cardParent = targetAns.closest('.flashcard');
+        
+        cardParent.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        cardParent.style.boxShadow = '0 0 25px rgba(239, 68, 68, 0.4)';
+        cardParent.style.borderColor = 'var(--accent-danger)';
+
+        setTimeout(() => {
+            toggleAnswer(randomCard.id, cardParent.querySelector('.answer-reveal-btn'));
+        }, 300);
+
+        setTimeout(() => {
+            cardParent.style.boxShadow = '';
+            cardParent.style.borderColor = '';
+        }, 3000);
+    }
+
+    // Global Search Across Page
+    function handleGlobalSearch(query) {
+        const cleanQuery = query.trim().toLowerCase();
+        const items = document.querySelectorAll('.searchable-item');
+
+        if (!cleanQuery) {
+            items.forEach(el => el.style.display = '');
+            return;
+        }
+
+        items.forEach(el => {
+            const text = el.innerText.toLowerCase();
+            if (text.includes(cleanQuery)) {
+                el.style.display = '';
+            } else {
+                el.style.display = 'none';
+            }
+        });
+    }
+
+    // Initialize Page
+    window.addEventListener('DOMContentLoaded', () => {
+        updateCosineSim(50);
+        calculateRRF();
+        renderStepPills();
+        renderActiveStepDetail();
+        renderFlashcards('all');
+    });
+</script>
+
+</body>
+</html>
