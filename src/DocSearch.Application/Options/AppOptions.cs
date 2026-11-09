@@ -324,3 +324,28 @@ public sealed class DocsOptions
 
     public bool Enabled { get; set; } = true;
 }
+
+public sealed class RateLimitingOptions
+{
+    public const string SectionName = "RateLimiting";
+
+    public bool Enabled { get; set; } = true;
+
+    [Range(1, 10000)]
+    public int AuthPermitLimit { get; set; } = 10;
+
+    [Range(1, 1440)]
+    public int AuthWindowMinutes { get; set; } = 1;
+
+    [Range(1, 10000)]
+    public int AskPermitLimit { get; set; } = 30;
+
+    [Range(1, 1440)]
+    public int AskWindowMinutes { get; set; } = 1;
+
+    [Range(1, 10000)]
+    public int UploadPermitLimit { get; set; } = 20;
+
+    [Range(1, 1440)]
+    public int UploadWindowHours { get; set; } = 1;
+}

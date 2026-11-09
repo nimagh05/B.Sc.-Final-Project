@@ -20,11 +20,17 @@ public sealed class ProblemDetailsTests : IClassFixture<WebApplicationFactory<Pr
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["Ai:Embedding:Provider"] = "Fake"
+                    ["Ai:Embedding:Provider"] = "Fake",
+                    ["SkipStartupDbSeeding"] = "true"
                 });
             });
             builder.ConfigureServices(services =>
             {
+                var hostedServices = services.Where(s => s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)).ToList();
+                foreach (var hs in hostedServices)
+                {
+                    services.Remove(hs);
+                }
                 services.AddControllers().AddApplicationPart(typeof(TestErrorsController).Assembly);
             });
         }).CreateClient();

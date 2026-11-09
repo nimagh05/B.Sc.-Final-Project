@@ -79,6 +79,11 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddOptions<RateLimitingOptions>()
+            .Bind(configuration.GetSection(RateLimitingOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<ITextNormalizer, PersianTextNormalizer>();
         services.AddSingleton<PageQualityScorer>();
         services.AddSingleton<HeaderFooterCleaner>();

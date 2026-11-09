@@ -4,6 +4,7 @@ using DocSearch.Application.Exceptions;
 using DocSearch.Application.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DocSearch.Api.Controllers;
 
@@ -11,6 +12,7 @@ namespace DocSearch.Api.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}")]
 [Authorize]
+[EnableRateLimiting("ask")]
 public sealed class AskController : ControllerBase
 {
     private readonly IRagService _ragService;

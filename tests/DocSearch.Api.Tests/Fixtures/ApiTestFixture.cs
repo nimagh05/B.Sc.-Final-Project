@@ -184,7 +184,10 @@ public sealed class ApiWebApplicationFactory(
                 ["Storage:MaxUploadMb"] = "50",
                 ["Ingestion:MaxConcurrentDocuments"] = "1",
                 ["Ingestion:QueueCapacity"] = "50",
-                ["Jwt:SigningKey"] = ApiTestFixture.TestSigningKey
+                ["Jwt:SigningKey"] = ApiTestFixture.TestSigningKey,
+                ["RateLimiting:AuthPermitLimit"] = "1000",
+                ["RateLimiting:AskPermitLimit"] = "1000",
+                ["RateLimiting:UploadPermitLimit"] = "1000"
             };
 
             if (extraConfiguration != null)

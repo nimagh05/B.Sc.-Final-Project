@@ -21,8 +21,17 @@ public sealed class HealthCheckTests : IClassFixture<WebApplicationFactory<Progr
             {
                 config.AddInMemoryCollection(new Dictionary<string, string?>
                 {
-                    ["Ai:Embedding:Provider"] = "Fake"
+                    ["Ai:Embedding:Provider"] = "Fake",
+                    ["SkipStartupDbSeeding"] = "true"
                 });
+            });
+            builder.ConfigureServices(services =>
+            {
+                var hostedServices = services.Where(s => s.ServiceType == typeof(Microsoft.Extensions.Hosting.IHostedService)).ToList();
+                foreach (var hs in hostedServices)
+                {
+                    services.Remove(hs);
+                }
             });
         });
         _client = _factory.CreateClient();

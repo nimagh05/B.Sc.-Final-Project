@@ -1,62 +1,47 @@
 # DocSearch
 
-Persian RAG (Retrieval-Augmented Generation) document search web service.
-Answers questions strictly from uploaded PDF documents with exact file name and page citations.
+Persian RAG (Retrieval-Augmented Generation) document search web service. Answers questions strictly from uploaded PDF documents with exact file name and page citations.
 
 ## Status
 
-Core RAG pipeline operational through **Task T10 + T06b Review Fixes**:
+Core RAG pipeline operational through **Task T14 (Production Hardening)**:
 - FastAPI/PyMuPDF extraction sidecar with page quality scoring (T05)
-- Header/footer cleaning & legal-aware Persian chunking with structural marker hierarchy (T06 & T06b)
-- Offline & local Ollama embedding providers with dimension validation (T07)
-- PostgreSQL / pgvector HNSW vector store & multi-collection ACL retrieval (T08)
+- Header/footer cleaning & legal-aware Persian chunking with structural hierarchy (T06 & T06b)
+- Offline & local Ollama (bge-m3) embedding providers with dimension validation (T07)
+- PostgreSQL / pgvector HNSW vector store, FTS & article-key hybrid retrieval (T08 & T11)
 - Background ingestion queue with streaming PDF upload and SHA-256 deduplication (T09)
-- RAG synthesis pipeline, strict grounding prompts, citation parser, self-refusal detection, degraded mode fallback, and versioned `/api/v1/ask` endpoint (T10 & T06b)
+- RAG synthesis pipeline, grounding prompts, citation parser & /api/v1/ask (T10)
+- Identity & JWT auth, collections CRUD, and role-based ACL enforcement (T13)
+- Production hardening: rate limiting, security headers, strict CORS & RFC 7807 errors (T14)
 
 ## Prerequisites
 
-- .NET 10 SDK (`net10.0`)
-- Docker Desktop with WSL2 (runs `pgvector/pgvector:pg16`)
-- Python 3.11 with `.venv` and Ollama on host (`bge-m3`)
-- Windows PowerShell
+- .NET 10 SDK (net10.0), Docker Desktop (WSL2), Windows PowerShell, Python 3.11+ (.venv)
 
-## Quickstart
+## Quick Start
 
-1. Configure environment and apply migrations:
-   ```powershell
-   Copy-Item .env.example .env
-   . .\scripts\load-env.ps1
-   docker compose up -d db
-   dotnet ef database update --project src/DocSearch.Infrastructure --startup-project src/DocSearch.Api
-   ```
+```
+powershell
+Copy-Item .env.example .env
+. .\scripts\load-env.ps1
+docker compose up -d db extractor
+dotnet ef database update --project src/DocSearch.Infrastructure --startup-project src/DocSearch.Api
+dotnet run --project src/DocSearch.Api
+```
 
-2. Run PyMuPDF extractor sidecar (`http://127.0.0.1:8000`):
-   ```powershell
-   .venv\Scripts\uvicorn.exe app.main:app --app-dir tools/extractor --port 8000
-   ```
+API docs: http://localhost:5000/scalar/v1
 
-3. Run API and verify health:
-   ```powershell
-   dotnet run --project src/DocSearch.Api
-   Invoke-RestMethod http://localhost:5000/health/ready
-   ```
+## Operations
 
-API docs: `http://localhost:5000/scalar/v1`
+- **Health Checks**: /health/live (liveness), /health/ready (DB, embedding, extractor readiness).
+- **Rate Limiting** (429 rate.limited + Retry-After): /api/v1/auth/* (10/min/IP:account), /api/v1/ask (30/min/user), POST /api/v1/collections/{id}/documents (20/hr/user).
+- **Security & Observability**: Strict Cors:AllowedOrigins, X-Forwarded-For/Proto, security headers (nosniff, no-referrer, DENY), response compression, 15s graceful shutdown, daily JSON logs.
 
 ## Running Tests
 
-```powershell
-# Sidecar pytest suite
-.venv\Scripts\pytest.exe tools/extractor/tests
-# Unit tests only
-dotnet test --filter "Category!=Integration&Category!=RequiresOllama"
-# All tests (including Testcontainers PostgreSQL integration)
-dotnet test --filter "Category!=RequiresOllama"
-dotnet format --verify-no-changes
 ```
-
-## Stop Services
-
-```powershell
-docker compose --profile "*" down
+powershell
+dotnet format --verify-no-changes
+dotnet build -warnaserror
+dotnet test --filter "Category!=RequiresOllama"
 ```

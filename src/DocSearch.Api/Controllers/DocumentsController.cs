@@ -8,6 +8,7 @@ using DocSearch.Infrastructure.Persistence;
 using DocSearch.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -47,6 +48,7 @@ public sealed class DocumentsController : ControllerBase
 
     [HttpPost("collections/{collectionId:guid}/documents")]
     [Consumes("multipart/form-data")]
+    [EnableRateLimiting("upload")]
     [ProducesResponseType(typeof(DocumentResponse), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
