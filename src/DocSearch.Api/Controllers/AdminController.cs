@@ -1,11 +1,13 @@
 using Asp.Versioning;
 using DocSearch.Application.Exceptions;
 using DocSearch.Application.Models;
+using DocSearch.Application.Options;
 using DocSearch.Domain;
 using DocSearch.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace DocSearch.Api.Controllers;
 
@@ -15,6 +17,7 @@ namespace DocSearch.Api.Controllers;
 [Authorize(Roles = "Admin")]
 public sealed class AdminController(
     AppDbContext dbContext,
+    IOptions<AiOptions> aiOptions,
     ILogger<AdminController> logger) : ControllerBase
 {
     [HttpPost("collections/{id:guid}/reindex")]
@@ -42,7 +45,7 @@ public sealed class AdminController(
             Status = ReindexJobStatus.Completed,
             TotalChunks = chunkCount,
             DoneChunks = chunkCount,
-            EmbeddingModel = "bge-m3",
+            EmbeddingModel = aiOptions.Value.Embedding.Model,
             CreatedAt = DateTimeOffset.UtcNow,
             FinishedAt = DateTimeOffset.UtcNow
         };

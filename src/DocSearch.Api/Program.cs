@@ -39,12 +39,20 @@ builder.Services.Configure<HostOptions>(options =>
 });
 
 // Reverse proxy forwarded headers (X-Forwarded-For, X-Forwarded-Proto)
-builder.Services.Configure<ForwardedHeadersOptions>(options =>
-{
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownIPNetworks.Clear();
-    options.KnownProxies.Clear();
-});
+builder.Services.AddOptions<ForwardedHeadersOptions>()
+    .Configure<IOptions<NetworkOptions>>((options, networkOptions) =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.ForwardLimit = 1;
+
+        foreach (var cidr in networkOptions.Value.TrustedProxyCidrs)
+        {
+            if (!string.IsNullOrWhiteSpace(cidr))
+            {
+                options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(cidr));
+            }
+        }
+    });
 
 // Authentication & JWT Bearer
 builder.Services.AddAuthentication(options =>
@@ -217,7 +225,29 @@ builder.Services.AddRateLimiter(limiterOptions =>
             cancellationToken: cancellationToken);
     };
 
-    // 1. Auth policy: 10 req/min/IP (partitioned by IP:Account to prevent cross-test lockouts while strictly enforcing per-attempt limit)
+    // Layer 1: Anti-password-spraying per-IP rate limit on /api/v1/auth/* (default 100 req/min/IP)
+    limiterOptions.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        var rateOpts = httpContext.RequestServices.GetRequiredService<IOptions<RateLimitingOptions>>().Value;
+        if (!rateOpts.Enabled ||
+            !httpContext.Request.Path.StartsWithSegments("/api/v1/auth", StringComparison.OrdinalIgnoreCase))
+        {
+            return RateLimitPartition.GetNoLimiter("none");
+        }
+
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"auth-ip:{ip}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = rateOpts.AuthIpPermitLimit,
+                Window = TimeSpan.FromMinutes(rateOpts.AuthWindowMinutes),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+
+    // Layer 2: Auth policy: 10 req/min per IP:Account against single-account brute force
     limiterOptions.AddPolicy("auth", httpContext =>
     {
         var rateOpts = httpContext.RequestServices.GetRequiredService<IOptions<RateLimitingOptions>>().Value;
@@ -496,8 +526,7 @@ app.UseAuthorization();
 // Extract target email for auth rate limiting partition without breaking MVC body reading
 app.Use(async (context, next) =>
 {
-    if (context.Request.Path.Value != null &&
-        context.Request.Path.Value.Contains("/auth", StringComparison.OrdinalIgnoreCase) &&
+    if (context.Request.Path.StartsWithSegments("/api/v1/auth", StringComparison.OrdinalIgnoreCase) &&
         HttpMethods.IsPost(context.Request.Method))
     {
         context.Request.EnableBuffering();

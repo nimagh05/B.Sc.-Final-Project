@@ -84,6 +84,11 @@ public static class DependencyInjection
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
+        services.AddOptions<NetworkOptions>()
+            .Bind(configuration.GetSection(NetworkOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<ITextNormalizer, PersianTextNormalizer>();
         services.AddSingleton<PageQualityScorer>();
         services.AddSingleton<HeaderFooterCleaner>();

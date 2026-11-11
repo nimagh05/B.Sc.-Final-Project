@@ -217,4 +217,45 @@ public sealed class ProductionHardeningTests(ApiTestFixture fixture)
             Assert.True((int)resp.StatusCode < 500, $"Expected non-5xx status, got {resp.StatusCode}");
         }
     }
+
+    [Fact]
+    public async Task Auth_RateLimit_Blocks_PasswordSpraying_Across_Different_Emails_From_Same_Ip()
+    {
+        var customFactory = fixture.CreateFactory(extraConfiguration: new Dictionary<string, string?>
+        {
+            ["RateLimiting:Enabled"] = "true",
+            ["RateLimiting:AuthPermitLimit"] = "10",
+            ["RateLimiting:AuthIpPermitLimit"] = "5",
+            ["RateLimiting:AuthWindowMinutes"] = "1"
+        });
+
+        var client = customFactory.CreateAnonymousClient();
+
+        // First 5 requests with 5 distinct email addresses stay within Layer 1 IP ceiling (5)
+        for (var i = 1; i <= 5; i++)
+        {
+            var payload = new { email = $"spray{i}@example.com", password = "InvalidPassword123!" };
+            var res = await client.PostAsJsonAsync("/api/v1/auth/login", payload);
+            Assert.NotEqual(HttpStatusCode.TooManyRequests, res.StatusCode);
+        }
+
+        // 6th request with yet another distinct email must be blocked by Layer 1 per-IP GlobalLimiter
+        var spray6Payload = new { email = "spray6@example.com", password = "InvalidPassword123!" };
+        var rateLimitedRes = await client.PostAsJsonAsync("/api/v1/auth/login", spray6Payload);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, rateLimitedRes.StatusCode);
+        Assert.Equal("application/problem+json", rateLimitedRes.Content.Headers.ContentType?.MediaType);
+        Assert.True(
+            rateLimitedRes.Headers.Contains("Retry-After") || rateLimitedRes.Content.Headers.Contains("Retry-After"),
+            "Retry-After header must be present on 429 responses.");
+
+        var retryAfterValue = rateLimitedRes.Headers.RetryAfter?.Delta?.TotalSeconds
+            ?? double.Parse(rateLimitedRes.Headers.GetValues("Retry-After").First(), CultureInfo.InvariantCulture);
+        Assert.True(retryAfterValue > 0, "Retry-After delta must be greater than zero.");
+
+        var body = await rateLimitedRes.Content.ReadFromJsonAsync<JsonElement>(_jsonOptions);
+        Assert.Equal("rate.limited", body.GetProperty("code").GetString());
+        Assert.Equal(429, body.GetProperty("status").GetInt32());
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("traceId").GetString()));
+    }
 }

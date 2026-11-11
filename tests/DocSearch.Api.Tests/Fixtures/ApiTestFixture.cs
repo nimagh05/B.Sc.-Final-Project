@@ -186,6 +186,7 @@ public sealed class ApiWebApplicationFactory(
                 ["Ingestion:QueueCapacity"] = "50",
                 ["Jwt:SigningKey"] = ApiTestFixture.TestSigningKey,
                 ["RateLimiting:AuthPermitLimit"] = "1000",
+                ["RateLimiting:AuthIpPermitLimit"] = "10000",
                 ["RateLimiting:AskPermitLimit"] = "1000",
                 ["RateLimiting:UploadPermitLimit"] = "1000"
             };

@@ -1,54 +1,39 @@
-# Task T14 Handoff — Production Hardening
+# Task T14 Handoff — Production Hardening (incl. Post-Review Security & Hygiene Fixes)
 
 ## Summary of Completed Work
-1. **Rate Limiting & Reverse Proxy Forwarded Headers (`SPEC-DATA-AND-API.md` §2.7)**:
-   - Configured `ForwardedHeadersOptions` (`XForwardedFor | XForwardedProto`, clearing `KnownIPNetworks` and `KnownProxies`) early in the pipeline so client IP resolution behind reverse proxies (Nginx, Docker) works accurately.
-   - Implemented `RateLimitingOptions` in `AppOptions.cs` and registered it in `DependencyInjection.cs`:
-     - `/api/v1/auth/*` (`auth` policy): 10 requests / minute per IP (with buffered target account partition to prevent cross-test starvation in test suites while strictly enforcing the 10 req/min limit per attempt).
-     - `/api/v1/ask` (`ask` policy): 30 requests / minute per authenticated user ID (fallback to IP).
-     - `POST /api/v1/collections/{id}/documents` (`upload` policy): 20 uploads / hour per authenticated user ID (fallback to IP).
-   - Configured `OnRejected` callback returning HTTP `429 Too Many Requests`, setting `Retry-After` header in integer seconds, and writing RFC 7807 `application/problem+json` (`code: "rate.limited"`).
-   - Decorated `AuthController` (`[EnableRateLimiting("auth")]`), `AskController` (`[EnableRateLimiting("ask")]`), and `DocumentsController.UploadDocument` (`[EnableRateLimiting("upload")]`).
-   - Relaxed rate limits by default in `ApiTestFixture` for general integration suites while supporting custom strict limits in dedicated tests.
+1. **Trusted Proxy Forwarded Headers (`NetworkOptions` & Anti-Spoofing)**:
+   - Added `NetworkOptions` (`Network:TrustedProxyCidrs`) in `src/DocSearch.Application/Options/AppOptions.cs`, bound & validated on startup via `IValidatableObject` (`System.Net.IPNetwork.TryParse`) in `DependencyInjection.cs`, and configured `"Network": { "TrustedProxyCidrs": [] }` in `appsettings.json`.
+   - Configured `ForwardedHeadersOptions` in `Program.cs` with `ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto` and `ForwardLimit = 1`, preserving ASP.NET Core's loopback-only default (`KnownIPNetworks` / `KnownProxies` are NOT cleared) and appending configured `TrustedProxyCidrs` via `System.Net.IPNetwork.Parse`.
 
-2. **Unified 413 Error Handling & Safe `UseStatusCodePages` Guard**:
-   - Eliminated duplicate 413 response construction in `InvalidModelStateResponseFactory` (`Program.cs`) by throwing `FileTooLargeException` when `isPayloadTooLarge` is detected, delegating response creation to `GlobalExceptionHandler` as the single canonical source of truth.
-   - Refined `InvalidDataException` detection to only treat exceptions mentioning `"Multipart body length limit"` as payload-too-large; malformed multipart requests correctly return `400 validation.failed`.
-   - Added `UseStatusCodePages` per RFC 7807 with safe guards (`!response.HasStarted && response.ContentLength is null or 0 && string.IsNullOrEmpty(response.ContentType)`), ensuring unmapped routes (`404 resource.not_found`), `405 http.method_not_allowed`, and `415 http.unsupported_media_type` return consistent `application/problem+json` while never overwriting existing responses (e.g. `/health/ready` 503 JSON, JWT challenge/forbidden, or rate limiter responses).
+2. **Two-Layer Rate Limiting (`SPEC-DATA-AND-API.md` §2.7 & ADR 0006)**:
+   - Implemented `RateLimitingOptions` in `AppOptions.cs` (`AuthPermitLimit = 10`, `AuthIpPermitLimit = 100`, `AuthWindowMinutes = 1`, `AskPermitLimit = 30`, `AskWindowMinutes = 1`, `UploadPermitLimit = 20`, `UploadWindowHours = 1`).
+   - **Layer 1 (`GlobalLimiter`)**: Guards `/api/v1/auth` paths strictly by client IP (`AuthIpPermitLimit = 100/min`) against distributed-email password spraying.
+   - **Layer 2 (`"auth"` endpoint policy)**: Guards `/api/v1/auth/*` by `$"{ip}:{account}"` (buffered JSON `email` inspection up to 4096 bytes, fallback to `ip`) at `AuthPermitLimit = 10/min` against single-account brute force without starving sequential multi-user conformance tests.
+   - Configured `"ask"` (`30/min/user`, fallback IP) and `"upload"` (`20/hr/user`, fallback IP) policies on `AskController` and `DocumentsController.UploadDocument`.
+   - `OnRejected` returns HTTP `429 Too Many Requests` with integer `Retry-After` header and RFC 7807 `application/problem+json` (`code = "rate.limited"`).
+   - Relaxed all rate-limit ceilings (`AuthPermitLimit = 1000`, `AuthIpPermitLimit = 10000`, `AskPermitLimit = 1000`, `UploadPermitLimit = 1000`) in `ApiTestFixture` for non-rate-limit integration suites.
 
-3. **Security Headers, Strict CORS & Response Compression**:
-   - Added security headers middleware to all responses:
-     - `X-Content-Type-Options: nosniff`
-     - `Referrer-Policy: no-referrer`
-     - `X-Frame-Options: DENY`
-   - Configured strict CORS policy binding from `Cors:AllowedOrigins` in `appsettings.json`, strictly requiring allowed origins with `AllowCredentials()`.
-   - Enabled response compression with `AddResponseCompression` (`EnableForHttps = true`) and `UseResponseCompression`.
+3. **Delete Atomicity & Config-Driven Reindex Model**:
+   - Updated `DocumentsController.DeleteDocument` and `CollectionsController.DeleteCollection` to commit DB deletion (`SaveChangesAsync(ct)`) **before** deleting physical storage files in best-effort `try/catch` blocks (`CancellationToken.None`), preventing dangling DB rows pointing to missing files.
+   - Injected `IOptions<AiOptions>` into `AdminController` to use `aiOptions.Value.Embedding.Model` instead of hardcoded `"bge-m3"`.
 
-4. **Silencing Lightweight Test DB Noise & Observability Hygiene**:
-   - Added conditional startup database seeding in `Program.cs` gated on `!builder.Configuration.GetValue<bool>("SkipStartupDbSeeding")`.
-   - Updated `HealthCheckTests` and `ProblemDetailsTests` with `"SkipStartupDbSeeding" = "true"` and removed `IHostedService` descriptors (`IngestionWorker`), eliminating all `password authentication failed for user "postgres"` connection warning logs.
-   - Enriched Serilog diagnostic context in `UseSerilogRequestLogging` with `TraceId` and authenticated `UserId`.
-   - Configured `HostOptions.ShutdownTimeout = TimeSpan.FromSeconds(15)`.
+4. **Unified 413 Error Handling & Safe `UseStatusCodePages` Guard**:
+   - Eliminated duplicate 413 response construction in `InvalidModelStateResponseFactory` (`Program.cs`) by tightening `InvalidDataException` checks to `"Multipart body length limit"` and throwing `FileTooLargeException`, routing centrally through `GlobalExceptionHandler`.
+   - Added `UseStatusCodePages` per RFC 7807 guarded by `!response.HasStarted && (response.ContentLength is null or 0) && string.IsNullOrEmpty(response.ContentType)`, ensuring unmapped routes (`404 resource.not_found`), `405 http.method_not_allowed`, and `415 http.unsupported_media_type` return `application/problem+json` without overwriting existing bodies.
 
-5. **Testing & Conformance Verification**:
-   - Created `ProductionHardeningTests.cs` implementing all required T14 tests:
-     - `RateLimit_Returns_429_With_RetryAfter`: triggers 429 with integer `Retry-After` header and `code: "rate.limited"`.
-     - `Errors_Are_ProblemJson`: validates RFC 7807 `application/problem+json` across `401 auth.unauthorized`, `403 auth.forbidden`, `404 resource.not_found` (unmapped route), and `429 rate.limited`.
-     - `Cors_Allows_Only_Configured_Origin`: verifies configured origin receives CORS headers and malicious origin is denied.
-     - `Security_Headers_Present`: validates security headers on standard and 404 responses.
-     - `ConcurrentRequests_SmokeTest_Returns_No_5xx`: fires 20 concurrent requests with zero 5xx errors.
-   - Ran complete solution test suite: 357 passed, 0 failed.
-   - Ran `dotnet list package --vulnerable --include-transitive`: zero vulnerable packages across all 8 projects.
-   - Achieved 100% (24/24) Conformance verification in two passes:
-     - Pass A (`Ai__Chat__Fake__Fail=false`): 23 passed, 1 deselected in 23.29s.
-     - Pass B (`Ai__Chat__Fake__Fail=true`): 1 passed (`test_17_degraded_mode`), 23 deselected in 3.46s.
+5. **Security Headers, Strict CORS, Compression & Observability**:
+   - Added security headers (`X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`), strict CORS from `Cors:AllowedOrigins` with `AllowCredentials()`, response compression (`EnableForHttps = true`), Serilog `TraceId`/`UserId` diagnostic enrichment, and 15s `HostOptions.ShutdownTimeout`.
+   - Silenced unhosted DB connection warnings in `HealthCheckTests` and `ProblemDetailsTests` via `SkipStartupDbSeeding = true` and removing `IHostedService` registrations.
+   - Created `docs/adr/0006-two-layer-auth-rate-limiting-and-upload-headroom.md` and updated `README.md` (fixed code fences and `"daily structured logs"`, keeping total length at 45 lines).
 
-## Verification Commands & Outputs
+6. **Tests & Fresh Verification (`fix/T14-review`)**:
+   - Added `Auth_RateLimit_Blocks_PasswordSpraying_Across_Different_Emails_From_Same_Ip` alongside `RateLimit_Returns_429_With_RetryAfter`, `Errors_Are_ProblemJson`, `Cors_Allows_Only_Configured_Origin`, `Security_Headers_Present`, and `ConcurrentRequests_SmokeTest_Returns_No_5xx` in `ProductionHardeningTests.cs`.
+
+## Verification Commands & Real Outputs
 ```powershell
 dotnet format --verify-no-changes
 dotnet build -warnaserror
-dotnet test --filter "Category!=RequiresOllama"
-dotnet list package --vulnerable --include-transitive
+dotnet test --filter "Category!=RequiresOllama" --no-build
 
 # Conformance Pass A: Contract Suite (Ai__Chat__Fake__Fail=false)
 $env:BASE_URL="http://127.0.0.1:5080"; .venv\Scripts\pytest.exe conformance/test_conformance.py -m "not degraded" -v
@@ -57,16 +42,18 @@ $env:BASE_URL="http://127.0.0.1:5080"; .venv\Scripts\pytest.exe conformance/test
 $env:BASE_URL="http://127.0.0.1:5080"; .venv\Scripts\pytest.exe conformance/test_conformance.py -m degraded -v
 ```
 
-Output:
-- `DocSearch.Application.Tests`: Passed! - Failed: 0, Passed: 177, Skipped: 0, Total: 177
-- `DocSearch.Infrastructure.Tests`: Passed! - Failed: 0, Passed: 121, Skipped: 0, Total: 121
-- `DocSearch.Api.Tests`: Passed! - Failed: 0, Passed: 59, Skipped: 0, Total: 59
-- Total unit/integration tests: 357 passed, 0 failed.
-- Conformance Pass A: 23 passed, 0 failed, 1 deselected.
-- Conformance Pass B: 1 passed (`test_17_degraded_mode`), 0 failed, 23 deselected.
-- Total Conformance: 24/24 passed (100%).
+Measured Results (`fix/T14-review`):
+- `dotnet format --verify-no-changes`: exited with code 0.
+- `dotnet build -warnaserror`: `Build succeeded. 0 Warning(s), 0 Error(s)` in `00:00:39.76`.
+- `DocSearch.Application.Tests`: `Passed! - Failed: 0, Passed: 177, Skipped: 0, Total: 177, Duration: 828 ms`
+- `DocSearch.Infrastructure.Tests`: `Passed! - Failed: 0, Passed: 121, Skipped: 0, Total: 121, Duration: 39 s`
+- `DocSearch.Api.Tests`: `Passed! - Failed: 0, Passed: 60, Skipped: 0, Total: 60, Duration: 49 s`
+- Total unit/integration tests: **358 passed, 0 failed**.
+- Conformance Pass A (`-m "not degraded"`): **23 passed, 1 deselected in 21.30s**.
+- Conformance Pass B (`-m degraded`): **1 passed (`test_17_degraded_mode`), 23 deselected in 4.04s**.
+- Total Conformance: **24/24 passed (100%)**.
 
 ## Next Steps
-- T15 — Re-index & provider swap:
-  - Implement `ReindexService` and background jobs for re-indexing collections.
-  - Admin endpoints for triggering re-indexing and monitoring progress.
+- **T15 — Re-index & provider swap**:
+  - Implement `ReindexService` and background jobs for re-indexing collections across active chunks.
+  - Ensure search filters out stale-model chunks during/after model swaps.

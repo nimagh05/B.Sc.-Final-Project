@@ -243,26 +243,26 @@ public sealed class CollectionsController(
             throw new NotFoundException("Collection was not found or is not visible.");
         }
 
-        // Delete all stored physical files for this collection
+        // Capture stored physical file paths before deleting the collection
         var documentPaths = await dbContext.Documents
             .Where(d => d.CollectionId == id)
             .Select(d => d.StoragePath)
             .ToListAsync(ct);
 
+        dbContext.Collections.Remove(collection);
+        await dbContext.SaveChangesAsync(ct);
+
         foreach (var storagePath in documentPaths)
         {
             try
             {
-                await fileStorage.DeleteAsync(storagePath, ct);
+                await fileStorage.DeleteAsync(storagePath, CancellationToken.None);
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Failed to delete physical file {StoragePath} for collection {CollectionId}", storagePath, id);
             }
         }
-
-        dbContext.Collections.Remove(collection);
-        await dbContext.SaveChangesAsync(ct);
 
         logger.LogInformation("Collection {CollectionId} deleted by user {UserId}", id, currentUser.UserId);
 

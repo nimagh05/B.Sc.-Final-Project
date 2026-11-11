@@ -334,6 +334,9 @@ public sealed class RateLimitingOptions
     [Range(1, 10000)]
     public int AuthPermitLimit { get; set; } = 10;
 
+    [Range(1, 100000)]
+    public int AuthIpPermitLimit { get; set; } = 100;
+
     [Range(1, 1440)]
     public int AuthWindowMinutes { get; set; } = 1;
 
@@ -348,4 +351,24 @@ public sealed class RateLimitingOptions
 
     [Range(1, 1440)]
     public int UploadWindowHours { get; set; } = 1;
+}
+
+public sealed class NetworkOptions : IValidatableObject
+{
+    public const string SectionName = "Network";
+
+    public string[] TrustedProxyCidrs { get; set; } = [];
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        foreach (var cidr in TrustedProxyCidrs)
+        {
+            if (string.IsNullOrWhiteSpace(cidr) || !System.Net.IPNetwork.TryParse(cidr, out _))
+            {
+                yield return new ValidationResult(
+                    $"Invalid CIDR in Network:TrustedProxyCidrs: '{cidr}'.",
+                    [nameof(TrustedProxyCidrs)]);
+            }
+        }
+    }
 }

@@ -265,13 +265,22 @@ public sealed class DocumentsController : ControllerBase
 
         await _accessService.EnsureAccessAsync(_currentUser.UserId, document.CollectionId, CollectionRole.Editor, ct, "Document was not found or is not visible.");
 
-        await _fileStorage.DeleteAsync(document.StoragePath, ct);
+        var storagePath = document.StoragePath;
 
         _dbContext.Documents.Remove(document);
         await _dbContext.SaveChangesAsync(ct);
 
+        try
+        {
+            await _fileStorage.DeleteAsync(storagePath, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete physical file for document {DocumentId}", id);
+        }
+
         _logger.LogInformation("Deleted document {DocumentId} and associated storage file {StoragePath}",
-            id, document.StoragePath);
+            id, storagePath);
 
         return NoContent();
     }
