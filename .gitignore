@@ -38,3 +38,5 @@ conformance/results/
 # Misc
 .DS_Store
 Thumbs.db
+
+.agents/
