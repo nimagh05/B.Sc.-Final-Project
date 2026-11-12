@@ -59,3 +59,7 @@ During Task T14 (Production Hardening) and subsequent security review, three arc
 - **Single-layer `IP:Account` rate limiter without `GlobalLimiter`:** Rejected because it permits unlimited password spraying across distinct email addresses from one IP.
 - **Clearing `KnownIPNetworks`/`KnownProxies`:** Rejected because it allows trivial rate-limit bypass via forged `X-Forwarded-For` headers.
 - **Raising `MaxRequestBodySize` to unlimited:** Rejected due to Denial-of-Service risk from unbounded upload streams.
+
+### Operational & Scope Notes
+- **Intentional /api/v1/auth/* Scope in Layer 1**: The Layer 1 per-IP GlobalLimiter (100 req/min/IP) intentionally applies to all endpoints under /api/v1/auth (/login, /register, and /me) to bound aggregate unauthenticated and identity-probing traffic per IP.
+- **T20 Deployment Note (Network:TrustedProxyCidrs)**: In local development without a reverse proxy, TrustedProxyCidrs defaults to empty [] (trusting only loopback). When the Nginx web reverse-proxy container is introduced in Task T20 (docker-compose.yml), Network__TrustedProxyCidrs__0 must be configured with the Docker bridge subnet so client IPs are resolved per user rather than collapsing to the proxy container IP.
