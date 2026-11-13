@@ -417,7 +417,10 @@ namespace DocSearch.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CollectionId");
+                    b.HasIndex("CollectionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_reindex_jobs_active_collection")
+                        .HasFilter("status IN ('Queued', 'Running')");
 
                     b.ToTable("reindex_jobs", null, t =>
                         {

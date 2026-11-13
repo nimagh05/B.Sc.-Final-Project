@@ -1,3 +1,4 @@
+using DocSearch.Application.Models;
 using DocSearch.Application.Options;
 using DocSearch.Domain;
 
@@ -161,6 +162,20 @@ public interface IIngestionService
 public interface IIngestionQueue
 {
     ValueTask EnqueueAsync(Guid documentId, CancellationToken ct);
+    IAsyncEnumerable<Guid> DequeueAllAsync(CancellationToken ct);
+}
+
+public interface IReindexService
+{
+    Task<Guid> EnqueueReindexAsync(Guid collectionId, CancellationToken ct);
+    Task<ReindexJobStatusResponse> GetJobStatusAsync(Guid jobId, CancellationToken ct);
+    Task ProcessJobAsync(Guid jobId, CancellationToken ct);
+}
+
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Matches IIngestionQueue naming in CONVENTIONS.md")]
+public interface IReindexQueue
+{
+    ValueTask EnqueueAsync(Guid jobId, CancellationToken ct);
     IAsyncEnumerable<Guid> DequeueAllAsync(CancellationToken ct);
 }
 

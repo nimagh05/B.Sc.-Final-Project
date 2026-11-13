@@ -1,9 +1,9 @@
-using System.Text.RegularExpressions;
 using DocSearch.Application.Abstractions;
 using DocSearch.Application.Chunking;
 using DocSearch.Application.Exceptions;
 using DocSearch.Application.Options;
 using DocSearch.Domain;
+using DocSearch.Infrastructure.Common;
 using DocSearch.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace DocSearch.Infrastructure.Ingestion;
 
-public sealed partial class IngestionService : IIngestionService
+public sealed class IngestionService : IIngestionService
 {
     private readonly AppDbContext _dbContext;
     private readonly IFileStorage _fileStorage;
@@ -44,12 +44,6 @@ public sealed partial class IngestionService : IIngestionService
         _aiOptions = aiOptions ?? throw new ArgumentNullException(nameof(aiOptions));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
-
-    [GeneratedRegex(@"([a-zA-Z]:\\[^ \r\n\t]+|/[^ \r\n\t]+)", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
-    private static partial Regex FilePathRegex();
-
-    [GeneratedRegex(@"(?i)stack trace", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
-    private static partial Regex StackTraceRegex();
 
     public async Task ProcessDocumentAsync(Guid documentId, CancellationToken ct)
     {
@@ -222,7 +216,7 @@ public sealed partial class IngestionService : IIngestionService
             // Clear any poison/failed entities from the ChangeTracker before updating status
             _dbContext.ChangeTracker.Clear();
 
-            var sanitizedMessage = SanitizeErrorMessage(exception);
+            var sanitizedMessage = ErrorMessageSanitizer.Sanitize(exception, "document processing");
 
             var doc = await _dbContext.Documents
                 .FirstOrDefaultAsync(d => d.Id == documentId, CancellationToken.None)
@@ -239,37 +233,5 @@ public sealed partial class IngestionService : IIngestionService
         {
             _logger.LogError(dbEx, "Failed to persist Failed status for document {DocumentId}", documentId);
         }
-    }
-
-    private static string SanitizeErrorMessage(Exception exception)
-    {
-        string rawMessage;
-        if (exception is DocSearchException docEx)
-        {
-            rawMessage = docEx.Message;
-        }
-        else if (exception is TimeoutException or TaskCanceledException or OperationCanceledException)
-        {
-            rawMessage = "The operation timed out during document processing.";
-        }
-        else
-        {
-            // For non-domain exceptions, never leak raw internal messages, queries, or host information
-            rawMessage = $"An error occurred during document processing ({exception.GetType().Name}).";
-        }
-
-        // Strip file paths
-        var sanitized = FilePathRegex().Replace(rawMessage, "[path]");
-
-        // Strip any stack trace references
-        sanitized = StackTraceRegex().Replace(sanitized, "");
-
-        // Truncate to maximum 500 characters
-        if (sanitized.Length > 500)
-        {
-            sanitized = sanitized[..500];
-        }
-
-        return sanitized.Trim();
     }
 }

@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OllamaSharp;
@@ -51,10 +52,13 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(3);
         });
 
+        services.TryAddSingleton(TimeProvider.System);
         services.AddScoped<IVectorStore, PgVectorStore>();
         services.AddSingleton<IFileStorage, Storage.LocalFileStorage>();
         services.AddSingleton<IIngestionQueue, Ingestion.IngestionQueue>();
         services.AddScoped<IIngestionService, Ingestion.IngestionService>();
+        services.AddSingleton<IReindexQueue, Reindex.ReindexQueue>();
+        services.AddScoped<IReindexService, Reindex.ReindexService>();
         services.AddScoped<IAccessService, Identity.AccessService>();
         services.AddScoped<IRagService, Rag.RagService>();
 

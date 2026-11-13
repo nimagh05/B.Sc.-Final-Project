@@ -441,6 +441,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
                 .HasColumnName("finished_at")
                 .HasColumnType("timestamp with time zone");
 
+            b.HasIndex(j => j.CollectionId)
+                .IsUnique()
+                .HasDatabaseName("ix_reindex_jobs_active_collection")
+                .HasFilter("status IN ('Queued', 'Running')");
+
             b.HasOne(j => j.Collection)
                 .WithMany(c => c.ReindexJobs)
                 .HasForeignKey(j => j.CollectionId)

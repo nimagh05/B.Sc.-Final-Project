@@ -461,15 +461,11 @@ public sealed partial class LegalAwareChunker : IChunker
         var overlapTexts = builder.OverlapUnits.Select(u => u.Text).ToList();
         var bodyTexts = builder.Units.Select(u => u.Text).ToList();
 
-        var sectionPrefix = (options.IncludeSectionTitleInEmbedding && !string.IsNullOrWhiteSpace(builder.SectionTitle))
-            ? builder.SectionTitle + "\n"
-            : "";
-
         // Enforce the 500 cap on EmbeddingText: drop overlap sentences first if over MaxTokens
         while (overlapTexts.Count > 0)
         {
             var combinedText = string.Join(" ", overlapTexts.Concat(bodyTexts));
-            var candidateEmbeddingText = _normalizer.NormalizeForEmbedding(sectionPrefix + combinedText);
+            var candidateEmbeddingText = ChunkEmbeddingTextBuilder.Build(_normalizer, options, builder.SectionTitle, combinedText);
             if (_tokenCounter.Count(candidateEmbeddingText) <= options.MaxTokens)
             {
                 break;
@@ -481,7 +477,7 @@ public sealed partial class LegalAwareChunker : IChunker
 
         var rawText = string.Join(" ", overlapTexts.Concat(bodyTexts));
         var displayText = _normalizer.NormalizeForDisplay(rawText);
-        var finalEmbeddingText = _normalizer.NormalizeForEmbedding(sectionPrefix + rawText);
+        var finalEmbeddingText = ChunkEmbeddingTextBuilder.Build(_normalizer, options, builder.SectionTitle, rawText);
         var finalTokens = _tokenCounter.Count(finalEmbeddingText);
 
         var pageStart = builder.Units.Min(u => u.PageStart);

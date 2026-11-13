@@ -31,6 +31,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
 builder.Services.AddApplication(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHostedService<DocSearch.Infrastructure.Ingestion.IngestionWorker>();
+builder.Services.AddHostedService<DocSearch.Infrastructure.Reindex.ReindexWorker>();
 
 // Graceful shutdown timeout
 builder.Services.Configure<HostOptions>(options =>
