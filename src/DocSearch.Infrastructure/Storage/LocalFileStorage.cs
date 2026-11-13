@@ -46,8 +46,7 @@ public sealed class LocalFileStorage : IFileStorage
         var year = utcNow.ToString("yyyy", CultureInfo.InvariantCulture);
         var month = utcNow.ToString("MM", CultureInfo.InvariantCulture);
 
-        var relativeDir = Path.Combine(year, month);
-        var targetDir = Path.Combine(_rootPath, relativeDir);
+        var targetDir = Path.Combine(_rootPath, year, month);
 
         if (!Directory.Exists(targetDir))
         {
@@ -56,7 +55,8 @@ public sealed class LocalFileStorage : IFileStorage
 
         var fileId = Guid.CreateVersion7();
         var fileName = $"{fileId:N}.pdf";
-        var finalFullPath = ResolveAndValidatePath(Path.Combine(relativeDir, fileName));
+        var relativePath = $"{year}/{month}/{fileName}";
+        var finalFullPath = ResolveAndValidatePath(relativePath);
 
         var tempFileName = $"{Guid.NewGuid():N}.tmp";
         var tempFullPath = Path.Combine(targetDir, tempFileName);
@@ -76,10 +76,10 @@ public sealed class LocalFileStorage : IFileStorage
             }
 
             File.Move(tempFullPath, finalFullPath, overwrite: false);
-            _logger.LogInformation("Stored file atomically at {RelativePath}", Path.Combine(relativeDir, fileName));
+            _logger.LogInformation("Stored file atomically at {RelativePath}", relativePath);
 
             // Return relative path with forward slashes for cross-platform consistency
-            return $"{year}/{month}/{fileName}";
+            return relativePath;
         }
         catch
         {
@@ -146,10 +146,12 @@ public sealed class LocalFileStorage : IFileStorage
 
     private string ResolveAndValidatePath(string relativePath)
     {
-        // Guard against absolute paths or root traversal
-        if (Path.IsPathRooted(relativePath))
+        // Guard against absolute paths, backslashes, drive colons, or root traversal
+        if (Path.IsPathRooted(relativePath)
+            || relativePath.Contains('\\', StringComparison.Ordinal)
+            || relativePath.Contains(':', StringComparison.Ordinal))
         {
-            throw new ArgumentException("Storage path cannot be rooted or absolute.", nameof(relativePath));
+            throw new ArgumentException("Storage path must be a relative forward-slash path.", nameof(relativePath));
         }
 
         var combined = Path.Combine(_rootPath, relativePath);
