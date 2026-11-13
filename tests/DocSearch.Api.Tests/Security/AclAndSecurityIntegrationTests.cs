@@ -290,9 +290,20 @@ public sealed class AclAndSecurityIntegrationTests(ApiTestFixture fixture)
         Assert.NotEqual(Guid.Empty, jobData.JobId);
 
         // 3. Admin checking job status -> 200 OK
-        var statusResp = await adminClient.GetAsync($"/api/v1/admin/reindex-jobs/{jobData.JobId}");
-        Assert.Equal(HttpStatusCode.OK, statusResp.StatusCode);
-        var statusData = await statusResp.Content.ReadFromJsonAsync<ReindexJobStatusResponse>(_jsonOptions);
+        ReindexJobStatusResponse? statusData = null;
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (DateTime.UtcNow < deadline)
+        {
+            var statusResp = await adminClient.GetAsync($"/api/v1/admin/reindex-jobs/{jobData.JobId}");
+            Assert.Equal(HttpStatusCode.OK, statusResp.StatusCode);
+            statusData = await statusResp.Content.ReadFromJsonAsync<ReindexJobStatusResponse>(_jsonOptions);
+            if (statusData?.Status is "Completed" or "Failed")
+            {
+                break;
+            }
+            await Task.Delay(100);
+        }
+
         Assert.NotNull(statusData);
         Assert.Equal("Completed", statusData.Status);
     }

@@ -1,5 +1,7 @@
 # DocSearch
 
+[![CI](https://github.com/nimagh05/B.Sc.-Final-Project/actions/workflows/ci.yml/badge.svg)](https://github.com/nimagh05/B.Sc.-Final-Project/actions/workflows/ci.yml)
+
 Persian RAG (Retrieval-Augmented Generation) document search web service. Answers questions strictly from uploaded PDF documents with exact file name and page citations.
 
 ## Status

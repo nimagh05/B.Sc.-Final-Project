@@ -1,0 +1,273 @@
+name: ci
+
+'on':
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dotnet:
+    name: .NET Build & Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Secret scan
+        run: |
+          echo "Scanning for accidental secrets..."
+          MATCHES=$(git grep -nI -E "AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9]{20,}|Password=[^$\s]+" -- . ":!*.example*" ":!docs/*" ":!conformance/README.md" || true)
+          REAL_LEAKS=$(echo "$MATCHES" | grep -v -E "Password=CHANGE_ME|Password=postgres" || true)
+          if [ -n "$REAL_LEAKS" ]; then
+            echo "Error: Potential secrets detected:"
+            echo "$REAL_LEAKS"
+            exit 1
+          fi
+          echo "Secret scan clean: no leaks found."
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build with Warnings As Errors
+        run: dotnet build --no-restore -warnaserror -c Release
+
+      - name: Verify code formatting
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Run unit & integration tests
+        run: dotnet test --no-build -c Release --filter "Category!=RequiresOllama" --logger "trx"
+
+      - name: Check for vulnerable packages
+        run: |
+          echo "Checking for vulnerable packages..."
+          OUTPUT=$(dotnet list package --vulnerable --include-transitive)
+          echo "$OUTPUT"
+          if echo "$OUTPUT" | grep -qi "has the following vulnerable packages"; then
+            echo "Error: Vulnerable packages detected!"
+            exit 1
+          fi
+          echo "No vulnerable packages found."
+
+  extractor:
+    name: Python Extractor Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: "tools/extractor/requirements*.txt"
+
+      - name: Install dependencies
+        run: pip install -r tools/extractor/requirements-dev.txt
+
+      - name: Run extractor tests
+        run: pytest tools/extractor/tests -v
+
+  conformance:
+    name: Conformance Suite
+    runs-on: ubuntu-latest
+    needs: [dotnet, extractor]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            tools/extractor/requirements*.txt
+            conformance/requirements.txt
+
+      - name: Install Python dependencies
+        run: pip install -r tools/extractor/requirements-dev.txt -r conformance/requirements.txt
+
+      - name: Install dotnet-ef tool
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Start PostgreSQL container
+        run: |
+          docker compose up -d --wait db || docker compose up -d db
+          echo "Waiting for database ready..."
+          until docker compose exec -T db pg_isready -U postgres -d docsearch; do
+            echo "Waiting for PostgreSQL..."
+            sleep 1
+          done
+          echo "PostgreSQL is ready."
+        env:
+          POSTGRES_PASSWORD: ci_password
+
+      - name: Build DocSearch.Api
+        run: dotnet build src/DocSearch.Api -c Release
+
+      - name: Apply EF database migrations
+        run: dotnet ef database update --project src/DocSearch.Infrastructure --startup-project src/DocSearch.Api --configuration Release --no-build --connection "Host=127.0.0.1;Port=5432;Database=docsearch;Username=postgres;Password=ci_password"
+
+      - name: Start Extractor sidecar
+        run: |
+          python -m uvicorn app.main:app --app-dir tools/extractor --host 127.0.0.1 --port 8000 &
+          echo "Waiting for Extractor sidecar to be healthy..."
+          for i in $(seq 1 15); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/health || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Extractor sidecar is ready!"
+              break
+            fi
+            sleep 1
+          done
+          if [ "$STATUS" != "200" ]; then
+            echo "Extractor failed to start!"
+            exit 1
+          fi
+
+      - name: Run Conformance Pass A (Standard contracts)
+        run: |
+          dotnet run --project src/DocSearch.Api -c Release --no-build --no-launch-profile --urls http://127.0.0.1:5000 &
+          API_PID=$!
+          echo "Waiting for API ready on http://127.0.0.1:5000/health/ready..."
+          for i in $(seq 1 30); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/health/ready || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "API is ready!"
+              break
+            fi
+            sleep 2
+          done
+          if [ "$STATUS" != "200" ]; then
+            echo "API failed to become ready!"
+            curl -v http://127.0.0.1:5000/health/ready || true
+            kill $API_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          mkdir -p conformance/results
+          pytest conformance -m "not degraded" -v --junitxml=conformance/results/pass_a.xml
+
+          echo "Stopping Pass A API..."
+          kill $API_PID 2>/dev/null || true
+          wait $API_PID 2>/dev/null || true
+          pkill -f "DocSearch.Api" 2>/dev/null || true
+          sleep 2
+        env:
+          ConnectionStrings__Default: Host=127.0.0.1;Port=5432;Database=docsearch;Username=postgres;Password=ci_password
+          Ai__Embedding__Provider: Fake
+          Ai__Chat__Provider: Fake
+          Ai__Chat__Fake__Fail: "false"
+          Rag__MinSimilarity: "0.2"
+          Jwt__SigningKey: ci_signing_key_ci_signing_key_ci_signing_32chars
+          Auth__AllowSelfRegistration: "true"
+          Auth__BootstrapAdmin__Email: admin@ci.test
+          Auth__BootstrapAdmin__Password: Ci_Admin_123!
+          Extraction__Provider: Sidecar
+          Extraction__ExtractorBaseUrl: http://127.0.0.1:8000
+          BASE_URL: http://127.0.0.1:5000
+          ADMIN_EMAIL: admin@ci.test
+          ADMIN_PASSWORD: Ci_Admin_123!
+
+      - name: Run Conformance Pass B (Degraded mode)
+        run: |
+          dotnet run --project src/DocSearch.Api -c Release --no-build --no-launch-profile --urls http://127.0.0.1:5000 &
+          API_PID=$!
+          echo "Waiting for API ready on http://127.0.0.1:5000/health/ready..."
+          for i in $(seq 1 30); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:5000/health/ready || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "API is ready!"
+              break
+            fi
+            sleep 2
+          done
+          if [ "$STATUS" != "200" ]; then
+            echo "API failed to become ready in degraded mode!"
+            curl -v http://127.0.0.1:5000/health/ready || true
+            kill $API_PID 2>/dev/null || true
+            exit 1
+          fi
+
+          pytest conformance -m degraded -v --junitxml=conformance/results/pass_b.xml
+
+          echo "Stopping Pass B API..."
+          kill $API_PID 2>/dev/null || true
+          wait $API_PID 2>/dev/null || true
+          pkill -f "DocSearch.Api" 2>/dev/null || true
+        env:
+          ConnectionStrings__Default: Host=127.0.0.1;Port=5432;Database=docsearch;Username=postgres;Password=ci_password
+          Ai__Embedding__Provider: Fake
+          Ai__Chat__Provider: Fake
+          Ai__Chat__Fake__Fail: "true"
+          Rag__MinSimilarity: "0.2"
+          Jwt__SigningKey: ci_signing_key_ci_signing_key_ci_signing_32chars
+          Auth__AllowSelfRegistration: "true"
+          Auth__BootstrapAdmin__Email: admin@ci.test
+          Auth__BootstrapAdmin__Password: Ci_Admin_123!
+          Extraction__Provider: Sidecar
+          Extraction__ExtractorBaseUrl: http://127.0.0.1:8000
+          BASE_URL: http://127.0.0.1:5000
+          ADMIN_EMAIL: admin@ci.test
+          ADMIN_PASSWORD: Ci_Admin_123!
+
+      - name: Score Conformance Results
+        run: |
+          python -c "
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          merged = ET.Element('testsuites')
+          for p in [Path('conformance/results/pass_a.xml'), Path('conformance/results/pass_b.xml')]:
+              if p.exists():
+                  tree = ET.parse(p)
+                  root = tree.getroot()
+                  if root.tag == 'testsuites':
+                      for suite in root:
+                          merged.append(suite)
+                  elif root.tag == 'testsuite':
+                      merged.append(root)
+          ET.ElementTree(merged).write('conformance/results/report.xml')
+          "
+          python conformance/score.py conformance/results/report.xml
+
+      - name: Upload Conformance Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conformance-results
+          path: conformance/results/*.xml
