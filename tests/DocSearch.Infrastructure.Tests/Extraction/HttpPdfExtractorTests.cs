@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net;
 using System.Text;
@@ -360,20 +361,29 @@ public sealed class HttpPdfExtractorTests
         var repoRoot = FindRepoRoot();
         if (repoRoot != null)
         {
-            var windowsVenv = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
-            if (File.Exists(windowsVenv))
+            if (OperatingSystem.IsWindows())
             {
-                return windowsVenv;
+                var windowsVenv = Path.Combine(repoRoot, ".venv", "Scripts", "python.exe");
+                if (File.Exists(windowsVenv))
+                {
+                    return windowsVenv;
+                }
             }
-
-            var unixVenv = Path.Combine(repoRoot, ".venv", "bin", "python");
-            if (File.Exists(unixVenv))
+            else
             {
-                return unixVenv;
+                var unixVenv = Path.Combine(repoRoot, ".venv", "bin", "python");
+                if (File.Exists(unixVenv))
+                {
+                    return unixVenv;
+                }
             }
         }
 
-        foreach (var cmd in new[] { "python3", "python" })
+        var candidates = OperatingSystem.IsWindows()
+            ? new[] { "python", "python3" }
+            : new[] { "python3", "python" };
+
+        foreach (var cmd in candidates)
         {
             try
             {
@@ -394,6 +404,10 @@ public sealed class HttpPdfExtractorTests
                         return cmd;
                     }
                 }
+            }
+            catch (Win32Exception)
+            {
+                // Not on PATH or binary cannot be executed
             }
             catch
             {
@@ -425,9 +439,14 @@ public sealed class HttpPdfExtractorTests
                 StandardOutputEncoding = Encoding.UTF8
             });
         }
+        catch (Win32Exception ex)
+        {
+            Skip.If(true, $"Python binary '{pythonExe}' cannot be executed (Win32Exception): {ex.Message}");
+            return string.Empty;
+        }
         catch (Exception ex)
         {
-            Skip.IfNot(false, $"Failed to start python process ({pythonExe}): {ex.Message}");
+            Skip.If(true, $"Failed to start python process ({pythonExe}): {ex.Message}");
             return string.Empty;
         }
 
@@ -441,7 +460,7 @@ public sealed class HttpPdfExtractorTests
         {
             if (stderr.Contains("ModuleNotFoundError", StringComparison.OrdinalIgnoreCase))
             {
-                Skip.IfNot(false, $"PyMuPDF is not installed in the resolved Python environment ({pythonExe}): {stderr}");
+                Skip.If(true, $"PyMuPDF is not installed in the resolved Python environment ({pythonExe}): {stderr}");
             }
             else
             {

@@ -6,7 +6,7 @@ Persian RAG (Retrieval-Augmented Generation) document search web service. Answer
 
 ## Status
 
-Core RAG pipeline operational through **Task T14 (Production Hardening)**:
+Core RAG pipeline operational through **Task T16 (CI & Integration Hygiene)**:
 - FastAPI/PyMuPDF extraction sidecar with page quality scoring (T05)
 - Header/footer cleaning & legal-aware Persian chunking with structural hierarchy (T06 & T06b)
 - Offline & local Ollama (bge-m3) embedding providers with dimension validation (T07)
@@ -15,6 +15,8 @@ Core RAG pipeline operational through **Task T14 (Production Hardening)**:
 - RAG synthesis pipeline, grounding prompts, citation parser & `/api/v1/ask` (T10)
 - Identity & JWT auth, collections CRUD, and role-based ACL enforcement (T13)
 - Production hardening: two-layer rate limiting, trusted proxy CIDRs, security headers, strict CORS & RFC 7807 errors (T14)
+- Re-index & provider swap: resumable collection reindexing and background worker (T15)
+- CI & integration hygiene: GitHub Actions pipeline with secret scanning, multi-stage Linux builds, Testcontainers, and conformance black-box verification (T16)
 
 ## Prerequisites
 

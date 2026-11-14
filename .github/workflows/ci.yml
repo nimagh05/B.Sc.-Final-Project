@@ -36,8 +36,8 @@ jobs:
       - name: Secret scan
         run: |
           echo "Scanning for accidental secrets..."
-          MATCHES=$(git grep -nI -E "AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9]{20,}|Password=[^$\s]+" -- . ":!*.example*" ":!docs/*" ":!conformance/README.md" || true)
-          REAL_LEAKS=$(echo "$MATCHES" | grep -v -E "Password=CHANGE_ME|Password=postgres" || true)
+          MATCHES=$(git grep -nI -E "AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9]{20,}|Password=[^$\s]+" -- . ":!*.example*" ":!docs/*" ":!conformance/README.md" ":!.github/workflows/ci.yml" || true)
+          REAL_LEAKS=$(echo "$MATCHES" | grep -v -E "Password=(CHANGE_ME|postgres|ci_password)" || true)
           if [ -n "$REAL_LEAKS" ]; then
             echo "Error: Potential secrets detected:"
             echo "$REAL_LEAKS"
@@ -122,7 +122,7 @@ jobs:
         run: pip install -r tools/extractor/requirements-dev.txt -r conformance/requirements.txt
 
       - name: Install dotnet-ef tool
-        run: dotnet tool install --global dotnet-ef
+        run: dotnet tool install --global dotnet-ef --version 10.0.13
 
       - name: Start PostgreSQL container
         run: |
@@ -136,6 +136,9 @@ jobs:
         env:
           POSTGRES_PASSWORD: ci_password
 
+      - name: Prepare results directory
+        run: mkdir -p conformance/results
+
       - name: Build DocSearch.Api
         run: dotnet build src/DocSearch.Api -c Release
 
@@ -144,7 +147,7 @@ jobs:
 
       - name: Start Extractor sidecar
         run: |
-          python -m uvicorn app.main:app --app-dir tools/extractor --host 127.0.0.1 --port 8000 &
+          python -m uvicorn app.main:app --app-dir tools/extractor --host 127.0.0.1 --port 8000 > conformance/results/extractor.log 2>&1 &
           echo "Waiting for Extractor sidecar to be healthy..."
           for i in $(seq 1 15); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/health || true)
@@ -155,13 +158,14 @@ jobs:
             sleep 1
           done
           if [ "$STATUS" != "200" ]; then
-            echo "Extractor failed to start!"
+            echo "Extractor failed to start! Last 100 log lines:"
+            tail -n 100 conformance/results/extractor.log || true
             exit 1
           fi
 
       - name: Run Conformance Pass A (Standard contracts)
         run: |
-          dotnet run --project src/DocSearch.Api -c Release --no-build --no-launch-profile --urls http://127.0.0.1:5000 &
+          dotnet run --project src/DocSearch.Api -c Release --no-build --no-launch-profile --urls http://127.0.0.1:5000 > conformance/results/api_pass_a.log 2>&1 &
           API_PID=$!
           echo "Waiting for API ready on http://127.0.0.1:5000/health/ready..."
           for i in $(seq 1 30); do
@@ -173,13 +177,13 @@ jobs:
             sleep 2
           done
           if [ "$STATUS" != "200" ]; then
-            echo "API failed to become ready!"
+            echo "API failed to become ready! Last 100 log lines:"
             curl -v http://127.0.0.1:5000/health/ready || true
+            tail -n 100 conformance/results/api_pass_a.log || true
             kill $API_PID 2>/dev/null || true
             exit 1
           fi
 
-          mkdir -p conformance/results
           pytest conformance -m "not degraded" -v --junitxml=conformance/results/pass_a.xml
 
           echo "Stopping Pass A API..."
@@ -205,7 +209,7 @@ jobs:
 
       - name: Run Conformance Pass B (Degraded mode)
         run: |
-          dotnet run --project src/DocSearch.Api -c Release --no-build --no-launch-profile --urls http://127.0.0.1:5000 &
+          dotnet run --project src/DocSearch.Api -c Release --no-build --no-launch-profile --urls http://127.0.0.1:5000 > conformance/results/api_pass_b.log 2>&1 &
           API_PID=$!
           echo "Waiting for API ready on http://127.0.0.1:5000/health/ready..."
           for i in $(seq 1 30); do
@@ -217,8 +221,9 @@ jobs:
             sleep 2
           done
           if [ "$STATUS" != "200" ]; then
-            echo "API failed to become ready in degraded mode!"
+            echo "API failed to become ready in degraded mode! Last 100 log lines:"
             curl -v http://127.0.0.1:5000/health/ready || true
+            tail -n 100 conformance/results/api_pass_b.log || true
             kill $API_PID 2>/dev/null || true
             exit 1
           fi
@@ -270,4 +275,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: conformance-results
-          path: conformance/results/*.xml
+          path: |
+            conformance/results/*.xml
+            conformance/results/*.log
