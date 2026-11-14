@@ -35,8 +35,10 @@
    - In `ResolveAndValidatePath(string relativePath)`, added explicit rejection of `\` and `:` alongside `Path.IsPathRooted(relativePath)`.
    - On Linux (`ubuntu-latest`), backslashes are not path separators and drive letters like `C:\` are not treated as rooted by `Path.IsPathRooted`. Explicit rejection ensures directory traversal attacks like `..\..\evil.txt` and rooted paths like `C:\Windows\System32\cmd.exe` are uniformly rejected with `ArgumentException` across Windows and Linux.
    - Internal directory partitioning in `SaveAsync` was updated to construct forward-slash relative paths (`$"{year}/{month}/{fileName}"`).
-3. **Integration Test Timing Hygiene (`AclAndSecurityIntegrationTests.cs`)**:
-   - In T15, collection reindex was converted from a synchronous stub to an asynchronous background `ReindexWorker`. Calling `adminClient.GetAsync` once immediately after HTTP 202 created a timing race condition where the status could still be `"Running"`. A polling loop with deadline was added, maintaining a strict final assertion that status reaches `"Completed"`.
+3. **Integration Test Timing & Concurrency Hygiene**:
+   - `AclAndSecurityIntegrationTests.cs`: Collection reindex was converted from a synchronous stub to an asynchronous background `ReindexWorker`. Calling `adminClient.GetAsync` once immediately after HTTP 202 created a timing race condition where the status could still be `"Running"`. A polling loop with deadline was added, maintaining a strict final assertion that status reaches `"Completed"`.
+   - `DocumentsControllerIntegrationTests.cs`: In `Reprocess_When_Document_Is_Processing_Returns_409_Conflict`, starting a fresh `WebApplicationFactory` launched `IngestionWorker` whose startup recovery task (`RecoverAndEnqueueStartupDocumentsAsync`) concurrently reset the in-flight `Processing` test document to `Uploaded` -> `Failed` (due to missing dummy file) before `POST /api/v1/documents/{id}/reprocess` was called. `IngestionWorker` was removed from the DI container for this specific conflict test, preventing background worker mutation of the test fixture.
+   - `ProductionHardeningTests.cs`: Added `using var` for all `WebApplicationFactory` and `HttpClient` instances across test cases to ensure deterministic cleanup and prevent zombie background services across tests sharing the test database.
 4. **README Updates**:
    - Added CI workflow status badge.
    - Updated status/progress section to reflect completion through T15 (Re-index & provider swap) and T16 (CI & integration hygiene).

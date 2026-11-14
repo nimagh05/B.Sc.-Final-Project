@@ -9,8 +9,10 @@ using DocSearch.Application.Abstractions;
 using DocSearch.Application.Models;
 using DocSearch.Domain;
 using DocSearch.Infrastructure.Identity;
+using DocSearch.Infrastructure.Ingestion;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Xunit;
 
 namespace DocSearch.Api.Tests.Controllers;
@@ -468,7 +470,19 @@ public sealed class DocumentsControllerIntegrationTests(ApiTestFixture fixture)
     [Fact]
     public async Task Reprocess_When_Document_Is_Processing_Returns_409_Conflict()
     {
-        using var factory = fixture.CreateFactory();
+        // Suppress IngestionWorker so its startup recovery loop doesn't reset the in-flight
+        // Processing document to Uploaded/Failed before the controller endpoint is tested.
+        using var factory = fixture.CreateFactory(services =>
+        {
+            var workerDescriptors = services.Where(d =>
+                (d.ServiceType == typeof(IHostedService) && d.ImplementationType == typeof(IngestionWorker)) ||
+                d.ServiceType == typeof(IngestionWorker)).ToList();
+
+            foreach (var d in workerDescriptors)
+            {
+                services.Remove(d);
+            }
+        });
         using var client = factory.CreateClient();
 
         await using var db = fixture.CreateDbContext();

@@ -19,14 +19,14 @@ public sealed class ProductionHardeningTests(ApiTestFixture fixture)
     public async Task RateLimit_Returns_429_With_RetryAfter()
     {
         // Configure tight rate limit of 3 requests per minute for auth policy
-        var customFactory = fixture.CreateFactory(extraConfiguration: new Dictionary<string, string?>
+        using var customFactory = fixture.CreateFactory(extraConfiguration: new Dictionary<string, string?>
         {
             ["RateLimiting:Enabled"] = "true",
             ["RateLimiting:AuthPermitLimit"] = "3",
             ["RateLimiting:AuthWindowMinutes"] = "1"
         });
 
-        var client = customFactory.CreateAnonymousClient();
+        using var client = customFactory.CreateAnonymousClient();
         var loginPayload = new { email = "ratelimit_probe@docsearch.local", password = "InvalidPassword123!" };
 
         // Send 3 requests (within limit)
@@ -63,8 +63,8 @@ public sealed class ProductionHardeningTests(ApiTestFixture fixture)
     [Fact]
     public async Task Errors_Are_ProblemJson()
     {
-        var factory = fixture.CreateFactory();
-        var anonClient = factory.CreateAnonymousClient();
+        using var factory = fixture.CreateFactory();
+        using var anonClient = factory.CreateAnonymousClient();
 
         // 1. 401 Unauthorized (calling protected endpoint anonymously)
         var res401 = await anonClient.GetAsync("/api/v1/collections");
@@ -77,7 +77,7 @@ public sealed class ProductionHardeningTests(ApiTestFixture fixture)
         Assert.False(string.IsNullOrWhiteSpace(json401.GetProperty("traceId").GetString()));
 
         // 2. 403 Forbidden (standard user accessing admin endpoint)
-        var userClient = factory.CreateAuthenticatedClient(Guid.NewGuid().ToString("D"), "user@test.local", "User");
+        using var userClient = factory.CreateAuthenticatedClient(Guid.NewGuid().ToString("D"), "user@test.local", "User");
         var res403 = await userClient.PostAsync($"/api/v1/admin/collections/{Guid.NewGuid()}/reindex", null);
         Assert.Equal(HttpStatusCode.Forbidden, res403.StatusCode);
         Assert.Equal("application/problem+json", res403.Content.Headers.ContentType?.MediaType);
@@ -98,13 +98,13 @@ public sealed class ProductionHardeningTests(ApiTestFixture fixture)
         Assert.False(string.IsNullOrWhiteSpace(json404.GetProperty("traceId").GetString()));
 
         // 4. 429 Rate Limited
-        var rateLimitFactory = fixture.CreateFactory(extraConfiguration: new Dictionary<string, string?>
+        using var rateLimitFactory = fixture.CreateFactory(extraConfiguration: new Dictionary<string, string?>
         {
             ["RateLimiting:Enabled"] = "true",
             ["RateLimiting:AuthPermitLimit"] = "1",
             ["RateLimiting:AuthWindowMinutes"] = "1"
         });
-        var rlClient = rateLimitFactory.CreateAnonymousClient();
+        using var rlClient = rateLimitFactory.CreateAnonymousClient();
         await rlClient.PostAsJsonAsync("/api/v1/auth/login", new { email = "single@test.local", password = "p" });
         var res429 = await rlClient.PostAsJsonAsync("/api/v1/auth/login", new { email = "single@test.local", password = "p" });
         Assert.Equal(HttpStatusCode.TooManyRequests, res429.StatusCode);
@@ -119,11 +119,11 @@ public sealed class ProductionHardeningTests(ApiTestFixture fixture)
     [Fact]
     public async Task Cors_Allows_Only_Configured_Origin()
     {
-        var factory = fixture.CreateFactory(extraConfiguration: new Dictionary<string, string?>
+        using var factory = fixture.CreateFactory(extraConfiguration: new Dictionary<string, string?>
         {
             ["Cors:AllowedOrigins:0"] = "http://localhost:5173"
         });
-        var client = factory.CreateAnonymousClient();
+        using var client = factory.CreateAnonymousClient();
 
         // 1. Allowed origin
         var requestAllowed = new HttpRequestMessage(HttpMethod.Get, "/health/live");
@@ -166,8 +166,8 @@ public sealed class ProductionHardeningTests(ApiTestFixture fixture)
     [Fact]
     public async Task Security_Headers_Present()
     {
-        var factory = fixture.CreateFactory();
-        var client = factory.CreateAnonymousClient();
+        using var factory = fixture.CreateFactory();
+        using var client = factory.CreateAnonymousClient();
 
         // Test normal endpoint
         var liveResponse = await client.GetAsync("/health/live");
@@ -199,8 +199,8 @@ public sealed class ProductionHardeningTests(ApiTestFixture fixture)
     [Fact]
     public async Task ConcurrentRequests_SmokeTest_Returns_No_5xx()
     {
-        var factory = fixture.CreateFactory();
-        var client = factory.CreateClient();
+        using var factory = fixture.CreateFactory();
+        using var client = factory.CreateClient();
 
         // 20 concurrent requests firing concurrently
         var tasks = Enumerable.Range(0, 20).Select(async i =>
@@ -221,7 +221,7 @@ public sealed class ProductionHardeningTests(ApiTestFixture fixture)
     [Fact]
     public async Task Auth_RateLimit_Blocks_PasswordSpraying_Across_Different_Emails_From_Same_Ip()
     {
-        var customFactory = fixture.CreateFactory(extraConfiguration: new Dictionary<string, string?>
+        using var customFactory = fixture.CreateFactory(extraConfiguration: new Dictionary<string, string?>
         {
             ["RateLimiting:Enabled"] = "true",
             ["RateLimiting:AuthPermitLimit"] = "10",
@@ -229,7 +229,7 @@ public sealed class ProductionHardeningTests(ApiTestFixture fixture)
             ["RateLimiting:AuthWindowMinutes"] = "1"
         });
 
-        var client = customFactory.CreateAnonymousClient();
+        using var client = customFactory.CreateAnonymousClient();
 
         // First 5 requests with 5 distinct email addresses stay within Layer 1 IP ceiling (5)
         for (var i = 1; i <= 5; i++)
