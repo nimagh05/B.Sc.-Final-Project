@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 Validates eval/questions.json against the schema and eval/pdfs/ directory
-per docs/EVAL.md §1.3.
+per docs/EVAL.md §1.3 and ADR 0006 (docset & text_layer_defect).
 """
 
 import json
@@ -24,6 +24,7 @@ VALID_TYPES = {
     "english",
 }
 VALID_SPLITS = {"dev", "test"}
+VALID_DOCSETS = {"tuned", "heldout"}
 
 
 def validate_questions(questions_path: Path, pdfs_dir: Path) -> bool:
@@ -49,7 +50,6 @@ def validate_questions(questions_path: Path, pdfs_dir: Path) -> bool:
         for pdf_file in pdfs_dir.glob("**/*.pdf"):
             try:
                 doc = fitz.open(pdf_file)
-                # Store relative to pdfs_dir and also filename
                 rel_path = pdf_file.relative_to(pdfs_dir).as_posix()
                 pdf_page_counts[rel_path] = len(doc)
                 pdf_page_counts[pdf_file.name] = len(doc)
@@ -62,6 +62,10 @@ def validate_questions(questions_path: Path, pdfs_dir: Path) -> bool:
     type_counts = Counter()
     split_counts = Counter()
     lang_counts = Counter()
+    docset_counts = Counter()
+    defect_counts = Counter()
+    split_docset_ans = Counter()
+    split_docset_not = Counter()
 
     for idx, q in enumerate(questions):
         qid = q.get("id")
@@ -82,6 +86,21 @@ def validate_questions(questions_path: Path, pdfs_dir: Path) -> bool:
         if split not in VALID_SPLITS:
             errors.append(f"Question '{qid}': invalid split '{split}'. Must be one of {VALID_SPLITS}")
         split_counts[split] += 1
+
+        docset = q.get("docset")
+        if docset not in VALID_DOCSETS:
+            errors.append(f"Question '{qid}': invalid docset '{docset}'. Must be one of {VALID_DOCSETS}")
+        docset_counts[docset] += 1
+
+        defect = q.get("text_layer_defect")
+        if not isinstance(defect, bool):
+            errors.append(f"Question '{qid}': 'text_layer_defect' must be a boolean")
+        defect_counts[bool(defect)] += 1
+
+        if q_type == "not-in-docs":
+            split_docset_not[(docset, split)] += 1
+        else:
+            split_docset_ans[(docset, split)] += 1
 
         lang = q.get("language", "unknown")
         lang_counts[lang] += 1
@@ -121,7 +140,10 @@ def validate_questions(questions_path: Path, pdfs_dir: Path) -> bool:
                 errors.append(f"Question '{qid}': answerable question must have non-empty 'answer_keywords'")
 
     print("\n--- Question Dataset Statistics ---")
-    print(f"Total questions: {len(questions)}")
+    print(f"Total questions   : {len(questions)}")
+    print(f"Answerable        : {len(questions) - type_counts['not-in-docs']}")
+    print(f"Not-in-docs       : {type_counts['not-in-docs']}")
+
     print("\nCounts by Type:")
     for t, c in sorted(type_counts.items()):
         print(f"  {t:18s}: {c}")
@@ -130,9 +152,20 @@ def validate_questions(questions_path: Path, pdfs_dir: Path) -> bool:
     for s, c in sorted(split_counts.items()):
         print(f"  {s:18s}: {c}")
 
-    print("\nCounts by Language:")
-    for l, c in sorted(lang_counts.items()):
-        print(f"  {l:18s}: {c}")
+    print("\nCounts by Docset:")
+    for d, c in sorted(docset_counts.items()):
+        print(f"  {d:18s}: {c}")
+
+    print("\nCounts by Text-Layer Defect (Answerable):")
+    ans_defect = sum(1 for q in questions if q.get("type") != "not-in-docs" and q.get("text_layer_defect"))
+    ans_clean = sum(1 for q in questions if q.get("type") != "not-in-docs" and not q.get("text_layer_defect"))
+    print(f"  clean (False)     : {ans_clean}")
+    print(f"  defective (True)  : {ans_defect}")
+
+    print("\nBreakdown by (docset, split):")
+    for d in ("tuned", "heldout"):
+        for s in ("dev", "test"):
+            print(f"  {d:8s} | {s:4s} -> answerable={split_docset_ans[(d, s)]:2d}, not-in-docs={split_docset_not[(d, s)]:2d}")
 
     if errors:
         print(f"\nVALIDATION FAILED with {len(errors)} error(s):")
