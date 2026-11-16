@@ -14,7 +14,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "بازنویسی نیما؛ املای «هز» ممکنه غلط تایپی باشه.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q002",
@@ -31,7 +33,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q003",
@@ -47,7 +51,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "بازنویسی نیما.",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q004",
@@ -64,7 +70,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q005",
@@ -81,7 +89,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q006",
@@ -98,7 +108,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q007",
@@ -115,7 +127,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "عدد چاپ‌شده در خود سند ۲۲ است (ممکن است با متن رسمی اصلی فرق داشته باشد)؛ ملاک پاسخ درست = متن سند. سوال خوبی برای تست faithfulness.",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q008",
@@ -132,7 +146,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q009",
@@ -149,7 +165,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "مقدار از جدول صفحه ۸؛ سوال جدولی.",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q010",
@@ -166,7 +184,9 @@
     "type": "factual",
     "language": "fa",
     "notes": "مقدار از جدول زمان‌بندی.",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q011",
@@ -182,7 +202,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده ۳۱۱،۱۱۱ می‌شود). کلیدواژه ساده نگه داشته شد؛ بهتر است judge هم استفاده شود.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q012",
@@ -199,7 +221,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده ۱۱۱ می‌شود).",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q013",
@@ -216,7 +240,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q014",
@@ -232,7 +258,9 @@
     "type": "numeric",
     "language": "fa",
     "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده 6/555/555 می‌شود). کلیدواژه ضعیف است؛ برای این سوال judge لازم است.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q015",
@@ -249,7 +277,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q016",
@@ -266,7 +296,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q017",
@@ -283,7 +315,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q018",
@@ -300,7 +334,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q019",
@@ -317,7 +353,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q020",
@@ -334,7 +372,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q021",
@@ -350,7 +390,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q022",
@@ -368,7 +410,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده ۵ سال می‌شود؛ ملاک تصویر: ۲ سال).",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q023",
@@ -384,7 +428,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q024",
@@ -401,7 +447,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q025",
@@ -418,7 +466,9 @@
     "type": "legal-reference",
     "language": "fa",
     "notes": "",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q026",
@@ -435,7 +485,9 @@
     "type": "paraphrase",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q027",
@@ -451,7 +503,9 @@
     "type": "paraphrase",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q028",
@@ -468,7 +522,9 @@
     "type": "paraphrase",
     "language": "fa",
     "notes": "در لایه متنی این PDF حرف «لا» به «ال» تبدیل شده (مثلاً اخلاقی→اخالقی).",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q029",
@@ -484,7 +540,9 @@
     "type": "paraphrase",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q030",
@@ -502,7 +560,9 @@
     "type": "paraphrase",
     "language": "fa",
     "notes": "",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q031",
@@ -518,7 +578,9 @@
     "type": "paraphrase",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q032",
@@ -536,7 +598,9 @@
     "type": "paraphrase",
     "language": "fa",
     "notes": "",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q033",
@@ -554,7 +618,9 @@
     "type": "paraphrase",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q034",
@@ -571,7 +637,9 @@
     "type": "paraphrase",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q035",
@@ -589,7 +657,9 @@
     "type": "multi-chunk",
     "language": "fa",
     "notes": "بازنویسی نیما؛ «آخرین ترم سال تحصیلی» ممکنه به‌معنی ترم دوم هر سال برداشت بشه، منظور ترم آخر دوره‌ست.",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q036",
@@ -608,7 +678,9 @@
     "type": "multi-chunk",
     "language": "fa",
     "notes": "بازنویسی نیما؛ «کارشناسی» بین پیوسته و ناپیوسته مبهمه، پاسخ باید هر دو را بگوید.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q037",
@@ -627,7 +699,9 @@
     "type": "multi-chunk",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q038",
@@ -646,7 +720,9 @@
     "type": "multi-chunk",
     "language": "fa",
     "notes": "",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q039",
@@ -668,7 +744,9 @@
     "type": "multi-chunk",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": true
   },
   {
     "id": "q040",
@@ -687,7 +765,9 @@
     "type": "multi-chunk",
     "language": "fa",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q041",
@@ -699,7 +779,9 @@
     "type": "not-in-docs",
     "language": "fa",
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: aein-91 درباره مرخصی کارشناسی است. بازنویسی نیما؛ حروف presentation-form (از کپی‌پیست) با NFKC به حروف معمولی تبدیل شد.",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q042",
@@ -711,7 +793,9 @@
     "type": "not-in-docs",
     "language": "fa",
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: جدول شهریه غیرایرانی‌ها.",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q043",
@@ -723,7 +807,9 @@
     "type": "not-in-docs",
     "language": "fa",
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: شیوه‌نامه دستیار آموزشی. بازنویسی نیما (واحد: تومان).",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q044",
@@ -735,7 +821,9 @@
     "type": "not-in-docs",
     "language": "fa",
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: عبارت «آزمون سراسری» در دو سند هست. بازنویسی نیما.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q045",
@@ -747,7 +835,9 @@
     "type": "not-in-docs",
     "language": "fa",
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: بحث خوابگاه دانشجویان غیرایرانی. بازنویسی نیما.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q046",
@@ -759,7 +849,9 @@
     "type": "not-in-docs",
     "language": "fa",
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. ",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q047",
@@ -771,7 +863,9 @@
     "type": "not-in-docs",
     "language": "fa",
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. ",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q048",
@@ -783,7 +877,9 @@
     "type": "not-in-docs",
     "language": "fa",
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: بحث آزمون‌های زبان انگلیسی در شیوه‌نامه بین‌المللی.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q049",
@@ -795,7 +891,9 @@
     "type": "not-in-docs",
     "language": "fa",
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: تعریف واحد کارآموزی در aein-91.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q050",
@@ -812,7 +910,9 @@
     "type": "english",
     "language": "en",
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q051",
@@ -829,7 +929,9 @@
     "type": "english",
     "language": "en",
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q052",
@@ -846,7 +948,9 @@
     "type": "english",
     "language": "en",
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q053",
@@ -864,7 +968,9 @@
     "type": "english",
     "language": "en",
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q054",
@@ -881,7 +987,9 @@
     "type": "english",
     "language": "en",
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن. کلیدواژه ۱۹۲ چون مقاله «8,192» با ویرگول نوشته.",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q055",
@@ -897,7 +1005,9 @@
     "type": "english",
     "language": "en",
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن. کلیدواژه «three» ممکنه با «3» رد بشه؛ judge لازم.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q056",
@@ -914,7 +1024,9 @@
     "type": "english",
     "language": "en",
     "notes": "",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q057",
@@ -931,7 +1043,9 @@
     "type": "english",
     "language": "en",
     "notes": "سوال جدولی (Table 5، صفحه ۹).",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q058",
@@ -947,7 +1061,9 @@
     "type": "english",
     "language": "en",
     "notes": "Table 1، صفحه ۶. عدد ۷۱.۵ تو جدول MKQA (صفحه ۷، ستون ar) هم هست؛ judge لازم.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q059",
@@ -965,7 +1081,9 @@
     "type": "english",
     "language": "en",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q060",
@@ -982,7 +1100,9 @@
     "type": "english",
     "language": "en",
     "notes": "",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q061",
@@ -1000,7 +1120,9 @@
     "type": "english",
     "language": "en",
     "notes": "چند تکه: تنظیم آزمایش صفحه ۷ و اعداد صفحه ۸.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q062",
@@ -1012,7 +1134,9 @@
     "type": "not-in-docs",
     "language": "en",
     "notes": "سوال بدون پاسخ در اسناد؛ مقاله XLM-RoBERTa و batch size را می‌گوید ولی تعداد پارامتر M3 را نه. مدل ممکنه از حافظه‌ی خودش جواب بده (تست faithfulness).",
-    "split": "dev"
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   },
   {
     "id": "q063",
@@ -1024,6 +1148,1323 @@
     "type": "not-in-docs",
     "language": "en",
     "notes": "سوال بدون پاسخ در اسناد؛ در متن مقاله هیچ اشاره‌ای به license نیست.",
-    "split": "test"
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q064",
+    "question": "برای اینکه بتونم درس کاراموزی رو بردارم حداقل چند واحد باید پاس کرده باشم؟",
+    "expected_answer": "دانشجویان می‌توانند پس از گذراندن ۸۰ الی ۱۰۰ واحد درسی بسته به گروه آموزشی واحد کارآموزی را بگذرانند.",
+    "answer_keywords": [
+      "80",
+      "100",
+      "واحد"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "ماده ۲ بند ۱ شیوه‌نامه کارآموزی",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q065",
+    "question": "مسئول دوره کارآموزی توی هر گروه آموزشی کیه؟",
+    "expected_answer": "مسئول دوره کارآموزی مدیر گروه آموزشی مربوطه است که مسئولیت نظارت بر حسن اجرای دوره کارآموزی دانشجویان گروه را بر عهده دارد.",
+    "answer_keywords": [
+      "مدیر",
+      "گروه"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      1
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۱ تعاریف کلی",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q066",
+    "question": "اگه کارآموزی رو توی ترم پاییز یا بهار بردارم کلاسم تو طول هفته چطوری باید چیده بشه؟",
+    "expected_answer": "در صورتی که دانشجو واحد کارآموزی را در نیمسال اول یا دوم انتخاب نماید، باید کلاس‌های آن ترم دانشجو در دو روز در هفته برنامه‌ریزی گردد.",
+    "answer_keywords": [
+      "دو",
+      "روز",
+      "هفته"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۲ تبصره ۲ - بازنویسی توسط نفر دوم",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q067",
+    "question": "توی تابستون همزمان با کارآموزی چه درس دیگه‌ای میشه برداشت و چه فرقی بین اینکه کارآموزی رو تابستون برداریم یا ترم بهار؟",
+    "expected_answer": "چه واحد کارآموزی در ترم تابستان اخذ شود و چه در نیمسال دوم انتخاب و در تابستان اجرا شود، بجز پروژه کارشناسی واحد دیگری در تابستان قابل اخذ نیست.",
+    "answer_keywords": [
+      "پروژه",
+      "کارشناسی",
+      "تابستان"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۲ تبصره ۱ و تبصره ۳",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q068",
+    "question": "اگه خودم بخوام یه شرکت خصوصی برای کارآموزی پیشنهاد بدم، مطلوبه اون شرکت حداقل چند نفر پرسنل و چند سال سابقه داشته باشه؟",
+    "expected_answer": "در صورت پیشنهاد محل کارآموزی توسط دانشجو کلیه عواقب آن بر عهده خود دانشجو است و مطلوب است شرکت خصوصی فعال حتی‌الامکان دارای بیش از ۱۰ نفر پرسنل و حداقل ۵ سال سابقه مناسب کاری در حیطه تخصصی خود باشد.",
+    "answer_keywords": [
+      "10",
+      "5",
+      "سال"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      3
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "ماده ۴ ویژگی‌های محل کارآموزی",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q069",
+    "question": "طبق بند ۲ ماده ۶ شیوه‌نامه کارآموزی، بعد از اینکه معرفی‌نامه صادر شد تا چند وقت مهلت داریم بریم محل کارآموزی؟",
+    "expected_answer": "دانشجو موظف است حداکثر یک هفته پس از صدور معرفی‌نامه به محل کارآموزی مراجعه و مراحل تثبیت کارآموزی خود را به انجام برساند.",
+    "answer_keywords": [
+      "یک",
+      "هفته",
+      "معرفی"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      3
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۶ بند ۲",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q070",
+    "question": "وقتی امکانش نباشه استاد کارآموزی خودش بیاد شرکت سر بزنه، چجوری پیگیری میکنه که دوره خوب پیش میره؟",
+    "expected_answer": "صرفاً در مواردی که امکان بازدید حضوری وجود ندارد، استاد کارآموزی می‌تواند از طریق تلفن یا سایر روش‌های ارتباطی از کیفیت و نحوه اجرای دوره اطمینان حاصل نماید.",
+    "answer_keywords": [
+      "تلفن",
+      "ارتباطی"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      3
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۶ بند ۸ - بازنویسی توسط نفر دوم",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q071",
+    "question": "نمره کارآموزی چند نمره‌اش دست سرپرست شرکته و چند نمره‌اش دست استاد دانشگاه؟",
+    "expected_answer": "نمره نهایی بر اساس ۳۰ نمره اعلام شده توسط سرپرست کارآموزی و ۷۰ نمره اعلامی توسط استاد کارآموزی به گروه آموزشی اعلام می‌شود.",
+    "answer_keywords": [
+      "30",
+      "70",
+      "سرپرست",
+      "استاد"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "ماده ۶ بند ۹",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q072",
+    "question": "طبق ماده ۷ شیوه‌نامه کارآموزی، اگه تو دوره کارآموزی یه طرح یا اختراع مهم ارائه بدیم به جای چه درسی قبولش میکنن؟",
+    "expected_answer": "چنانچه طرح، اختراع، ابداع و نوآوری مهمی ارائه شود که به تأیید شورای گروه و دانشکده برسد، گروه بر اساس پیشنهاد استاد درس کارآموزی می‌تواند این طرح را به عنوان پروژه دوره کارشناسی بپذیرد.",
+    "answer_keywords": [
+      "پروژه",
+      "کارشناسی"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۷ بند ۲ نظام تشویقی",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q073",
+    "question": "توی گزارش کارآموزی توضیح شکل‌ها و عنوان جدول‌ها کجاشون نوشته میشه؟",
+    "expected_answer": "توضیح شکل در زیر آن و عنوان جداول در بالای آن درج می‌شود.",
+    "answer_keywords": [
+      "زیر",
+      "بالای"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۸ بند ۷",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q074",
+    "question": "چکیده گزارش کارآموزی حداکثر چند کلمه باید باشه و چه چیزایی نباید توش بیاد؟",
+    "expected_answer": "چکیده حداکثر ۲۵۰ کلمه و در یک صفحه بدون ذکر فرمول، جدول، شکل یا مرجع تهیه می‌شود.",
+    "answer_keywords": [
+      "250",
+      "فرمول",
+      "جدول"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      10
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "بخش چکیده گزارش صفحه ۱۰",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q075",
+    "question": "توی گزارش کارآموزی، برای نوشتن مقدمه، معرفی شرکت و بخش نتیجه‌گیری هر کدوم دست‌کم چند صفحه باید بنویسیم؟",
+    "expected_answer": "مقدمه باید حداقل در ۲ صفحه، معرفی محل کارآموزی حداقل در ۷ صفحه و نتیجه‌گیری و پیشنهادات حداقل در ۲ صفحه تهیه شود.",
+    "answer_keywords": [
+      "2",
+      "7",
+      "صفحه"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      11,
+      12
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "فصل اول و چهارم گزارش کارآموزی - بازنویسی توسط نفر دوم",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q076",
+    "question": "موقع تحویل نهایی گزارش کارآموزی باید فایلشو روی چه چیزی به استاد تحویل بدیم و برای کیا نسخه جدا آماده کنیم؟",
+    "expected_answer": "کارآموز باید یک نسخه از CD گزارش نهایی به همراه فرم ارزشیابی تأیید شده توسط سرپرست را به استاد کارآموزی تحویل دهد و برای خودش و سرپرست کارآموزی نسخه‌های جداگانه تهیه کند.",
+    "answer_keywords": [
+      "cd",
+      "سرپرست"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۸ بند ۹",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q077",
+    "question": "طبق بند ۱۳ ماده ۶ شیوه نامه کارآموزی اگه کارآموز بخواد تغییری تو خط تولید کارخونه بده باید چیکار کنه؟",
+    "expected_answer": "باید مورد پیشنهادی خود را کتباً به استاد کارآموزی و سرپرست خود در آن واحد جهت بررسی ارائه دهد و از هر نوع اقدام مستقیم در خط تولید یا سیستم جداً خودداری نماید.",
+    "answer_keywords": [
+      "کتبا",
+      "استاد",
+      "سرپرست"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۶ بند ۱۳",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q078",
+    "question": "وقتی تعداد بچه‌هایی که میخوان برن یه شرکت خاص بیشتر از ظرفیتش باشه، با چه ملاک‌هایی انتخابشون میکنن؟",
+    "expected_answer": "اولویت تخصیص کارآموزان به محل‌های تعیین شده کارآموزی با نظر مسئول دوره کارآموزی و با لحاظ کردن تعداد واحدهای گذرانده شده، معدل دانشجو و رشته تحصیلی وی می‌باشد.",
+    "answer_keywords": [
+      "واحد",
+      "معدل",
+      "رشته"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۳ بند ۳ - بازنویسی توسط نفر دوم",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q079",
+    "question": "حداکثر هزینه پرسنلی برای طرح پژوهشی یک مقاله ای و دو مقاله ای توی دانشگاه چقدره؟",
+    "expected_answer": "حداکثر هزینه پرسنلی برای طرح‌های پژوهشی یک مقاله‌ای برابر ۷۵/۰۰۰/۰۰۰ ریال و برای طرح‌های دو مقاله‌ای برابر ۱۵۰/۰۰۰/۰۰۰ ریال است.",
+    "answer_keywords": [
+      "75",
+      "150",
+      "ریال"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      2,
+      3
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۳ بند الف و بند ب",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q080",
+    "question": "سقف کل بودجه طرح پژوهشی محصول محور چقدره و چند درصدش میتونه هزینه پرسنلی باشه؟",
+    "expected_answer": "حداکثر هزینه کل طرح‌های محصول محور برابر ۳۵۰/۰۰۰/۰۰۰ ریال است که از این مبلغ حداکثر معادل ۳۰ درصد مبلغ کل طرح به عنوان هزینه پرسنلی قابل پرداخت است.",
+    "answer_keywords": [
+      "350",
+      "30",
+      "درصد"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      3
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "ماده ۳ بند ج",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q081",
+    "question": "طبق تبصره ۳ ماده ۳ دستورالعمل حمایت از طرح‌های پژوهشی، اعضای هیئت علمی جدیدالاستخدام تا چند سال بعد از حکم کارگزینی میتونن خارج از گرنت طرح بدن و سقف اعتبارش چقدره؟",
+    "expected_answer": "از تاریخ صدور حکم کارگزینی حداکثر تا مدت ۲ سال می‌توانند یک طرح پژوهشی با اعتبار کل ۳۰/۰۰۰/۰۰۰ ریال شامل حداکثر ۱۰/۰۰۰/۰۰۰ ریال هزینه پرسنلی خارج از گرنت ارائه دهند.",
+    "answer_keywords": [
+      "2",
+      "سال",
+      "30",
+      "10"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      3
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۳ تبصره ۳",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q082",
+    "question": "یه استادیار همزمان چند تا طرح پژوهشی میتونه در دست اجرا داشته باشه و در کل دوره استادیاریش چند تا طرح داخل دانشگاه میتونه ارائه بده؟",
+    "expected_answer": "هر عضو هیأت علمی همزمان نمی‌تواند بیش از دو طرح پژوهشی در دست اجرا داشته باشد و در طول مرتبه استادیاری حداکثر سه طرح پژوهشی می‌تواند ارائه دهد.",
+    "answer_keywords": [
+      "دو",
+      "سه",
+      "طرح"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۴ بند الف و تبصره ۱۰",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q083",
+    "question": "بر اساس ماده ۵ دستورالعمل طرح‌های پژوهشی، مقاله مستخرج از طرح حداقل چه مدت بعد از تصویب طرح باید ارسال بشه و اسم مجری باید چطوری درج بشه؟",
+    "expected_answer": "تاریخ ارسال مقاله یا مقالات مستخرج از طرح پژوهشی بایستی حداقل یک ماه بعد از تصویب آن طرح پژوهشی باشد و نام مجری بایستی به عنوان نفر اول یا مؤلف مسئول (Corresponding author) درج شود.",
+    "answer_keywords": [
+      "یک",
+      "ماه",
+      "اول",
+      "مسئول"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۵ بند ۳ و ۴",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q084",
+    "question": "اگه وسط کار مشخص بشه موضوع طرح پژوهشی یه استاد دقیقاً همون پایان‌نامه دانشجوی ارشد یا دکتری خودشه، چه اتفاقی میفته؟",
+    "expected_answer": "آن طرح پژوهشی ملغی اعلام می‌شود و بایستی تمام هزینه‌های صرف شده توسط استاد راهنما یا استاد مشاور (مجری) مسترد شود.",
+    "answer_keywords": [
+      "ملغی",
+      "مسترد"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      5,
+      6
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۶ بند ۲ - بازنویسی توسط نفر دوم",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q085",
+    "question": "استادی که رفته فرصت مطالعاتی یا ماموریت تحصیلی میتونه همزمان طرح پژوهشی جدید توی دانشگاه برداره؟",
+    "expected_answer": "خیر، عضو هیأت علمی در حال مأموریت تحصیلی یا فرصت مطالعاتی نمی‌تواند نسبت به ارائه طرح پژوهشی جدید اقدام نماید.",
+    "answer_keywords": [
+      "فرصت",
+      "مطالعاتی",
+      "نمی",
+      "جدید"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      6
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۷ بند ۳",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q086",
+    "question": "طرح پژوهشی رو حداکثر چند بار میشه تمدید کرد و برای تمدید بار دوم و بار چهارم چه مدرکی لازمه؟",
+    "expected_answer": "درخواست تمدید برای بار دوم با ارائه نسخه آماده شده (PrePrint) مقاله و برای بار چهارم (آخرین بار) با ارائه مقاله چاپ شده مستخرج از طرح و تدوین گزارش نهایی امکان‌پذیر است.",
+    "answer_keywords": [
+      "چهارم",
+      "preprint",
+      "چاپ"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      6,
+      7
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۸ بند ۲ و تبصره ۱۲",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q087",
+    "question": "طبق تبصره ۱۶ ماده ۹ دستورالعمل طرح‌های پژوهشی، چه زمانی و چند درصد از مبلغ حق پرسنلی طرح به صورت علی‌الحساب قابل پرداخته؟",
+    "expected_answer": "در صورت درخواست مجری طرح پژوهشی، بعد از گذشت یک سوم زمان اجرای طرح ۳۰ درصد از مبلغ حق پرسنلی به شرط ارائه گزارش مکتوب پیشرفت کار و تصویب شورای پژوهش و فناوری دانشگاه به صورت علی‌الحساب قابل پرداخت است.",
+    "answer_keywords": [
+      "30",
+      "یک",
+      "سوم",
+      "علی"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      8
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۹ تبصره ۱۶",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q088",
+    "question": "ارزیابی طرح‌های محصول محور با طرح‌های معمولی چه فرقی از نظر تعداد و محل داورها داره؟",
+    "expected_answer": "طرح‌های معمولی دو داور متخصص (یکی از داخل و دیگری از خارج دانشگاه) دارند اما ارزیابی طرح پژوهشی محصول محور توسط سه داور متخصص که دو نفر از آن‌ها از خارج دانشگاه انتخاب می‌شوند به صورت حضوری انجام می‌پذیرد.",
+    "answer_keywords": [
+      "سه",
+      "داور",
+      "خارج"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      8,
+      9
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۱۰ بند ۴ و ماده ۱۲ بند ۱",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q089",
+    "question": "بعد از تسویه حساب موقت طرح مقاله محور، مجری تا چند سال وقت داره نسخه چاپ شده مقاله رو بیاره برای تسویه نهایی؟",
+    "expected_answer": "تسویه حساب نهایی با ارائه نسخه نهایی چاپ شده مقاله یا مقالات تا مدت دو سال پس از تسویه حساب موقت امکان‌پذیر خواهد بود.",
+    "answer_keywords": [
+      "دو",
+      "سال",
+      "موقت"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      8
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "ماده ۱۰ بند ۶",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q090",
+    "question": "اگه دانش فنی یه طرح پژوهشی محصول محور توسط صنعت خریده بشه یا به بهره‌برداری برسه، درصد سهم مجری از سودش رو کی مشخص میکنه؟",
+    "expected_answer": "چنانچه دانش فنی حاصل از طرح پژوهشی محصول محور توسط بخش صنعت یا یکی از سازمان‌ها خریداری شود یا به مرحله تولید و بهره‌برداری برسد، درصدی از سود حاصل از آن متعلق به مجری خواهد بود که این درصد توسط هیأت رئیسه دانشگاه تعیین می‌شود.",
+    "answer_keywords": [
+      "سود",
+      "رئیسه",
+      "دانشگاه"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      9
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۱۱ بند ۳ - جایگزین سوال تکراری تبصره ۱۷",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q091",
+    "question": "طبق تبصره ۲۱ ماده ۱۲ دستورالعمل طرح‌های پژوهشی، چه کسانی رو نمیشه به عنوان داور طرح پژوهشی انتخاب کرد؟",
+    "expected_answer": "داور طرح پژوهشی نباید از بین استادان راهنما یا مشاور پایان‌نامه کارشناسی ارشد یا رساله دکتری مجری طرح انتخاب گردد.",
+    "answer_keywords": [
+      "راهنما",
+      "مشاور"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      9
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۱۲ تبصره ۲۱",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q092",
+    "question": "آیا اساتید بازنشسته دانشگاه هم میتونن طرح پژوهشی اجرا کنن و مجری طرح برای تسویه حساب نهایی چه نشستی رو باید توی گروه آموزشی برگزار کنه؟",
+    "expected_answer": "اعضای هیأت علمی بازنشسته پس از تصویب در جلسه هیأت رئیسه دانشگاه از طریق عقد قرارداد می‌توانند طرح پژوهشی اجرا کنند؛ همچنین مجریان طرح‌ها باید نتایج طرح خود را در قالب یک سمینار در گروه آموزشی ارائه نمایند و گواهی آن برای تسویه حساب نهایی ضروری است.",
+    "answer_keywords": [
+      "سمینار",
+      "بازنشسته",
+      "رئیسه"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      6
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۷ بندهای ۶ و ۷ - جایگزین جدول بالاسری خراب در لایه متنی",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q093",
+    "question": "اگه مجری طرح بخواد قبل از چاپ شدن مقاله اسم یکی از همکارای طرح رو تغییر بده، روالش چیه؟",
+    "expected_answer": "در صورت نیاز به هرگونه تغییر در اسامی همکاران، مجری موظف است قبل از چاپ مقاله درخواست خود را به حوزه معاونت پژوهشی دانشگاه ارسال نماید تا در شورای پژوهشی تصویب گردد.",
+    "answer_keywords": [
+      "معاونت",
+      "پژوهشی",
+      "شورای"
+    ],
+    "source_file": "tarh-dakheli.pdf",
+    "source_pages": [
+      4,
+      5
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۵ بند ۵ - بازنویسی توسط نفر دوم",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q094",
+    "question": "یک عضو هیئت علمی در طول خدمتش حداکثر چند بار میتونه بره فرصت مطالعاتی خارج از کشور و سقف توقف در مرتبه علمی فعلی برای فرصت خارج و داخل چند ساله؟",
+    "expected_answer": "در طول خدمت حداکثر سه بار فرصت مطالعاتی خارج از کشور (و پنج بار از هر نوع) مجاز است؛ سقف توقف در مرتبه علمی فعلی برای فرصت خارج از کشور هفت سال و برای داخل کشور دوازده سال است.",
+    "answer_keywords": [
+      "سه",
+      "هفت",
+      "دوازده",
+      "سال"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      1,
+      2
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۱ بندهای ۱-۱، ۳-۱ و ۲-۲-۱ (کلیدواژه‌ها منطبق با حروف فارسی متن سند)",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q095",
+    "question": "استادی که پست اجرایی توی دانشگاه داره میتونه همزمان از فرصت مطالعاتی استفاده کنه؟",
+    "expected_answer": "خیر، اعضای هیأت علمی دارای پست اجرایی نمی‌توانند همزمان از فرصت مطالعاتی بهره‌مند گردند.",
+    "answer_keywords": [
+      "پست",
+      "اجرایی",
+      "نمی",
+      "توانند"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۱ بند ۳-۲-۱",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q096",
+    "question": "طبق تبصره ۱۳ ماده ۴ شیوه‌نامه فرصت مطالعاتی، دانشگاه مقصد و استاد پذیرنده برای فرصت مطالعاتی خارج از کشور باید چه رتبه‌ای داشته باشن؟",
+    "expected_answer": "رتبه دانشگاه مقصد در مؤسسه رتبه‌بندی تایمز یا شانگهای زیر ۱۰۰۰ و امتیاز شاخص بین‌المللی (H-index) استاد پذیرنده بر اساس پایگاه Scopus بالای ۲۰ باشد.",
+    "answer_keywords": [
+      "1000",
+      "20",
+      "scopus"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۴ تبصره ۱۳",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q097",
+    "question": "متقاضی فرصت مطالعاتی خارج از کشور بعد از برگشتن حداقل چند سال باید توی دانشگاه تعهد خدمت داشته باشه؟",
+    "expected_answer": "متقاضی پس از بازگشت از فرصت مطالعاتی باید بتواند حداقل ۳ سال در دانشگاه تعهد خدمت مربوط به فرصت مطالعاتی خود را انجام دهد.",
+    "answer_keywords": [
+      "3",
+      "سال",
+      "تعهد"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "ماده ۳ تبصره ۱۰",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q098",
+    "question": "اساتید چه ماهایی از سال میتونن مدارک درخواست فرصت مطالعاتی رو بفرستن و اگه دانشجوی ارشد یا دکتری داشته باشن قبل اعزام باید چه کار کنن؟",
+    "expected_answer": "تقاضای فرصت مطالعاتی هر سال در دو نوبت اردیبهشت و آبان ماه انجام می‌گیرد و متقاضی دارای پایان‌نامه یا رساله باید قبل از اعزام استاد راهنمای مشترک را به معاونت پژوهشی معرفی نماید.",
+    "answer_keywords": [
+      "اردیبهشت",
+      "آبان",
+      "مشترک"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۵ بند ۱-۱-۵ و تبصره ۱۵ - بازنویسی توسط نفر دوم",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q099",
+    "question": "توی فرصت مطالعاتی خارج از کشور برای همسر و هر فرزند چند درصد به مقرری ارزی اضافه میشه و حداکثر برای چند تا بچه و تا چه سنی پرداخت میشه؟",
+    "expected_answer": "۶۰ درصد مقرری برای همسر و ۳۰ درصد برای هر فرزند حداکثر تا دو فرزند و کمتر از ۱۶ سال به مقرری ارزی عضو هیأت علمی اضافه می‌شود.",
+    "answer_keywords": [
+      "60",
+      "30",
+      "16",
+      "دو"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      6
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "ماده ۶ بند ۱-۱-۶",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q100",
+    "question": "فاصله زمانی بین دو فرصت مطالعاتی به طور معمول چند ساله و اگه با دعوت و حمایت مالی مرکز علمی خارجی باشه چقدر کم میشه؟",
+    "expected_answer": "حداقل فاصله بین دو فرصت مطالعاتی به طور معمول ۵ سال است که در صورت تقاضا و حمایت مراکز علمی پژوهشی خارج از دانشگاه از ۵ سال به ۳ سال کاهش می‌یابد.",
+    "answer_keywords": [
+      "5",
+      "3",
+      "سال"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      3,
+      6
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۲ بند ۳-۲ و ماده ۶ تبصره ۱۸",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q101",
+    "question": "طبق تبصره ۸ ماده ۲ شیوه‌نامه فرصت مطالعاتی، مربیان برجسته برای درخواست فرصت مطالعاتی باید چند درصد امتیاز ماده آموزشی و پژوهشی آیین‌نامه ارتقا رو کسب کرده باشن؟",
+    "expected_answer": "کسب ۱۰۰ درصد حداقل امتیاز ماده آموزشی (۲) و ۸۵ درصد حداقل امتیاز بندهای ماده پژوهشی (۳) آیین‌نامه ارتقا با نظر کمیته تخصصی هیأت ممیزه دانشگاه الزامی است.",
+    "answer_keywords": [
+      "100",
+      "85",
+      "درصد"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      3
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۲ تبصره ۸",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q102",
+    "question": "بعد از اینکه استاد از فرصت مطالعاتی برگشت، تا چند وقت فرصت داره سمینار گزارش کار بده و حداکثر تا کی باید خلاصه گزارش رو بفرسته وزارت علوم؟",
+    "expected_answer": "ایراد سخنرانی در گروه و دانشکده حداکثر ۳ ماه پس از مراجعت و ارائه خلاصه گزارش نهایی به معاونت پژوهشی وزارت حداکثر ۹ ماه بعد از انجام دوره فرصت مطالعاتی است.",
+    "answer_keywords": [
+      "3",
+      "9",
+      "ماه"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      7
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۸ بندهای ۴-۸ و ۶-۸",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q103",
+    "question": "بر اساس بند ۷-۸ ماده ۸، بعد از اتمام فرصت مطالعاتی خارج از کشور استاد تا یک سال موظفه چند مقاله چاپ کنه و در چه مجلاتی؟",
+    "expected_answer": "اجرای یک طرح پژوهشی مشترک یا چاپ ۲ مقاله علمی پژوهشی در مجلات معتبر نمایه شده در JCR با رتبه Q1 یا Q2 حداکثر تا یک سال پس از اتمام فرصت مطالعاتی الزامی است.",
+    "answer_keywords": [
+      "2",
+      "مقاله",
+      "jcr",
+      "q1",
+      "q2"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      8
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۸ بند ۷-۸",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q104",
+    "question": "آیا عضو هیئت علمی میتونه در طول فرصت مطالعاتی خارج از کشور توی یه مقطع تحصیلی ثبت‌نام کنه و مدرک بگیره؟",
+    "expected_answer": "خیر، عضو هیأت علمی در طی دوره فرصت مطالعاتی مجاز به ثبت نام و ادامه تحصیل در دوره‌های تحصیلی برای اخذ مدرک دانشگاهی نمی‌باشد.",
+    "answer_keywords": [
+      "ثبت",
+      "نام",
+      "مدرک",
+      "نمی"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۴ تبصره ۱۲",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q105",
+    "question": "اگه یه عضو هیئت علمی حداقل ۶ ماه فرصت مطالعاتی موفق داخل کشور بگذرونه چه امتیازی برای ترفیع میگیره؟",
+    "expected_answer": "دانشگاه می‌تواند یک پایه تشویقی به عضو هیأت علمی اعطا نماید.",
+    "answer_keywords": [
+      "یک",
+      "پایه",
+      "تشویقی"
+    ],
+    "source_file": "forsat-motaleati.pdf",
+    "source_pages": [
+      8
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۹ فرصت مطالعاتی داخل کشور",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": true
+  },
+  {
+    "id": "q106",
+    "question": "اگه دانشجویی بخواد کل دروس یک نیمسال تحصیلی رو به خاطر شرایط خاص حذف کنه تا چه زمانی فرصت درخواست داره و کی باید تاییدش کنه؟",
+    "expected_answer": "حذف کلیه دروس یک نیمسال تحصیلی با درخواست کتبی دانشجو و تأیید شورای آموزشی مؤسسه تا قبل از شروع امتحانات امکان‌پذیر است.",
+    "answer_keywords": [
+      "کتبی",
+      "شورای",
+      "امتحانات"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۱۲ تبصره",
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q107",
+    "question": "اگه یه درسی رو افتاده باشم و ترم‌های بعد بالای ۱۴ بگیرم، اون نمره رد شده قبلی بازم تو معدل کلم حساب میشه؟",
+    "expected_answer": "خیر، چنانچه دانشجو در نیمسال‌های بعدی درس را با حداقل نمره ۱۴ بگذراند نمره قبلی از کارنامه حذف می‌شود و در معدل نیمسال فوق و کل محاسبه نخواهد شد.",
+    "answer_keywords": [
+      "14",
+      "حذف",
+      "معدل"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      7
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۱۸ تبصره - بازنویسی توسط نفر دوم",
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q108",
+    "question": "دانشجوی کارشناسی ناپیوسته میتونه تغییر رشته بده یا تغییر گرایش؟ و هر دانشجو کلاً چند بار توی یک دوره تحصیلی مجاز به تغییر رشته یا گرایشه؟",
+    "expected_answer": "تغییر رشته در دوره کارشناسی ناپیوسته ممنوع است اما تغییر گرایش با داشتن شرایط ماده ۲۵ امکان‌پذیر است؛ و هر دانشجو در هر دوره تحصیلی فقط برای یک بار می‌تواند تغییر رشته یا گرایش دهد.",
+    "answer_keywords": [
+      "ممنوع",
+      "گرایش",
+      "یک",
+      "بار"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      8,
+      9
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۲۵ تبصره (صفحه ۸) و ماده ۲۶ (صفحه ۹)",
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q109",
+    "question": "استاد هر درس برگه‌های امتحانی پایان ترم دانشجوها رو حداقل تا چند ترم بعد باید نگه داره؟",
+    "expected_answer": "مدرس موظف است برگه‌های امتحانی هر درس را به عنوان سابقه درس حداقل تا دو نیمسال تحصیلی بعد نگهداری نماید.",
+    "answer_keywords": [
+      "دو",
+      "نیمسال",
+      "امتحانی"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      7
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۱۷ تبصره ۵ - جایگزین سوال تکراری مرخصی",
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q110",
+    "question": "اگه به نمره پایان ترم اعتراض داشته باشم تا چند روز بعد اعلام نمره میتونم درخواست تجدیدنظر بدم و استاد چقدر وقت داره جواب بده؟",
+    "expected_answer": "دانشجو می‌تواند ظرف مدت یک هفته از تاریخ اعلام نمره تقاضای تجدیدنظر کتبی به اداره آموزش بدهد و مدرس موظف است ظرف مدت یک هفته از دریافت تقاضا رسیدگی و نمره قطعی را اعلام کند.",
+    "answer_keywords": [
+      "یک",
+      "هفته",
+      "آموزش"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      6
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۱۷ تبصره ۲",
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q111",
+    "question": "تفاوت حداکثر سنوات مجاز تحصیل و تعداد نیمسال‌های مشروطی مجاز بین کارشناسی پیوسته و کارشناسی ناپیوسته چقدره؟",
+    "expected_answer": "حداکثر مدت مجاز تحصیل در کارشناسی ناپیوسته ۲/۵ سال و در کارشناسی پیوسته ۵ سال است؛ حداکثر نیمسال‌های مشروطی مجاز در کارشناسی ناپیوسته ۲ نیمسال و در کارشناسی پیوسته ۳ نیمسال است.",
+    "answer_keywords": [
+      "2/5",
+      "5",
+      "2",
+      "3"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      5,
+      7
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۱۳ و ماده ۲۰",
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q112",
+    "question": "اگه دانشجوی کارشناسی پیوسته انصراف بده یا اخراج بشه، تحت چه شرایطی بهش مدرک کاردانی میدن؟",
+    "expected_answer": "در صورتی که تعداد واحدهای گذرانده شده دانشجوی منصرف یا محروم از تحصیل در دوره کارشناسی پیوسته برابر یا بیشتر از واحدهای مورد نیاز دوره کاردانی با معدل کل ۱۲ یا بالاتر باشد می‌تواند مدرک کاردانی در همان رشته دریافت کند.",
+    "answer_keywords": [
+      "کاردانی",
+      "12",
+      "واحد"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      10
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۳۲ صفحه ۱۰ در aein-91.pdf",
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q113",
+    "question": "وقتی دانشجو تغییر رشته میده، کدوم درسا براش معادل‌سازی میشه و حداقل نمره‌اش باید چند باشه، و تاریخ فراغت از تحصیل کلاً چه روزی محسوب میشه؟",
+    "expected_answer": "فقط دروسی که به تشخیص گروه آموزشی با دروس رشته جدید اشتراک محتوایی داشته باشد و نمره هر یک کمتر از ۱۲ نباشد معادل‌سازی می‌شود؛ تاریخ فراغت از تحصیل نیز روزی است که آخرین نمره قطعی درس دانشجو در آموزش مؤسسه ثبت می‌شود.",
+    "answer_keywords": [
+      "12",
+      "محتوایی",
+      "آخرین",
+      "نمره"
+    ],
+    "source_file": "aein-91.pdf",
+    "source_pages": [
+      9
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۲۹ و ماده ۳۰ صفحه ۹ در aein-91.pdf",
+    "split": "test",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q114",
+    "question": "حداقل حقوق یا دستمزد ماهانه‌ای که شرکت‌ها باید به دانشجوی کارآموز توی دوره کارآموزی پرداخت کنن چقدره؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "در شیوه‌نامه کارآموزی مبلغی برای حقوق کارآموز تعیین نشده است",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q115",
+    "question": "سقف وام قرض‌الحسنه مسکن یا ودیعه مسکن برای اعضای هیئت علمی که میرن فرصت مطالعاتی داخل کشور چقدره؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "در دستورالعمل فرصت مطالعاتی اشاره‌ای به وام یا ودیعه مسکن نشده است",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q116",
+    "question": "آدرس اینترنتی سامانه ملی کارآموزی که توی شیوه‌نامه کارآموزی برای تعیین محل کارآموزی معرفی شده چیه؟",
+    "expected_answer": "آدرس سامانه ملی کارآموزی http://karamouz.irost.org است.",
+    "answer_keywords": [
+      "karamouz",
+      "irost"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۳ بند ۲ قسمت ج - بافر روی سند سالم",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q117",
+    "question": "دانشکده‌ها در پایان هر ترم باید فهرست کارآموزای معرفی‌شده و مشخصات محل کارآموزیشون رو به کدوم بخش دانشگاه گزارش بدن؟",
+    "expected_answer": "دانشکده‌ها طبق مصوبه شورای پژوهش و فناوری می‌بایست در پایان هر ترم فهرست کارآموزان معرفی شده را به همراه مشخصات محل کارآموزی آنان به گروه کارآفرینی و ارتباط با جامعه و صنعت دانشگاه گزارش نمایند.",
+    "answer_keywords": [
+      "کارآفرینی",
+      "صنعت"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      2
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۳ بند ۴",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q118",
+    "question": "فرم معرفی‌نامه دانشجو برای رفتن به محل کارآموزی باید به امضای چه کسی برسه؟",
+    "expected_answer": "دانشجو پس از تأیید نهایی، فرم معرفی‌نامه امضا شده توسط رئیس دانشکده را به محل کارآموزی تقدیم می‌نماید.",
+    "answer_keywords": [
+      "رئیس",
+      "دانشکده"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      3
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "ماده ۶ بند ۱",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q119",
+    "question": "اگه کارآموز توی محیط کارخونه ببینه شرایط ایمنی رعایت نشده یا مشکل اداری براش پیش بیاد، هر کدوم رو باید از طریق کی پیگیری کنه؟",
+    "expected_answer": "در صورت عدم وجود شرایط ایمن در محل کار، کارآموز موظف است مراتب را در اسرع وقت به استاد کارآموزی منتقل نماید و مسائل و مشکلات اداری خود را منحصراً از طریق سرپرست مستقیم خود در واحد صنعتی حل و فصل نماید.",
+    "answer_keywords": [
+      "ایمن",
+      "استاد",
+      "اداری",
+      "سرپرست"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "multi-chunk",
+    "language": "fa",
+    "notes": "ماده ۶ بندهای ۱۰ و ۱۲",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q120",
+    "question": "طبق بند ۱۴ ماده ۶ شیوه‌نامه کارآموزی، کارآموز برای دادن اطلاعات تولید یا فناوری شرکت به جای دیگه باید اجازه کتبی چه کسی رو داشته باشه؟",
+    "expected_answer": "حفظ اطلاعات محرمانه الزامی بوده و کارآموز نباید بدون اجازه کتبی مدیرعامل یا بالاترین مقام اجرایی واحد مربوطه اطلاعات مربوط به آن‌ها را در اختیار شخص، شرکت یا واحد صنعتی دیگری قرار دهد.",
+    "answer_keywords": [
+      "مدیر",
+      "عامل",
+      "محرمانه"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "ماده ۶ بند ۱۴",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q121",
+    "question": "برای نوشتن متن فارسی و انگلیسی گزارش کارآموزی از چه فونت و سایزی باید استفاده بشه و فاصله خطوط چقدر باشه؟",
+    "expected_answer": "برای نوشتن مطالب فارسی از فونت ۱۲ B-nazanin و برای مطالب انگلیسی از فونت ۱۲ Times New Roman استفاده شود و فاصله بین خطوط برابر یک واحد (single) باشد.",
+    "answer_keywords": [
+      "12",
+      "nazanin",
+      "times",
+      "single"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      4
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "ماده ۸ بندهای ۱ و ۳",
+    "split": "dev",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q122",
+    "question": "شماره‌گذاری صفحه‌های اولیه گزارش کارآموزی (مثل فهرست مطالب و شکل‌ها) با صفحه‌های از مقدمه به بعد چه فرقی داره و شماره صفحه کجا درج میشه؟",
+    "expected_answer": "شماره صفحه در قسمت پایین و وسط صفحه نوشته می‌شود؛ صفحات اولیه شامل فهرست مطالب، جداول و شکل‌ها با حروف الفبای فارسی (الف، ب، پ و ...) و از صفحه مقدمه به بعد با عدد شماره‌گذاری می‌شوند.",
+    "answer_keywords": [
+      "پایین",
+      "وسط",
+      "الفبای",
+      "مقدمه"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      5
+    ],
+    "type": "paraphrase",
+    "language": "fa",
+    "notes": "ماده ۸ بند ۶",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q123",
+    "question": "روی صفحه عنوان گزارش کارآموزی چه فونت و چه سایزهایی برای نام دانشجو و نام سرپرست کارآموزی باید استفاده بشه؟",
+    "expected_answer": "در صفحه عنوان از فونت بی‌زر (B Zar) استفاده می‌شود که نام و نام خانوادگی دانشجو با سایز ۱۶ و نام و نام خانوادگی سرپرست کارآموز با سایز ۱۵ تایپ می‌شود.",
+    "answer_keywords": [
+      "زر",
+      "16",
+      "15"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      6
+    ],
+    "type": "numeric",
+    "language": "fa",
+    "notes": "صفحه ۶ قالب صفحه عنوان",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q124",
+    "question": "توی بخش مراجع گزارش کارآموزی منابع به چه ترتیبی نوشته میشن و کدوم زبان اول میاد؟",
+    "expected_answer": "مراجع به ترتیب بر اساس حروف الفبا و ابتدا مراجع فارسی آورده می‌شوند و در فهرست منابع باید مأخذ کلیه منابع ذکر و بر اساس ترتیب آمدن در متن تنظیم شود.",
+    "answer_keywords": [
+      "الفبا",
+      "فارسی",
+      "مراجع"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      12
+    ],
+    "type": "factual",
+    "language": "fa",
+    "notes": "صفحه ۱۲ بخش مراجع",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q125",
+    "question": "شیوه‌نامه کارآموزی دانشگاه شهید مدنی آذربایجان در چند ماده و در چه تاریخی به تصویب شورای پژوهشی و فناوری دانشگاه رسیده؟",
+    "expected_answer": "این شیوه‌نامه در ۹ ماده بر اساس بند ۵ چهارمین صورت‌جلسه شورای پژوهشی و فناوری دانشگاه مورخ ۹۷/۰۳/۲۲ تصویب شده است.",
+    "answer_keywords": [
+      "9",
+      "ماده",
+      "97"
+    ],
+    "source_file": "shiveh-karamoozi.pdf",
+    "source_pages": [
+      13
+    ],
+    "type": "legal-reference",
+    "language": "fa",
+    "notes": "صفحه ۱۳ ماده ۹ تصویب",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q126",
+    "question": "هزینه بیمه حوادث دانشجویی در طول دوره کارآموزی تابستانی چند ریاله و از حساب دانشجو کم میشه یا شرکت؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ نزدیک به کارآموزی - در شیوه‌نامه کارآموزی مبلغ بیمه حوادث ذکر نشده است",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q127",
+    "question": "حداکثر مبلغ پاداش چاپ کتاب مستخرج از طرح پژوهشی داخلی برای استاد تمام چقدره؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ نزدیک به طرح پژوهشی - ماده ۱۱ فقط به طی مراحل چاپ کتاب اشاره کرده و مبلغ پاداش ندارد",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q128",
+    "question": "شهریه هر واحد درس معرفی به استاد برای دانشجوی روزانه کارشناسی چند تومنه؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ روی اسناد tuned برای تقویت بازه اطمینان MinSimilarity روی dev",
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q129",
+    "question": "جریمه دیرکرد تحویل کتاب به کتابخانه مرکزی دانشگاه برای دانشجویان کارشناسی روزی چقدره؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ روی اسناد tuned برای تقویت بازه اطمینان MinSimilarity روی dev",
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q130",
+    "question": "حداقل نمره آزمون آیلتس یا تافل برای پذیرش دستیار آموزشی در مقطع کارشناسی ارشد چنده؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ روی اسناد tuned برای تقویت بازه اطمینان MinSimilarity روی dev",
+    "split": "dev",
+    "docset": "tuned",
+    "text_layer_defect": false
   }
 ]
