@@ -1,7 +1,7 @@
 ﻿#!/usr/bin/env python3
 """
 Validates eval/questions.json against the schema and eval/pdfs/ directory
-per docs/EVAL.md §1.3 and ADR 0006 (docset & text_layer_defect).
+per docs/EVAL.md §1.3 and ADR 0008 (docset & text_layer_defect).
 """
 
 import json

@@ -129,7 +129,7 @@
     "notes": "عدد چاپ‌شده در خود سند ۲۲ است (ممکن است با متن رسمی اصلی فرق داشته باشد)؛ ملاک پاسخ درست = متن سند. سوال خوبی برای تست faithfulness.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q008",
@@ -148,7 +148,7 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q009",
@@ -167,7 +167,7 @@
     "notes": "مقدار از جدول صفحه ۸؛ سوال جدولی.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q010",
@@ -186,7 +186,7 @@
     "notes": "مقدار از جدول زمان‌بندی.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q011",
@@ -355,7 +355,7 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q020",
@@ -374,7 +374,7 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q021",
@@ -449,7 +449,7 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q025",
@@ -639,7 +639,7 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q035",
@@ -746,7 +746,7 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q040",
@@ -2465,6 +2465,118 @@
     "notes": "ترپ روی اسناد tuned برای تقویت بازه اطمینان MinSimilarity روی dev",
     "split": "dev",
     "docset": "tuned",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q131",
+    "question": "حداکثر مدت مجاز غیبت موجه دانشجو در طول دوره کارآموزی تابستانی چند روزه؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ نزدیک به کارآموزی - سقف روز غیبت موجه در شیوه‌نامه کارآموزی ذکر نشده است",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q132",
+    "question": "حق‌الزحمه استاد کارآموزی به ازای راهنمایی و نظارت بر هر دانشجوی کارآموز چقدر محاسبه میشه؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ نزدیک به کارآموزی - مبلغ حق‌الزحمه استاد در شیوه‌نامه نیامده است",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q133",
+    "question": "برای کارآموزی خارج از استان آذربایجان شرقی دانشگاه خوابگاه یا کمک‌هزینه ایاب و ذهاب میده؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ نزدیک به کارآموزی - کمک‌هزینه خوابگاه و ایاب و ذهاب در شیوه‌نامه ذکر نشده است",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q134",
+    "question": "سقف حق‌الزحمه دستیاران پژوهشی دانشجویی در طرح‌های پژوهشی داخل دانشگاه ساعتی چقدره؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ نزدیک به طرح داخلی - در ماده ۹ به پرداخت حق‌التحقیق دستیاران اشاره شده اما نرخ ساعتی نیامده است",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q135",
+    "question": "مهلت داوران طرح پژوهشی برای اعلام نظر داوری و ارسال فرم ارزیابی به مدیر گروه چند روزه؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ نزدیک به طرح داخلی - در مواد ۱۰ و ۱۲ شرایط داوران آمده ولی مهلت زمانی داوری ذکر نشده است",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q136",
+    "question": "مبلغ دقیق مقرری ارزی ماهیانه عضو هیئت علمی مجرد در فرصت مطالعاتی کشورهای اروپایی چند دلاره؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ نزدیک به فرصت مطالعاتی - بند ۱-۱-۶ به جدول مصوب ارجاع داده و مبلغ دلاری پایه در متن نیامده است",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q137",
+    "question": "مبلغ سفته یا ضمانت‌نامه بانکی که استاد باید قبل از رفتن به فرصت مطالعاتی خارج از کشور بسپاره چقدره؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ نزدیک به فرصت مطالعاتی - میزان تضمین مالی تعهد خدمت ۳ ساله در دستورالعمل ذکر نشده است",
+    "split": "test",
+    "docset": "heldout",
+    "text_layer_defect": false
+  },
+  {
+    "id": "q138",
+    "question": "آیا برای گذراندن فرصت مطالعاتی کوتاه‌مدت تابستانی در خارج از کشور ارائه مدرک زبان انگلیسی تافل یا آیلتس الزامیه؟",
+    "expected_answer": "در اسناد موجود نیست.",
+    "answer_keywords": [],
+    "source_file": null,
+    "source_pages": [],
+    "type": "not-in-docs",
+    "language": "fa",
+    "notes": "ترپ نزدیک به فرصت مطالعاتی کوتاه‌مدت - شرط مدرک زبان در بند ۳-۶ ذکر نشده است",
+    "split": "test",
+    "docset": "heldout",
     "text_layer_defect": false
   }
 ]
