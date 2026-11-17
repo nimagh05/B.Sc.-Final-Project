@@ -14,7 +14,7 @@
 
 1. **Schema Extension (`eval/questions.json`):**
    - `"docset": "tuned" | "heldout"`: Distinguishes questions on the original 11 documents (`"tuned"`, 74 questions: 60 answerable + 14 `not-in-docs`) from questions on the 3 unseen documents (`"heldout"`, 56 questions: 52 answerable + 4 `not-in-docs`).
-   - `"text_layer_defect": true | false`: Marks questions whose source passages or numbers are affected by PDF CMap/font corruption in the raw text layer (28 answerable questions across `bedoon-factor.pdf`, `dastyar-pazhuheshi.pdf`, `tarh-dakheli.pdf`, and `forsat-motaleati.pdf`; 84 clean answerable questions).
+   - `"text_layer_defect": true | false`: Marks questions whose source passages or numbers are affected by PDF CMap/font corruption in the raw text layer (36 answerable questions across `bedoon-factor.pdf`, `dastyar-pazhuheshi.pdf`, `tarh-dakheli.pdf`, and `forsat-motaleati.pdf`; 76 clean answerable questions).
 2. **Strict Anti-Leakage Tuning Rule:**
    - Any threshold or hyperparameter calibration in T19 (such as `Rag:MinSimilarity` re-sweep in hybrid mode) must use **only** `split == "dev" AND docset == "tuned"`.
    - Held-out generalization metrics are reported on `docset == "heldout" AND split == "test"` (and overall held-out).
