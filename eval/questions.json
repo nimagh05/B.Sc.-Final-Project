@@ -260,7 +260,7 @@
     "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده 6/555/555 می‌شود). کلیدواژه ضعیف است؛ برای این سوال judge لازم است.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q015",
@@ -412,7 +412,7 @@
     "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده ۵ سال می‌شود؛ ملاک تصویر: ۲ سال).",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q023",
@@ -430,7 +430,7 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q024",
@@ -524,7 +524,7 @@
     "notes": "در لایه متنی این PDF حرف «لا» به «ال» تبدیل شده (مثلاً اخلاقی→اخالقی).",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q029",
@@ -600,7 +600,7 @@
     "notes": "",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q033",
@@ -639,7 +639,7 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": true
   },
   {
     "id": "q035",
@@ -722,7 +722,7 @@
     "notes": "",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q039",
@@ -746,7 +746,7 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": true
   },
   {
     "id": "q040",
@@ -1509,7 +1509,7 @@
     "notes": "ماده ۳ تبصره ۳",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q082",
@@ -1529,7 +1529,7 @@
     "notes": "ماده ۴ بند الف و تبصره ۱۰",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q083",
@@ -1550,7 +1550,7 @@
     "notes": "ماده ۵ بند ۳ و ۴",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q084",
@@ -1570,7 +1570,7 @@
     "notes": "ماده ۶ بند ۲ - بازنویسی توسط نفر دوم",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q085",
@@ -1612,7 +1612,7 @@
     "notes": "ماده ۸ بند ۲ و تبصره ۱۲",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q087",
@@ -1654,7 +1654,7 @@
     "notes": "ماده ۱۰ بند ۴ و ماده ۱۲ بند ۱",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q089",
@@ -1713,7 +1713,7 @@
     "notes": "ماده ۱۲ تبصره ۲۱",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q092",
@@ -1754,7 +1754,7 @@
     "notes": "ماده ۵ بند ۵ - بازنویسی توسط نفر دوم",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q094",
@@ -1837,7 +1837,7 @@
     "notes": "ماده ۳ تبصره ۱۰",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q098",
@@ -1899,7 +1899,7 @@
     "notes": "ماده ۲ بند ۳-۲ و ماده ۶ تبصره ۱۸",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q101",
@@ -1939,7 +1939,7 @@
     "notes": "ماده ۸ بندهای ۴-۸ و ۶-۸",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q103",
@@ -1961,7 +1961,7 @@
     "notes": "ماده ۸ بند ۷-۸",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": false
   },
   {
     "id": "q104",
