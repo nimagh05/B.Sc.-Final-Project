@@ -25,6 +25,7 @@ VALID_TYPES = {
 }
 VALID_SPLITS = {"dev", "test"}
 VALID_DOCSETS = {"tuned", "heldout"}
+VALID_MECHANISMS = {"none", "cmap", "screenshot"}
 
 
 def validate_questions(questions_path: Path, pdfs_dir: Path) -> bool:
@@ -95,6 +96,11 @@ def validate_questions(questions_path: Path, pdfs_dir: Path) -> bool:
         defect = q.get("text_layer_defect")
         if not isinstance(defect, bool):
             errors.append(f"Question '{qid}': 'text_layer_defect' must be a boolean")
+        mech = q.get("defect_mechanism")
+        if mech not in VALID_MECHANISMS:
+            errors.append(f"Question '{qid}': invalid defect_mechanism '{mech}'. Must be one of {VALID_MECHANISMS}")
+        elif bool(defect) != (mech != "none"):
+            errors.append(f"Question '{qid}': text_layer_defect={defect} inconsistent with defect_mechanism='{mech}'")
         defect_counts[bool(defect)] += 1
 
         if q_type == "not-in-docs":

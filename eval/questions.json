@@ -16,7 +16,8 @@
     "notes": "بازنویسی نیما؛ املای «هز» ممکنه غلط تایپی باشه.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q002",
@@ -35,7 +36,8 @@
     "notes": "",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q003",
@@ -53,7 +55,8 @@
     "notes": "بازنویسی نیما.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q004",
@@ -72,7 +75,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q005",
@@ -91,7 +95,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q006",
@@ -110,7 +115,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q007",
@@ -129,7 +135,8 @@
     "notes": "عدد چاپ‌شده در خود سند ۲۲ است (ممکن است با متن رسمی اصلی فرق داشته باشد)؛ ملاک پاسخ درست = متن سند. سوال خوبی برای تست faithfulness.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q008",
@@ -148,7 +155,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q009",
@@ -167,7 +175,8 @@
     "notes": "مقدار از جدول صفحه ۸؛ سوال جدولی.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q010",
@@ -186,7 +195,8 @@
     "notes": "مقدار از جدول زمان‌بندی.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q011",
@@ -204,7 +214,8 @@
     "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده ۳۱۱،۱۱۱ می‌شود). کلیدواژه ساده نگه داشته شد؛ بهتر است judge هم استفاده شود.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q012",
@@ -223,7 +234,8 @@
     "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده ۱۱۱ می‌شود).",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q013",
@@ -242,7 +254,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q014",
@@ -260,7 +273,8 @@
     "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده 6/555/555 می‌شود). کلیدواژه ضعیف است؛ برای این سوال judge لازم است.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q015",
@@ -279,7 +293,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q016",
@@ -298,7 +313,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q017",
@@ -317,7 +333,8 @@
     "notes": "",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q018",
@@ -336,7 +353,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q019",
@@ -355,7 +373,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q020",
@@ -374,7 +393,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q021",
@@ -392,7 +412,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q022",
@@ -412,7 +433,8 @@
     "notes": "عدد در لایه‌ی متنی PDF خراب استخراج می‌شود؛ مقدار درست از روی تصویر صفحه است. (متن استخراج‌شده ۵ سال می‌شود؛ ملاک تصویر: ۲ سال).",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q023",
@@ -430,7 +452,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q024",
@@ -449,7 +472,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q025",
@@ -468,7 +492,8 @@
     "notes": "",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q026",
@@ -487,7 +512,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q027",
@@ -505,7 +531,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q028",
@@ -524,7 +551,8 @@
     "notes": "در لایه متنی این PDF حرف «لا» به «ال» تبدیل شده (مثلاً اخلاقی→اخالقی).",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q029",
@@ -542,7 +570,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q030",
@@ -562,7 +591,8 @@
     "notes": "",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q031",
@@ -580,7 +610,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q032",
@@ -600,7 +631,8 @@
     "notes": "",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q033",
@@ -620,7 +652,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q034",
@@ -639,7 +672,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "screenshot"
   },
   {
     "id": "q035",
@@ -659,7 +693,8 @@
     "notes": "بازنویسی نیما؛ «آخرین ترم سال تحصیلی» ممکنه به‌معنی ترم دوم هر سال برداشت بشه، منظور ترم آخر دوره‌ست.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q036",
@@ -680,7 +715,8 @@
     "notes": "بازنویسی نیما؛ «کارشناسی» بین پیوسته و ناپیوسته مبهمه، پاسخ باید هر دو را بگوید.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q037",
@@ -701,7 +737,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q038",
@@ -722,7 +759,8 @@
     "notes": "",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q039",
@@ -746,7 +784,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "screenshot"
   },
   {
     "id": "q040",
@@ -767,7 +806,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q041",
@@ -781,7 +821,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: aein-91 درباره مرخصی کارشناسی است. بازنویسی نیما؛ حروف presentation-form (از کپی‌پیست) با NFKC به حروف معمولی تبدیل شد.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q042",
@@ -795,7 +836,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: جدول شهریه غیرایرانی‌ها.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q043",
@@ -809,7 +851,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: شیوه‌نامه دستیار آموزشی. بازنویسی نیما (واحد: تومان).",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q044",
@@ -823,7 +866,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: عبارت «آزمون سراسری» در دو سند هست. بازنویسی نیما.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q045",
@@ -837,7 +881,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: بحث خوابگاه دانشجویان غیرایرانی. بازنویسی نیما.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q046",
@@ -851,7 +896,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. ",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q047",
@@ -865,7 +911,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. ",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q048",
@@ -879,7 +926,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: بحث آزمون‌های زبان انگلیسی در شیوه‌نامه بین‌المللی.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q049",
@@ -893,7 +941,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ source_file=null. تله‌ی نزدیک: تعریف واحد کارآموزی در aein-91.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q050",
@@ -912,7 +961,8 @@
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q051",
@@ -931,7 +981,8 @@
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q052",
@@ -950,7 +1001,8 @@
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q053",
@@ -970,7 +1022,8 @@
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q054",
@@ -989,7 +1042,8 @@
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن. کلیدواژه ۱۹۲ چون مقاله «8,192» با ویرگول نوشته.",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q055",
@@ -1007,7 +1061,8 @@
     "notes": "این سوال از چکیده (صفحه ۱) است؛ سوال‌های عمیق‌تر از متن مقاله را بعداً اضافه کن. کلیدواژه «three» ممکنه با «3» رد بشه؛ judge لازم.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q056",
@@ -1026,7 +1081,8 @@
     "notes": "",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q057",
@@ -1045,7 +1101,8 @@
     "notes": "سوال جدولی (Table 5، صفحه ۹).",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q058",
@@ -1063,7 +1120,8 @@
     "notes": "Table 1، صفحه ۶. عدد ۷۱.۵ تو جدول MKQA (صفحه ۷، ستون ar) هم هست؛ judge لازم.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q059",
@@ -1083,7 +1141,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q060",
@@ -1102,7 +1161,8 @@
     "notes": "",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q061",
@@ -1122,7 +1182,8 @@
     "notes": "چند تکه: تنظیم آزمایش صفحه ۷ و اعداد صفحه ۸.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q062",
@@ -1136,7 +1197,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ مقاله XLM-RoBERTa و batch size را می‌گوید ولی تعداد پارامتر M3 را نه. مدل ممکنه از حافظه‌ی خودش جواب بده (تست faithfulness).",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q063",
@@ -1150,7 +1212,8 @@
     "notes": "سوال بدون پاسخ در اسناد؛ در متن مقاله هیچ اشاره‌ای به license نیست.",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q064",
@@ -1170,7 +1233,8 @@
     "notes": "ماده ۲ بند ۱ شیوه‌نامه کارآموزی",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q065",
@@ -1189,7 +1253,8 @@
     "notes": "ماده ۱ تعاریف کلی",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q066",
@@ -1209,7 +1274,8 @@
     "notes": "ماده ۲ تبصره ۲ - بازنویسی توسط نفر دوم",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q067",
@@ -1229,7 +1295,8 @@
     "notes": "ماده ۲ تبصره ۱ و تبصره ۳",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q068",
@@ -1249,7 +1316,8 @@
     "notes": "ماده ۴ ویژگی‌های محل کارآموزی",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q069",
@@ -1269,7 +1337,8 @@
     "notes": "ماده ۶ بند ۲",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q070",
@@ -1288,7 +1357,8 @@
     "notes": "ماده ۶ بند ۸ - بازنویسی توسط نفر دوم",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q071",
@@ -1309,7 +1379,8 @@
     "notes": "ماده ۶ بند ۹",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q072",
@@ -1328,7 +1399,8 @@
     "notes": "ماده ۷ بند ۲ نظام تشویقی",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q073",
@@ -1347,7 +1419,8 @@
     "notes": "ماده ۸ بند ۷",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q074",
@@ -1367,7 +1440,8 @@
     "notes": "بخش چکیده گزارش صفحه ۱۰",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q075",
@@ -1388,7 +1462,8 @@
     "notes": "فصل اول و چهارم گزارش کارآموزی - بازنویسی توسط نفر دوم",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q076",
@@ -1407,7 +1482,8 @@
     "notes": "ماده ۸ بند ۹",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q077",
@@ -1427,7 +1503,8 @@
     "notes": "ماده ۶ بند ۱۳",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q078",
@@ -1447,7 +1524,8 @@
     "notes": "ماده ۳ بند ۳ - بازنویسی توسط نفر دوم",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q079",
@@ -1468,7 +1546,8 @@
     "notes": "ماده ۳ بند الف و بند ب",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q080",
@@ -1488,7 +1567,8 @@
     "notes": "ماده ۳ بند ج",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q081",
@@ -1509,7 +1589,8 @@
     "notes": "ماده ۳ تبصره ۳",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q082",
@@ -1529,7 +1610,8 @@
     "notes": "ماده ۴ بند الف و تبصره ۱۰",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q083",
@@ -1550,7 +1632,8 @@
     "notes": "ماده ۵ بند ۳ و ۴",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q084",
@@ -1570,7 +1653,8 @@
     "notes": "ماده ۶ بند ۲ - بازنویسی توسط نفر دوم",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q085",
@@ -1591,7 +1675,8 @@
     "notes": "ماده ۷ بند ۳",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q086",
@@ -1612,7 +1697,8 @@
     "notes": "ماده ۸ بند ۲ و تبصره ۱۲",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q087",
@@ -1633,7 +1719,8 @@
     "notes": "ماده ۹ تبصره ۱۶",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q088",
@@ -1654,7 +1741,8 @@
     "notes": "ماده ۱۰ بند ۴ و ماده ۱۲ بند ۱",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q089",
@@ -1674,7 +1762,8 @@
     "notes": "ماده ۱۰ بند ۶",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q090",
@@ -1694,7 +1783,8 @@
     "notes": "ماده ۱۱ بند ۳ - جایگزین سوال تکراری تبصره ۱۷",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q091",
@@ -1713,7 +1803,8 @@
     "notes": "ماده ۱۲ تبصره ۲۱",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q092",
@@ -1733,7 +1824,8 @@
     "notes": "ماده ۷ بندهای ۶ و ۷ - جایگزین جدول بالاسری خراب در لایه متنی",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q093",
@@ -1754,7 +1846,8 @@
     "notes": "ماده ۵ بند ۵ - بازنویسی توسط نفر دوم",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q094",
@@ -1776,7 +1869,8 @@
     "notes": "ماده ۱ بندهای ۱-۱، ۳-۱ و ۲-۲-۱ (کلیدواژه‌ها منطبق با حروف فارسی متن سند)",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q095",
@@ -1797,7 +1891,8 @@
     "notes": "ماده ۱ بند ۳-۲-۱",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q096",
@@ -1817,7 +1912,8 @@
     "notes": "ماده ۴ تبصره ۱۳",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q097",
@@ -1837,7 +1933,8 @@
     "notes": "ماده ۳ تبصره ۱۰",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q098",
@@ -1857,7 +1954,8 @@
     "notes": "ماده ۵ بند ۱-۱-۵ و تبصره ۱۵ - بازنویسی توسط نفر دوم",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q099",
@@ -1878,7 +1976,8 @@
     "notes": "ماده ۶ بند ۱-۱-۶",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q100",
@@ -1899,7 +1998,8 @@
     "notes": "ماده ۲ بند ۳-۲ و ماده ۶ تبصره ۱۸",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q101",
@@ -1919,7 +2019,8 @@
     "notes": "ماده ۲ تبصره ۸",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q102",
@@ -1939,7 +2040,8 @@
     "notes": "ماده ۸ بندهای ۴-۸ و ۶-۸",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q103",
@@ -1961,7 +2063,8 @@
     "notes": "ماده ۸ بند ۷-۸",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q104",
@@ -1982,7 +2085,8 @@
     "notes": "ماده ۴ تبصره ۱۲",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q105",
@@ -2002,7 +2106,8 @@
     "notes": "ماده ۹ فرصت مطالعاتی داخل کشور",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": true
+    "text_layer_defect": true,
+    "defect_mechanism": "cmap"
   },
   {
     "id": "q106",
@@ -2022,7 +2127,8 @@
     "notes": "ماده ۱۲ تبصره",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q107",
@@ -2042,7 +2148,8 @@
     "notes": "ماده ۱۸ تبصره - بازنویسی توسط نفر دوم",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q108",
@@ -2064,7 +2171,8 @@
     "notes": "ماده ۲۵ تبصره (صفحه ۸) و ماده ۲۶ (صفحه ۹)",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q109",
@@ -2084,7 +2192,8 @@
     "notes": "ماده ۱۷ تبصره ۵ - جایگزین سوال تکراری مرخصی",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q110",
@@ -2104,7 +2213,8 @@
     "notes": "ماده ۱۷ تبصره ۲",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q111",
@@ -2126,7 +2236,8 @@
     "notes": "ماده ۱۳ و ماده ۲۰",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q112",
@@ -2146,7 +2257,8 @@
     "notes": "ماده ۳۲ صفحه ۱۰ در aein-91.pdf",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q113",
@@ -2167,7 +2279,8 @@
     "notes": "ماده ۲۹ و ماده ۳۰ صفحه ۹ در aein-91.pdf",
     "split": "test",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q114",
@@ -2181,7 +2294,8 @@
     "notes": "در شیوه‌نامه کارآموزی مبلغی برای حقوق کارآموز تعیین نشده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q115",
@@ -2195,7 +2309,8 @@
     "notes": "در دستورالعمل فرصت مطالعاتی اشاره‌ای به وام یا ودیعه مسکن نشده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q116",
@@ -2214,7 +2329,8 @@
     "notes": "ماده ۳ بند ۲ قسمت ج - بافر روی سند سالم",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q117",
@@ -2233,7 +2349,8 @@
     "notes": "ماده ۳ بند ۴",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q118",
@@ -2252,7 +2369,8 @@
     "notes": "ماده ۶ بند ۱",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q119",
@@ -2273,7 +2391,8 @@
     "notes": "ماده ۶ بندهای ۱۰ و ۱۲",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q120",
@@ -2293,7 +2412,8 @@
     "notes": "ماده ۶ بند ۱۴",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q121",
@@ -2314,7 +2434,8 @@
     "notes": "ماده ۸ بندهای ۱ و ۳",
     "split": "dev",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q122",
@@ -2335,7 +2456,8 @@
     "notes": "ماده ۸ بند ۶",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q123",
@@ -2355,7 +2477,8 @@
     "notes": "صفحه ۶ قالب صفحه عنوان",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q124",
@@ -2375,7 +2498,8 @@
     "notes": "صفحه ۱۲ بخش مراجع",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q125",
@@ -2395,7 +2519,8 @@
     "notes": "صفحه ۱۳ ماده ۹ تصویب",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q126",
@@ -2409,7 +2534,8 @@
     "notes": "ترپ نزدیک به کارآموزی - در شیوه‌نامه کارآموزی مبلغ بیمه حوادث ذکر نشده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q127",
@@ -2423,7 +2549,8 @@
     "notes": "ترپ نزدیک به طرح پژوهشی - ماده ۱۱ فقط به طی مراحل چاپ کتاب اشاره کرده و مبلغ پاداش ندارد",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q128",
@@ -2437,7 +2564,8 @@
     "notes": "ترپ روی اسناد tuned برای تقویت بازه اطمینان MinSimilarity روی dev",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q129",
@@ -2451,7 +2579,8 @@
     "notes": "ترپ روی اسناد tuned برای تقویت بازه اطمینان MinSimilarity روی dev",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q130",
@@ -2465,7 +2594,8 @@
     "notes": "ترپ روی اسناد tuned برای تقویت بازه اطمینان MinSimilarity روی dev",
     "split": "dev",
     "docset": "tuned",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q131",
@@ -2479,7 +2609,8 @@
     "notes": "ترپ نزدیک به کارآموزی - سقف روز غیبت موجه در شیوه‌نامه کارآموزی ذکر نشده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q132",
@@ -2493,7 +2624,8 @@
     "notes": "ترپ نزدیک به کارآموزی - مبلغ حق‌الزحمه استاد در شیوه‌نامه نیامده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q133",
@@ -2507,7 +2639,8 @@
     "notes": "ترپ نزدیک به کارآموزی - کمک‌هزینه خوابگاه و ایاب و ذهاب در شیوه‌نامه ذکر نشده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q134",
@@ -2521,7 +2654,8 @@
     "notes": "ترپ نزدیک به طرح داخلی - در ماده ۹ به پرداخت حق‌التحقیق دستیاران اشاره شده اما نرخ ساعتی نیامده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q135",
@@ -2535,7 +2669,8 @@
     "notes": "ترپ نزدیک به طرح داخلی - در مواد ۱۰ و ۱۲ شرایط داوران آمده ولی مهلت زمانی داوری ذکر نشده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q136",
@@ -2549,7 +2684,8 @@
     "notes": "ترپ نزدیک به فرصت مطالعاتی - بند ۱-۱-۶ به جدول مصوب ارجاع داده و مبلغ دلاری پایه در متن نیامده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q137",
@@ -2563,7 +2699,8 @@
     "notes": "ترپ نزدیک به فرصت مطالعاتی - میزان تضمین مالی تعهد خدمت ۳ ساله در دستورالعمل ذکر نشده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   },
   {
     "id": "q138",
@@ -2577,6 +2714,7 @@
     "notes": "ترپ نزدیک به فرصت مطالعاتی کوتاه‌مدت - شرط مدرک زبان در بند ۳-۶ ذکر نشده است",
     "split": "test",
     "docset": "heldout",
-    "text_layer_defect": false
+    "text_layer_defect": false,
+    "defect_mechanism": "none"
   }
 ]
