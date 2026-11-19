@@ -149,8 +149,8 @@ public sealed class IngestionService : IIngestionService
                 chunkRecords.Add(new ChunkRecord(chunks[i], embeddings[i], embeddingModel));
             }
 
-            var detectedOcrPages = pages.Where(p => p.NeedsOcr).Select(p => p.PageNumber).ToArray();
-            ocrPages = detectedOcrPages.Length > 0 ? detectedOcrPages : null;
+            var ocrPageNumbers = pages.Where(p => p.ExtractionSource == "ocr").Select(p => p.PageNumber).ToArray();
+            ocrPages = ocrPageNumbers.Length > 0 ? ocrPageNumbers : null;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

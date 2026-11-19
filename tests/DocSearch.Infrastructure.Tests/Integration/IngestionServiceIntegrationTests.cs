@@ -438,6 +438,67 @@ public sealed class IngestionServiceIntegrationTests(PostgresFixture fixture)
         }
     }
 
+    [Fact]
+    public async Task ProcessDocumentAsync_WithOcrPagesAndFourOrMorePages_CleansHeadersAndPersistsOcrPages()
+    {
+        await using var db = fixture.CreateDbContext();
+        var user = await CreateTestUserAsync(db);
+        var collection = await CreateTestCollectionAsync(db, user.Id);
+        var document = await CreateTestDocumentAsync(db, collection.Id, user.Id, DocumentStatus.Uploaded);
+
+        var fileStorage = new StubFileStorage("%PDF-1.7\nSample PDF");
+
+        // 4 pages with repeating header and footer lines so HeaderFooterCleaner executes
+        const string header = "دانشگاه صنعتی شریف - آیین نامه آموزشی";
+        var extractor = new StubPdfExtractor(
+        [
+            new PageText(1, $"{header}\nماده ۱: شرایط عمومی پذیرش دانشجو در دانشگاه.\nصفحه ۱", 1.0, false, false, "text_layer"),
+            new PageText(2, $"{header}\nماده ۲: مدارک ثبت نام و احراز هویت دانشجو.\nصفحه ۲", 0.9, false, false, "ocr", "raw text layer 2"),
+            new PageText(3, $"{header}\nماده ۳: انتخاب واحد و سقف مجاز واحد در هر نیمسال.\nصفحه ۳", 1.0, false, false, "text_layer"),
+            new PageText(4, $"{header}\nماده ۴: فارغ التحصیلی و تسویه حساب نهایی دانشجو.\nصفحه ۴", 0.85, false, false, "ocr", "raw text layer 4")
+        ]);
+
+        var passageEmbedder = new StubPassageEmbedder();
+        var vectorStore = new PgVectorStore(db);
+        var chunker = new LegalAwareChunker();
+
+        var service = new IngestionService(
+            db,
+            fileStorage,
+            extractor,
+            chunker,
+            passageEmbedder,
+            vectorStore,
+            Microsoft.Extensions.Options.Options.Create(new ChunkingOptions()),
+            Microsoft.Extensions.Options.Options.Create(new AiOptions()),
+            NullLogger<IngestionService>.Instance);
+
+        await service.ProcessDocumentAsync(document.Id, CancellationToken.None);
+
+        var updatedDoc = await db.Documents.FirstAsync(d => d.Id == document.Id);
+        Assert.Equal(DocumentStatus.Ready, updatedDoc.Status);
+        Assert.Equal(4, updatedDoc.PageCount);
+        Assert.NotNull(updatedDoc.OcrPages);
+        Assert.Equal([2, 4], updatedDoc.OcrPages!);
+
+        // Verify DocumentDetailResponse mapping preserves OcrPages
+        var detailDto = new Application.Models.DocumentDetailResponse(
+            updatedDoc.Id,
+            updatedDoc.CollectionId,
+            updatedDoc.FileName,
+            updatedDoc.SizeBytes,
+            updatedDoc.Status,
+            updatedDoc.ErrorMessage,
+            updatedDoc.PageCount,
+            updatedDoc.OcrPages,
+            4,
+            updatedDoc.CreatedAt,
+            updatedDoc.ProcessedAt);
+
+        Assert.NotNull(detailDto.OcrPages);
+        Assert.Equal([2, 4], detailDto.OcrPages!);
+    }
+
     private sealed class ThrowingPdfExtractor(Exception exception) : IPdfExtractor
     {
         public Task<IReadOnlyList<PageText>> ExtractAsync(Stream pdf, CancellationToken ct) =>

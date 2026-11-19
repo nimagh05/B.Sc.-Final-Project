@@ -40,11 +40,24 @@ public static class DependencyInjection
             extractorBaseUrl += "/";
         }
 
-        services.AddHttpClient<IPdfExtractor, HttpPdfExtractor>(client =>
+        services.AddHttpClient<HttpPdfExtractor>(client =>
         {
             client.BaseAddress = new Uri(extractorBaseUrl);
             client.Timeout = TimeSpan.FromSeconds(120);
         });
+
+        services.AddHttpClient("OcrExtractor", client =>
+        {
+            client.BaseAddress = new Uri(extractorBaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(300);
+        });
+
+        services.AddScoped<IPdfExtractor>(sp => new OcrPdfExtractor(
+            sp.GetRequiredService<HttpPdfExtractor>(),
+            sp.GetRequiredService<IHttpClientFactory>(),
+            sp.GetRequiredService<ITextNormalizer>(),
+            sp.GetRequiredService<IOptions<ExtractionOptions>>(),
+            sp.GetRequiredService<ILogger<OcrPdfExtractor>>()));
 
         services.AddHttpClient("ExtractorHealthCheck", client =>
         {
