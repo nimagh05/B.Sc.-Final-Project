@@ -1,18 +1,23 @@
 ﻿#!/usr/bin/env python3
 """
-Reproducible text-layer quality & CMap defect audit script (ADR 0008 / eval-dataset-v2.2).
+Text-layer quality & CMap defect audit script (ADR 0008 / eval-dataset-v2.2).
 Uses the exact per-page NFKC TextDefectDetector criterion (chars >= 300, al >= 10,
 la == 0 or la/al < 0.04) plus full-number and number+unit phrase matching against
 expected_answer and answer_keywords.
 
+Reproducibility scope:
+  - Programmatically reproducible from PDFs: document-level CMap flags (6 PDFs,
+    36 Primary Qs), auto_cmap (16 Qs), and screenshot defects (2 Qs on ziro-guide).
+  - Visually verified (NOT reproducible by regex alone): the 11 manual-only entries
+    in MANUAL_CMAP_V2, confirmed by human inspection of rendered PDF page images.
+
 Usage:
   python eval/audit_text_layer.py            # audit & regenerate eval/text_layer_audit.csv
-  python eval/audit_text_layer.py --apply    # also update eval/questions.json (LF)
+  python eval/audit_text_layer.py --apply    # also write tags to eval/questions.json (LF)
 """
 
 import argparse
 import csv
-import difflib
 import hashlib
 import json
 import re
@@ -22,17 +27,14 @@ from pathlib import Path
 
 import pymupdf
 
-try:
-    from rapidfuzz import fuzz as rf_fuzz
-except ImportError:
-    rf_fuzz = None
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 QUESTIONS_PATH = REPO_ROOT / "eval" / "questions.json"
 PDFS_DIR = REPO_ROOT / "eval" / "pdfs"
 AUDIT_CSV_PATH = REPO_ROOT / "eval" / "text_layer_audit.csv"
 
-# Manual visual verification set from v2 (27 CMap-document questions checked against page images)
+# Human visual verification set from v2 (27 CMap-document questions checked against page images).
+# Note: 16 overlap with auto_cmap; the remaining 11 manual-only items cannot be reproduced by
+# automated keyword/number regex alone and are kept hardcoded here for transparent audit logging.
 MANUAL_CMAP_V2 = {
     "q011", "q012", "q014", "q022", "q023", "q028", "q032", "q038",
     "q079", "q080", "q081", "q082", "q083", "q084", "q086", "q087",
@@ -67,24 +69,6 @@ def normalize_text(s: str) -> str:
     return s
 
 
-def partial_ratio(needle: str, haystack: str) -> float:
-    if not needle or not haystack:
-        return 0.0
-    if rf_fuzz is not None:
-        return round(float(rf_fuzz.partial_ratio(needle, haystack)), 1)
-    if len(needle) > len(haystack):
-        needle, haystack = haystack, needle
-    n = len(needle)
-    step = max(1, n // 8)
-    best = 0.0
-    for start in range(0, max(1, len(haystack) - n + 1), step):
-        window = haystack[start : start + n]
-        score = difflib.SequenceMatcher(None, needle, window).ratio() * 100.0
-        if score > best:
-            best = score
-    return round(best, 1)
-
-
 def detect_cmap_flagged_pages(pages: list[str]) -> list[int]:
     """Matches DocSearch TextDefectDetector per-page CorruptLigatureLamAlef rule after NFKC."""
     flagged = []
@@ -104,20 +88,15 @@ def main() -> None:
     args = parser.parse_args()
 
     doc_pages_raw: dict[str, list[str]] = {}
-    doc_cmap_pages: dict[str, list[int]] = {}
     doc_cmap_defective: dict[str, bool] = {}
 
-    print("=== Document-Level CMap Audit (Exact per-page NFKC TextDefectDetector rule) ===")
     for pdf_path in sorted(PDFS_DIR.glob("*.pdf")):
         doc = pymupdf.open(pdf_path)
         pages = [p.get_text("text") for p in doc]
         doc.close()
         doc_pages_raw[pdf_path.name] = pages
         flagged_pages = detect_cmap_flagged_pages(pages)
-        doc_cmap_pages[pdf_path.name] = flagged_pages
-        is_cmap = len(flagged_pages) > 0
-        doc_cmap_defective[pdf_path.name] = is_cmap
-        print(f"  {pdf_path.name:26s} | p={len(pages):2d} | cmap_pages={len(flagged_pages):2d} {str(flagged_pages):30s} | doc_cmap={is_cmap}")
+        doc_cmap_defective[pdf_path.name] = len(flagged_pages) > 0
 
     qs = json.loads(QUESTIONS_PATH.read_text(encoding="utf-8"))
     rows = []
@@ -157,7 +136,6 @@ def main() -> None:
                 if not (alt and re.search(alt, ntext)):
                     missing_phrases.append(ph)
 
-        pr = partial_ratio(nans, ntext)
         is_doc_cmap = doc_cmap_defective.get(sf, False)
         is_screenshot_doc = (sf == "ziro-guide.pdf")
 
@@ -192,7 +170,6 @@ def main() -> None:
             "union_cmap": union_cmap,
             "screenshot_defect": screenshot_flag,
             "defect_mechanism": mechanism,
-            "partial_ratio": pr,
             "missing_keywords": "; ".join(missing_kw),
             "missing_full_numbers": "; ".join(missing_nums),
             "missing_num_units": "; ".join(missing_phrases),
@@ -203,16 +180,7 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
 
-    doc_cmap_qs = [r for r in rows if r["doc_cmap_defective"]]
-    auto_cmap_qs = [r for r in rows if r["auto_cmap"]]
-    union_cmap_qs = [r for r in rows if r["union_cmap"]]
-    screenshot_qs = [r for r in rows if r["screenshot_defect"]]
-
-    print("\n=== Regime A & Screenshot Summary (112 Answerable Questions) ===")
-    print(f"Primary   (Doc-level CMap PDFs)       : {len(doc_cmap_qs)} -> {Counter((r['docset'], r['source_file']) for r in doc_cmap_qs)}")
-    print(f"Secondary (Auto CMap question-impact) : {len(auto_cmap_qs)} -> {Counter((r['docset'], r['source_file']) for r in auto_cmap_qs)}")
-    print(f"Secondary (Union Manual|Auto CMap)    : {len(union_cmap_qs)} -> {Counter((r['docset'], r['source_file']) for r in union_cmap_qs)}")
-    print(f"Separate  (Screenshot ziro-guide)     : {len(screenshot_qs)} -> {[r['id'] for r in screenshot_qs]}")
+    print(f"Regenerated {AUDIT_CSV_PATH} ({len(rows)} answerable rows, partial_ratio removed).")
 
     if args.apply:
         for q in qs:
@@ -222,7 +190,7 @@ def main() -> None:
         json_lf = (json.dumps(qs, ensure_ascii=False, indent=2) + "\n").replace("\r\n", "\n")
         QUESTIONS_PATH.write_bytes(json_lf.encode("utf-8"))
         sha = hashlib.sha256(QUESTIONS_PATH.read_bytes()).hexdigest()
-        print(f"\nApplied tags to {QUESTIONS_PATH} | LF SHA-256: {sha}")
+        print(f"Applied tags to {QUESTIONS_PATH} | LF SHA-256: {sha}")
 
 
 if __name__ == "__main__":
