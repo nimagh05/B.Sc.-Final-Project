@@ -158,6 +158,67 @@ public sealed class OptionsValidationTests
     }
 
     [Theory]
+    [InlineData(71)]
+    [InlineData(0)]
+    [InlineData(-10)]
+    public void ExtractionOptions_OcrDpi_Below_72_Fails_Validation(int dpi)
+    {
+        var options = new ExtractionOptions { OcrDpi = dpi };
+        var results = ValidateModel(options);
+
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(ExtractionOptions.OcrDpi)));
+    }
+
+    [Theory]
+    [InlineData(601)]
+    [InlineData(1200)]
+    public void ExtractionOptions_OcrDpi_Above_600_Fails_Validation(int dpi)
+    {
+        var options = new ExtractionOptions { OcrDpi = dpi };
+        var results = ValidateModel(options);
+
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(ExtractionOptions.OcrDpi)));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void ExtractionOptions_Empty_Or_Whitespace_OcrLanguages_Fails_Validation(string? lang)
+    {
+        var options = new ExtractionOptions { OcrLanguages = lang! };
+        var results = ValidateModel(options);
+
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(ExtractionOptions.OcrLanguages)));
+    }
+
+    [Fact]
+    public void ExtractionOptions_OcrMode_Precedence_Over_OcrEnabled()
+    {
+        // Default: null OcrMode, OcrEnabled=false -> Off
+        var defaultOpts = new ExtractionOptions();
+        Assert.Null(defaultOpts.OcrMode);
+        Assert.False(defaultOpts.OcrEnabled);
+        Assert.Equal(OcrMode.Off, defaultOpts.EffectiveOcrMode);
+
+        // Legacy compatibility: OcrMode null + OcrEnabled=true -> Defective
+        var legacyOpts = new ExtractionOptions { OcrMode = null, OcrEnabled = true };
+        Assert.Equal(OcrMode.Defective, legacyOpts.EffectiveOcrMode);
+
+        // Explicit override: OcrMode=Off overrides OcrEnabled=true
+        var overrideOpts = new ExtractionOptions { OcrMode = OcrMode.Off, OcrEnabled = true };
+        Assert.Equal(OcrMode.Off, overrideOpts.EffectiveOcrMode);
+
+        // Explicit Always with OcrEnabled=false
+        var alwaysOpts = new ExtractionOptions { OcrMode = OcrMode.Always, OcrEnabled = false };
+        Assert.Equal(OcrMode.Always, alwaysOpts.EffectiveOcrMode);
+
+        // Explicit Defective with OcrEnabled=false
+        var defectiveOpts = new ExtractionOptions { OcrMode = OcrMode.Defective, OcrEnabled = false };
+        Assert.Equal(OcrMode.Defective, defectiveOpts.EffectiveOcrMode);
+    }
+
+    [Theory]
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("short_key_under_32_chars")]

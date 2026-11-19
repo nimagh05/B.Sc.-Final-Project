@@ -110,11 +110,7 @@ public sealed partial class HeaderFooterCleaner
             }
 
             var cleanedText = string.Join("\n", keptLines);
-            cleanedPages.Add(new PageText(
-                originalPage.PageNumber,
-                cleanedText,
-                originalPage.Quality,
-                originalPage.NeedsOcr));
+            cleanedPages.Add(originalPage with { Text = cleanedText });
         }
 
         return cleanedPages;

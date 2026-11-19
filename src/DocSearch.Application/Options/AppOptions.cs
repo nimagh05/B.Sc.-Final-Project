@@ -210,6 +210,13 @@ public sealed class ChunkingOptions : IValidatableObject
     }
 }
 
+public enum OcrMode
+{
+    Off,
+    Defective,
+    Always
+}
+
 public sealed class ExtractionOptions : IValidatableObject
 {
     public const string SectionName = "Extraction";
@@ -220,10 +227,18 @@ public sealed class ExtractionOptions : IValidatableObject
     [Required]
     public string ExtractorBaseUrl { get; set; } = "http://127.0.0.1:8000";
 
+    public OcrMode? OcrMode { get; set; }
+
     public bool OcrEnabled { get; set; }
 
+    public OcrMode EffectiveOcrMode =>
+        OcrMode ?? (OcrEnabled ? Options.OcrMode.Defective : Options.OcrMode.Off);
+
     [Range(72, 600)]
-    public int OcrDpi { get; set; } = 250;
+    public int OcrDpi { get; set; } = 300;
+
+    [Required]
+    public string OcrLanguages { get; set; } = "fas+eng";
 
     [Range(0.0, 1.0)]
     public double MinPageQuality { get; set; } = 0.35;
@@ -242,6 +257,13 @@ public sealed class ExtractionOptions : IValidatableObject
             yield return new ValidationResult(
                 $"Invalid sidecar extractor URL: '{ExtractorBaseUrl}'.",
                 [nameof(ExtractorBaseUrl)]);
+        }
+
+        if (string.IsNullOrWhiteSpace(OcrLanguages))
+        {
+            yield return new ValidationResult(
+                "Extraction:OcrLanguages must not be empty.",
+                [nameof(OcrLanguages)]);
         }
     }
 }
