@@ -8,3 +8,5 @@ python-multipart==0.0.32
 pydantic==2.14.1
 pydantic-core==2.50.1
 pymupdf==1.28.2
+pytesseract==0.3.13
+pillow==12.3.0
