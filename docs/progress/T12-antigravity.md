@@ -113,36 +113,36 @@
    ...
 
    --- Part 3: Regime A Pre-Retrieval Text Recall Evaluation ---
-   Cohort                                 N     Mode        KW Recall    Num Recall   Unit Recall
-   ------------------------------------------------------------------------------------------
-   Primary (6 CMap PDFs, all answerable)  36    Off           75.0%        72.2%        61.1%
-                                                Defective     80.6%        88.9%        72.2%
-   ..........................................................................................
-   Secondary (defect_mechanism == cmap, union) 27    Off           66.7%        63.0%        48.1%
-                                                Defective     74.1%        85.2%        63.0%
-   ..........................................................................................
-   Secondary (auto_cmap subset)           27    Off           66.7%        63.0%        48.1%
-                                                Defective     74.1%        85.2%        63.0%
-   ..........................................................................................
-   Breakout (5 unit-only questions)       5     Off          100.0%       100.0%         0.0%
-                                                Defective     80.0%       100.0%        40.0%
-   ..........................................................................................
-   Separate (2 screenshot Qs, ziro-guide) 2     Off            0.0%       100.0%       100.0%
-                                                Defective      0.0%       100.0%       100.0%
-   ..........................................................................................
+   Cohort                                       N    Mode       KW Recall          Num Recall         Unit Recall
+   --------------------------------------------------------------------------------------------------------------
+   Primary (6 CMap PDFs, all answerable)        36   Off        27/36 (75.0%)      0/10 (0.0%)        0/14 (0.0%)
+                                                     Defective  29/36 (80.6%)      6/10 (60.0%)       4/14 (28.6%)
+   ..............................................................................................................
+   Secondary (defect_mechanism == cmap, union)  27   Off        18/27 (66.7%)      0/10 (0.0%)        0/14 (0.0%)
+                                                     Defective  20/27 (74.1%)      6/10 (60.0%)       4/14 (28.6%)
+   ..............................................................................................................
+   Secondary (auto_cmap subset)                 16   Off        7/16 (43.8%)       0/10 (0.0%)        0/14 (0.0%)
+                                                     Defective  12/16 (75.0%)      6/10 (60.0%)       4/14 (28.6%)
+   ..............................................................................................................
+   Breakout (5 unit-only questions)             5    Off        5/5 (100.0%)       N/A                0/5 (0.0%)
+                                                     Defective  4/5 (80.0%)        N/A                2/5 (40.0%)
+   ..............................................................................................................
+   Separate (2 screenshot Qs, ziro-guide)       2    Off        0/2 (0.0%)         N/A                N/A
+                                                     Defective  0/2 (0.0%)         N/A                N/A
+   ..............................................................................................................
 
    --- Part 4: Clean-Document Regression Guard (aein-91.pdf) ---
    aein-91.pdf answerable questions (N=24):
-     Raw PyMuPDF (OcrMode=Off):    KW Recall = 23/24 (95.8%), Num Recall = 24/24 (100.0%)
-     Post-OCR (OcrMode=Always):     KW Recall = 21/24 (87.5%), Num Recall = 21/24 (87.5%)
-     [Insight] Under OcrMode=Defective, aein-91.pdf triggers 0 OCR pages, preserving 100% of raw digital quality (23/24).
+     Raw PyMuPDF (OcrMode=Off):    KW Recall = 23/24 (95.8%), Num Recall = 14/14 (100.0%)
+     Post-OCR (OcrMode=Always):     KW Recall = 21/24 (87.5%), Num Recall = 11/14 (78.6%)
+     [Insight] Under OcrMode=Defective, aein-91.pdf triggers 0 OCR pages, preserving 100% of raw digital quality (23/24 (95.8%)).
    [OK] Clean document regression guard satisfied: OCR retains >=85% recall even under forced Always mode.
 
    --- Part 5: Regime B Isolated Scan Twin (bein-almelali-scan.pdf) ---
    Evaluating 8 gold questions on synthetic 150 DPI scan twin (N=8)...
-     OcrMode=Off (0 text):          KW Recall = 0/8 (0.0%), Num Recall = 5/8 (62.5%)
-     OcrMode=Defective (Tesseract): KW Recall = 6/8 (75.0%), Num Recall = 7/8 (87.5%)
-     Digital Reference:             KW Recall = 8/8 (100.0%), Num Recall = 8/8 (100.0%)
+     OcrMode=Off (0 text):          KW Recall = 0/8 (0.0%), Num Recall = 0/3 (0.0%), Unit Recall = 0/3 (0.0%)
+     OcrMode=Defective (Tesseract): KW Recall = 6/8 (75.0%), Num Recall = 2/3 (66.7%), Unit Recall = 1/3 (33.3%)
+     Digital Reference:             KW Recall = 8/8 (100.0%), Num Recall = 3/3 (100.0%), Unit Recall = 3/3 (100.0%)
 
    [OK] Regime B evaluation completed successfully: OCR recovers text from image-only scan.
    === All Diagnostic and Evaluation Checks Complete ===
@@ -150,7 +150,7 @@
 
 4. **Container Cleanup:**
    ```powershell
-   docker compose stop extractor
+   docker compose --profile "*" down
    ```
 
 5. **Application & Infrastructure Unit & Integration Tests:**
@@ -159,9 +159,9 @@
    ```
    **Output:**
    - `DocSearch.Application.Tests`: Passed: 189, Failed: 0.
-   - `DocSearch.Infrastructure.Tests`: Passed: 139, Failed: 0.
+   - `DocSearch.Infrastructure.Tests`: Passed: 141, Failed: 0.
    - `DocSearch.Api.Tests`: Passed: 62, Failed: 0.
-   - **Total:** 390 passed, 0 failed.
+   - **Total:** 392 passed, 0 failed.
 
 6. **Code Formatting Verification:**
    ```powershell
@@ -185,8 +185,10 @@
    - `ExtractAsync_WhenOcrServiceReturns503_FallsBackToBasePagesGracefully`
    - `ExtractAsync_WhenCancellationRequested_RethrowsOperationCanceledException`
    - `ExtractAsync_WithNonSeekableStream_BuffersAndRewindsSuccessfully`
+   - `ExtractAsync_WhenOcrModeIsAlways_SendsAllPagesToOcr`
+   - `ExtractAsync_WhenOcrTimesOut_WithoutCallerCancellation_FallsBackGracefullyWithWarning`
 3. `tests/DocSearch.Infrastructure.Tests/Integration/IngestionServiceIntegrationTests.cs`:
-   - `IngestAsync_WithOcrPages_HeaderFooterCleanerPreservesOcrPages_AndPersistsToDatabase`: 4-page integration test asserting `HeaderFooterCleaner` executes, preserves `ExtractionSource = "ocr"`, and persists `document.OcrPages = [2, 4]` mapped to `DocumentDetailResponse`.
+   - `ProcessDocumentAsync_WithOcrPagesAndFourOrMorePages_CleansHeadersAndPersistsOcrPages`: 4-page integration test asserting `HeaderFooterCleaner` executes (removing repeating header and footer lines from chunks), preserves `ExtractionSource = "ocr"`, and persists `document.OcrPages = [2, 4]` mapped to `DocumentDetailResponse`.
 4. `tools/extractor/tests/test_extractor.py`:
    - `test_ocr_endpoint_success_mocked`
    - `test_ocr_endpoint_missing_tesseract_503`

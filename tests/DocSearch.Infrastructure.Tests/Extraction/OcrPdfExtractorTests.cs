@@ -291,6 +291,94 @@ public sealed class OcrPdfExtractorTests
         Assert.Equal("متن تمیز", result[0].Text);
     }
 
+    [Fact]
+    public async Task ExtractAsync_WhenOcrModeIsAlways_SendsAllPagesToOcr()
+    {
+        var basePages = new List<PageText>
+        {
+            new(1, "متن صفحه ۱ تمیز", 1.0, false),
+            new(2, "متن صفحه ۲ تمیز", 1.0, false),
+            new(3, "متن صفحه ۳ تمیز", 1.0, false)
+        };
+
+        var innerExtractor = new StubExtractor(basePages);
+        string? capturedContent = null;
+
+        var handler = new MockHttpMessageHandler(async (request, ct) =>
+        {
+            capturedContent = await request.Content!.ReadAsStringAsync(ct);
+
+            var ocrResponse = new
+            {
+                pages = new[]
+                {
+                    new { page = 1, text = "متن ocr صفحه ۱" },
+                    new { page = 2, text = "متن ocr صفحه ۲" },
+                    new { page = 3, text = "متن ocr صفحه ۳" }
+                }
+            };
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(ocrResponse), Encoding.UTF8, "application/json")
+            };
+        });
+
+        var factory = new StubHttpClientFactory(handler);
+        var options = Microsoft.Extensions.Options.Options.Create(new ExtractionOptions
+        {
+            OcrMode = OcrMode.Always
+        });
+
+        var extractor = new OcrPdfExtractor(innerExtractor, factory, _normalizer, options, NullLogger<OcrPdfExtractor>.Instance);
+
+        using var pdfStream = new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4 sample"));
+        var result = await extractor.ExtractAsync(pdfStream, CancellationToken.None);
+
+        Assert.NotNull(capturedContent);
+        Assert.Contains("1,2,3", capturedContent);
+        Assert.Equal(3, result.Count);
+        Assert.All(result, p =>
+        {
+            Assert.Equal("ocr", p.ExtractionSource);
+            Assert.True(p.IsOcr);
+        });
+    }
+
+    [Fact]
+    public async Task ExtractAsync_WhenOcrTimesOut_WithoutCallerCancellation_FallsBackGracefullyWithWarning()
+    {
+        var basePages = new List<PageText>
+        {
+            new(1, "متن پایه صفحه ۱", 0.0, true) // Needs OCR
+        };
+
+        var innerExtractor = new StubExtractor(basePages);
+
+        var handler = new MockHttpMessageHandler((_, ct) =>
+        {
+            // Simulate HttpClient timeout: TaskCanceledException when caller has NOT canceled
+            throw new TaskCanceledException("HttpClient timeout while processing OCR");
+        });
+
+        var factory = new StubHttpClientFactory(handler);
+        var options = Microsoft.Extensions.Options.Options.Create(new ExtractionOptions
+        {
+            OcrMode = OcrMode.Defective
+        });
+
+        var extractor = new OcrPdfExtractor(innerExtractor, factory, _normalizer, options, NullLogger<OcrPdfExtractor>.Instance);
+
+        using var pdfStream = new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4 sample"));
+        // Caller cancellation token is NOT canceled
+        var result = await extractor.ExtractAsync(pdfStream, CancellationToken.None);
+
+        Assert.Single(result);
+        Assert.Equal("text_layer", result[0].ExtractionSource);
+        Assert.False(result[0].IsOcr);
+        Assert.Equal("متن پایه صفحه ۱", result[0].Text);
+    }
+
     private sealed class StubExtractor(IReadOnlyList<PageText> pages) : IPdfExtractor
     {
         public Task<IReadOnlyList<PageText>> ExtractAsync(Stream pdf, CancellationToken ct) => Task.FromResult(pages);

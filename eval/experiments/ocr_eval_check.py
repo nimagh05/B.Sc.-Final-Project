@@ -177,9 +177,11 @@ def call_sidecar_ocr(
     return {p: doc_cache.get(str(p), "") for p in pages}
 
 
-def evaluate_question_recall(q: dict, page_texts: List[str]) -> Tuple[bool, bool, bool]:
+def evaluate_question_recall(q: dict, page_texts: List[str]) -> Tuple[bool, Optional[bool], Optional[bool]]:
     """
     Returns (strict_kw_hit, full_nums_hit, unit_phrases_hit).
+    full_nums_hit is None if the expected answer has no multi-digit numbers.
+    unit_phrases_hit is None if the expected answer has no number+unit phrases.
     """
     source_pages = q.get("source_pages", [])
     raw_source = "\n".join(
@@ -201,15 +203,15 @@ def evaluate_question_recall(q: dict, page_texts: List[str]) -> Tuple[bool, bool
     else:
         kw_hit = True
 
-    # 2. Multi-digit numbers recall
+    # 2. Multi-digit numbers recall (evaluated ONLY when question has >=1 multi-digit numbers)
     ans_nums = sorted(set(MULTI_DIGIT_RE.findall(nans)))
     if ans_nums:
         num_hits = sum(1 for num in ans_nums if re.search(rf"(?<!\d){re.escape(num)}(?!\d)", ntext))
-        num_hit = (num_hits == len(ans_nums))
+        num_hit: Optional[bool] = (num_hits == len(ans_nums))
     else:
-        num_hit = True
+        num_hit = None
 
-    # 3. Number+unit phrase recall
+    # 3. Number+unit phrase recall (evaluated ONLY when question has >=1 number+unit phrases)
     unit_phrases = [f"{m[0]} {m[1]}" for m in UNIT_PHRASE_RE.findall(nans)]
     if unit_phrases:
         unit_hits = 0
@@ -225,9 +227,9 @@ def evaluate_question_recall(q: dict, page_texts: List[str]) -> Tuple[bool, bool
                     alt = rf"(?<!\d){re.escape(num_part)}\s*درصد"
                 if alt and re.search(alt, ntext):
                     unit_hits += 1
-        unit_hit = (unit_hits == len(unit_phrases))
+        unit_hit: Optional[bool] = (unit_hits == len(unit_phrases))
     else:
-        unit_hit = True
+        unit_hit = None
 
     return kw_hit, num_hit, unit_hit
 
@@ -346,32 +348,55 @@ def main() -> None:
     # Cohort groupings
     primary_cmap_qs = [q for q in answerable_qs if q.get("source_file") in KNOWN_CMAP_PDFS]
     secondary_union_cmap = [q for q in answerable_qs if q.get("defect_mechanism") == "cmap"]
-    secondary_auto_cmap = [q for q in primary_cmap_qs if q.get("text_layer_defect") and q.get("id") not in SCREENSHOT_QS]
+
+    # auto_cmap parsed explicitly from eval/text_layer_audit.csv per ADR 0008 (N=16)
+    auto_cmap_ids: Set[str] = set()
+    if AUDIT_CSV_PATH.exists():
+        with open(AUDIT_CSV_PATH, mode="r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row.get("auto_cmap", "").strip().lower() in ("true", "1"):
+                    auto_cmap_ids.add(row["id"])
+    secondary_auto_cmap = [q for q in answerable_qs if q["id"] in auto_cmap_ids]
+    assert len(secondary_auto_cmap) == 16, f"Expected 16 auto_cmap questions, found {len(secondary_auto_cmap)}"
+
     # Unit-only questions
     unit_only_qs = [q for q in answerable_qs if q.get("id") in UNIT_ONLY_QS]
     # Screenshot questions
     screenshot_qs = [q for q in answerable_qs if q.get("defect_mechanism") == "screenshot"]
 
-    def compute_cohort_metrics(qs: List[dict], use_defective: bool) -> Tuple[float, float, float]:
-        if not qs:
-            return 0.0, 0.0, 0.0
+    def format_metric(hits: int, total: int) -> str:
+        if total == 0:
+            return "N/A"
+        return f"{hits}/{total} ({hits / total * 100:.1f}%)"
+
+    def compute_cohort_metrics(
+        qs: List[dict], use_defective: bool
+    ) -> Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]]:
         kw_hits = 0
+        kw_total = len(qs)
         num_hits = 0
+        num_total = 0
         unit_hits = 0
+        unit_total = 0
         for q in qs:
             sf = q["source_file"]
             pages = doc_merged_defective[sf] if use_defective else doc_raw_pages[sf]
             k_hit, n_hit, u_hit = evaluate_question_recall(q, pages)
             if k_hit:
                 kw_hits += 1
-            if n_hit:
-                num_hits += 1
-            if u_hit:
-                unit_hits += 1
-        return (kw_hits / len(qs) * 100), (num_hits / len(qs) * 100), (unit_hits / len(qs) * 100)
+            if n_hit is not None:
+                num_total += 1
+                if n_hit:
+                    num_hits += 1
+            if u_hit is not None:
+                unit_total += 1
+                if u_hit:
+                    unit_hits += 1
+        return (kw_hits, kw_total), (num_hits, num_total), (unit_hits, unit_total)
 
-    print(f"{'Cohort':<38} {'N':<5} {'Mode':<11} {'KW Recall':<12} {'Num Recall':<12} {'Unit Recall'}")
-    print("-" * 90)
+    print(f"{'Cohort':<44} {'N':<4} {'Mode':<10} {'KW Recall':<18} {'Num Recall':<18} {'Unit Recall'}")
+    print("-" * 110)
 
     cohorts = [
         ("Primary (6 CMap PDFs, all answerable)", primary_cmap_qs),
@@ -382,24 +407,37 @@ def main() -> None:
     ]
 
     for label, qs in cohorts:
-        k_off, n_off, u_off = compute_cohort_metrics(qs, use_defective=False)
-        k_def, n_def, u_def = compute_cohort_metrics(qs, use_defective=True)
-        print(f"{label:<38} {len(qs):<5} {'Off':<11} {k_off:6.1f}%      {n_off:6.1f}%      {u_off:6.1f}%")
-        print(f"{'':<38} {'':<5} {'Defective':<11} {k_def:6.1f}%      {n_def:6.1f}%      {u_def:6.1f}%")
-        print("." * 90)
+        (k_off, k_tot), (n_off, n_tot), (u_off, u_tot) = compute_cohort_metrics(qs, use_defective=False)
+        (k_def, _), (n_def, _), (u_def, _) = compute_cohort_metrics(qs, use_defective=True)
+        kw_off_str = format_metric(k_off, k_tot)
+        num_off_str = format_metric(n_off, n_tot)
+        unit_off_str = format_metric(u_off, u_tot)
+        kw_def_str = format_metric(k_def, k_tot)
+        num_def_str = format_metric(n_def, n_tot)
+        unit_def_str = format_metric(u_def, u_tot)
+
+        print(f"{label:<44} {len(qs):<4} {'Off':<10} {kw_off_str:<18} {num_off_str:<18} {unit_off_str}")
+        print(f"{'':<44} {'':<4} {'Defective':<10} {kw_def_str:<18} {num_def_str:<18} {unit_def_str}")
+        print("." * 110)
 
     # 4. Clean-Document Regression Guard (aein-91.pdf under Always mode)
     print("\n--- Part 4: Clean-Document Regression Guard (aein-91.pdf) ---")
     aein_qs = [q for q in answerable_qs if q.get("source_file") == "aein-91.pdf"]
-    aein_off_kw = sum(1 for q in aein_qs if evaluate_question_recall(q, doc_raw_pages["aein-91.pdf"])[0])
-    aein_off_num = sum(1 for q in aein_qs if evaluate_question_recall(q, doc_raw_pages["aein-91.pdf"])[1])
-    aein_always_kw = sum(1 for q in aein_qs if evaluate_question_recall(q, aein_always_pages)[0])
-    aein_always_num = sum(1 for q in aein_qs if evaluate_question_recall(q, aein_always_pages)[1])
+    aein_off_res = [evaluate_question_recall(q, doc_raw_pages["aein-91.pdf"]) for q in aein_qs]
+    aein_always_res = [evaluate_question_recall(q, aein_always_pages) for q in aein_qs]
+
+    aein_off_kw = sum(1 for r in aein_off_res if r[0])
+    aein_off_num_hits = sum(1 for r in aein_off_res if r[1] is True)
+    aein_off_num_tot = sum(1 for r in aein_off_res if r[1] is not None)
+
+    aein_always_kw = sum(1 for r in aein_always_res if r[0])
+    aein_always_num_hits = sum(1 for r in aein_always_res if r[1] is True)
+    aein_always_num_tot = sum(1 for r in aein_always_res if r[1] is not None)
 
     print(f"aein-91.pdf answerable questions (N={len(aein_qs)}):")
-    print(f"  Raw PyMuPDF (OcrMode=Off):    KW Recall = {aein_off_kw}/{len(aein_qs)} ({aein_off_kw/len(aein_qs)*100:.1f}%), Num Recall = {aein_off_num}/{len(aein_qs)} ({aein_off_num/len(aein_qs)*100:.1f}%)")
-    print(f"  Post-OCR (OcrMode=Always):     KW Recall = {aein_always_kw}/{len(aein_qs)} ({aein_always_kw/len(aein_qs)*100:.1f}%), Num Recall = {aein_always_num}/{len(aein_qs)} ({aein_always_num/len(aein_qs)*100:.1f}%)")
-    print(f"  [Insight] Under OcrMode=Defective, aein-91.pdf triggers 0 OCR pages, preserving 100% of raw digital quality ({aein_off_kw}/{len(aein_qs)}).")
+    print(f"  Raw PyMuPDF (OcrMode=Off):    KW Recall = {format_metric(aein_off_kw, len(aein_qs))}, Num Recall = {format_metric(aein_off_num_hits, aein_off_num_tot)}")
+    print(f"  Post-OCR (OcrMode=Always):     KW Recall = {format_metric(aein_always_kw, len(aein_qs))}, Num Recall = {format_metric(aein_always_num_hits, aein_always_num_tot)}")
+    print(f"  [Insight] Under OcrMode=Defective, aein-91.pdf triggers 0 OCR pages, preserving 100% of raw digital quality ({format_metric(aein_off_kw, len(aein_qs))}).")
     assert aein_always_kw >= aein_off_kw - 3, "OCR significantly degraded clean digital text recall!"
     print("[OK] Clean document regression guard satisfied: OCR retains >=85% recall even under forced Always mode.")
 
@@ -413,24 +451,36 @@ def main() -> None:
     scan_def_pages = doc_merged_defective["bein-almelali-scan.pdf"]
     ref_pages = doc_raw_pages["bein-almelali.pdf"]
 
-    def eval_scan(pages: List[str]) -> Tuple[int, int, int]:
+    def eval_scan(pages: List[str]) -> Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]]:
         k, n, u = 0, 0, 0
+        n_tot, u_tot = 0, 0
         for q in scan_gold:
             kh, nh, uh = evaluate_question_recall(q, pages)
-            if kh: k += 1
-            if nh: n += 1
-            if uh: u += 1
-        return k, n, u
+            if kh:
+                k += 1
+            if nh is not None:
+                n_tot += 1
+                if nh:
+                    n += 1
+            if uh is not None:
+                u_tot += 1
+                if uh:
+                    u += 1
+        return (k, len(scan_gold)), (n, n_tot), (u, u_tot)
 
-    k_scan_off, n_scan_off, u_scan_off = eval_scan(scan_off_pages)
-    k_scan_def, n_scan_def, u_scan_def = eval_scan(scan_def_pages)
-    k_ref, n_ref, u_ref = eval_scan(ref_pages)
+    (k_scan_off, k_scan_tot), (n_scan_off, n_scan_tot), (u_scan_off, u_scan_tot) = eval_scan(scan_off_pages)
+    (k_scan_def, _), (n_scan_def, _), (u_scan_def, _) = eval_scan(scan_def_pages)
+    (k_ref, _), (n_ref, _), (u_ref, _) = eval_scan(ref_pages)
 
-    print(f"  OcrMode=Off (0 text):          KW Recall = {k_scan_off}/8 ({k_scan_off/8*100:.1f}%), Num Recall = {n_scan_off}/8 ({n_scan_off/8*100:.1f}%)")
-    print(f"  OcrMode=Defective (Tesseract): KW Recall = {k_scan_def}/8 ({k_scan_def/8*100:.1f}%), Num Recall = {n_scan_def}/8 ({n_scan_def/8*100:.1f}%)")
-    print(f"  Digital Reference:             KW Recall = {k_ref}/8 ({k_ref/8*100:.1f}%), Num Recall = {n_ref}/8 ({n_ref/8*100:.1f}%)")
+    print(f"  OcrMode=Off (0 text):          KW Recall = {format_metric(k_scan_off, k_scan_tot)}, Num Recall = {format_metric(n_scan_off, n_scan_tot)}, Unit Recall = {format_metric(u_scan_off, u_scan_tot)}")
+    print(f"  OcrMode=Defective (Tesseract): KW Recall = {format_metric(k_scan_def, k_scan_tot)}, Num Recall = {format_metric(n_scan_def, n_scan_tot)}, Unit Recall = {format_metric(u_scan_def, u_scan_tot)}")
+    print(f"  Digital Reference:             KW Recall = {format_metric(k_ref, k_scan_tot)}, Num Recall = {format_metric(n_ref, n_scan_tot)}, Unit Recall = {format_metric(u_ref, u_scan_tot)}")
 
     assert k_scan_off == 0, "Scan twin without OCR should have 0 keyword hits"
+    if n_scan_tot > 0:
+        assert n_scan_off == 0, "Scan twin without OCR should have 0 number hits"
+    if u_scan_tot > 0:
+        assert u_scan_off == 0, "Scan twin without OCR should have 0 unit hits"
     assert k_scan_def > 0, "Scan twin with OCR must recover text and achieve >0 keyword hits"
     print("\n[OK] Regime B evaluation completed successfully: OCR recovers text from image-only scan.")
     print("=== All Diagnostic and Evaluation Checks Complete ===")

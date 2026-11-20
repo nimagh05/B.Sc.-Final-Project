@@ -481,6 +481,11 @@ public sealed class IngestionServiceIntegrationTests(PostgresFixture fixture)
         Assert.NotNull(updatedDoc.OcrPages);
         Assert.Equal([2, 4], updatedDoc.OcrPages!);
 
+        // Verify HeaderFooterCleaner executed by checking that inserted chunks do NOT contain the repeating header
+        var chunks = await db.Chunks.Where(c => c.DocumentId == document.Id).ToListAsync();
+        Assert.NotEmpty(chunks);
+        Assert.All(chunks, c => Assert.DoesNotContain(header, c.Text));
+
         // Verify DocumentDetailResponse mapping preserves OcrPages
         var detailDto = new Application.Models.DocumentDetailResponse(
             updatedDoc.Id,
