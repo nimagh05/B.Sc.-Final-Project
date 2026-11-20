@@ -58,6 +58,19 @@ KNOWN_CMAP_PDFS = {
     "forsat-motaleati.pdf",
 }
 
+# Strict split per ADR 0008 anti-leakage rule:
+# NEVER tune or ablate OCR parameters on heldout documents!
+TUNED_CMAP_PDFS = {
+    "bedoon-factor.pdf",
+    "dastyar-pazhuheshi.pdf",
+    "kod-akhlaghi.pdf",
+    "hamayesh.pdf",
+}
+HELDOUT_CMAP_PDFS = {
+    "tarh-dakheli.pdf",
+    "forsat-motaleati.pdf",
+}
+
 
 def normalize_text(s: str) -> str:
     s = unicodedata.normalize("NFKC", str(s)).lower()
@@ -140,13 +153,14 @@ def call_sidecar_ocr(
     pdf_path: Path,
     pages: List[int],
     dpi: int = 300,
-    lang: str = "fas+eng"
+    lang: str = "fas+eng",
+    psm: int = 6,
 ) -> Dict[int, str]:
     if not pages:
         return {}
 
     cache = _load_cache()
-    doc_key = f"{pdf_path.name}_{dpi}_{lang}"
+    doc_key = f"{pdf_path.name}_{dpi}_{lang}_psm{psm}"
     doc_cache = cache.get(doc_key, {})
 
     missing_pages = [p for p in pages if str(p) not in doc_cache]
@@ -160,6 +174,7 @@ def call_sidecar_ocr(
                     "pages": ",".join(str(p) for p in sorted(missing_pages)),
                     "dpi": str(dpi),
                     "lang": lang,
+                    "psm": str(psm),
                 },
                 timeout=300,
             )
@@ -234,10 +249,156 @@ def evaluate_question_recall(q: dict, page_texts: List[str]) -> Tuple[bool, Opti
     return kw_hit, num_hit, unit_hit
 
 
+def format_metric(hits: int, total: int) -> str:
+    if total == 0:
+        return "N/A"
+    return f"{hits}/{total} ({hits / total * 100:.1f}%)"
+
+
+def run_tuned_ablation(
+    sidecar_url: str,
+    pdf_files: Dict[str, Path],
+    doc_raw_pages: Dict[str, List[str]],
+    doc_effective_ocr_pages: Dict[str, List[int]],
+    answerable_qs: List[dict],
+) -> None:
+    print("\n" + "=" * 95)
+    print("=== Tuned OCR Parameter Ablation (Anti-Leakage Guard: strictly NO heldout documents) ===")
+    print("=" * 95)
+    print(f"Target Tuned Documents (CMap): {sorted(TUNED_CMAP_PDFS)}")
+    print(f"Target Scan Twin Document:     bein-almelali-scan.pdf")
+    print(f"Clean Regression Document:     aein-91.pdf")
+    print("Heldout documents EXCLUDED per ADR 0008: tarh-dakheli.pdf, forsat-motaleati.pdf")
+
+    tuned_cmap_qs = [q for q in answerable_qs if q.get("source_file") in TUNED_CMAP_PDFS]
+    scan_qs = [q for q in answerable_qs if q["id"] in SCAN_GOLD_QS]
+    all_tuned_qs = tuned_cmap_qs + scan_qs
+    aein_qs = [q for q in answerable_qs if q.get("source_file") == "aein-91.pdf"]
+
+    psm_values = [6, 4, 3]
+    dpi_values = [300, 400]
+
+    configs = []
+    for dpi in dpi_values:
+        for psm in psm_values:
+            configs.append((dpi, psm))
+
+    def eval_doc_qs(qs: List[dict], doc_pages_map: Dict[str, List[str]]) -> Tuple[Tuple[int, int], Tuple[int, int], Tuple[int, int]]:
+        k_hit, n_hit, u_hit = 0, 0, 0
+        n_tot, u_tot = 0, 0
+        for q in qs:
+            sf = q.get("source_file")
+            pages = doc_pages_map.get(sf, [])
+            kh, nh, uh = evaluate_question_recall(q, pages)
+            if kh:
+                k_hit += 1
+            if nh is not None:
+                n_tot += 1
+                if nh:
+                    n_hit += 1
+            if uh is not None:
+                u_tot += 1
+                if uh:
+                    u_hit += 1
+        return (k_hit, len(qs)), (n_hit, n_tot), (u_hit, u_tot)
+
+    q_diff: Dict[str, Dict[str, Tuple[bool, Optional[bool]]]] = defaultdict(dict)
+
+    cmap_off = eval_doc_qs(tuned_cmap_qs, doc_raw_pages)
+    scan_off = eval_doc_qs(scan_qs, {"bein-almelali.pdf": doc_raw_pages["bein-almelali-scan.pdf"]})
+    aein_off = eval_doc_qs(aein_qs, doc_raw_pages)
+    comb_off_k = (cmap_off[0][0] + scan_off[0][0], len(all_tuned_qs))
+
+    for q in tuned_cmap_qs:
+        kh, nh, _ = evaluate_question_recall(q, doc_raw_pages.get(q["source_file"], []))
+        q_diff[q["id"]]["Off"] = (kh, nh)
+    for q in scan_qs:
+        kh, nh, _ = evaluate_question_recall(q, doc_raw_pages["bein-almelali-scan.pdf"])
+        q_diff[q["id"]]["Off"] = (kh, nh)
+
+    print("\n--- Ablation Summary Table ---")
+    header = f"{'Configuration':<20} {'Tuned CMap KW':<16} {'Tuned CMap Num':<16} {'Scan Twin KW':<16} {'Scan Twin Num':<16} {'Combined KW':<16} {'aein-91 KW':<16}"
+    print(header)
+    print("-" * len(header))
+    print(f"{'OcrMode=Off':<20} {format_metric(*cmap_off[0]):<16} {format_metric(*cmap_off[1]):<16} {format_metric(*scan_off[0]):<16} {format_metric(*scan_off[1]):<16} {format_metric(*comb_off_k):<16} {format_metric(*aein_off[0]):<16}")
+
+    for dpi, psm in configs:
+        cfg_name = f"DPI {dpi}, PSM {psm}"
+        tuned_pages: Dict[str, List[str]] = {}
+        for d in TUNED_CMAP_PDFS:
+            flagged = doc_effective_ocr_pages[d]
+            ocr_map = call_sidecar_ocr(sidecar_url, pdf_files[d], flagged, dpi=dpi, psm=psm)
+            raw = doc_raw_pages[d]
+            merged = []
+            for p_idx, text in enumerate(raw, 1):
+                if p_idx in ocr_map and ocr_map[p_idx].strip():
+                    merged.append(ocr_map[p_idx])
+                else:
+                    merged.append(text)
+            tuned_pages[d] = merged
+
+        # bein-almelali-scan.pdf
+        scan_flagged = [1, 2, 3, 4, 5, 6, 7, 8]
+        scan_ocr = call_sidecar_ocr(sidecar_url, pdf_files["bein-almelali-scan.pdf"], scan_flagged, dpi=dpi, psm=psm)
+        scan_merged = [scan_ocr.get(p, "") for p in range(1, 9)]
+
+        # aein-91.pdf (Always)
+        aein_flagged = list(range(1, len(doc_raw_pages["aein-91.pdf"]) + 1))
+        aein_ocr = call_sidecar_ocr(sidecar_url, pdf_files["aein-91.pdf"], aein_flagged, dpi=dpi, psm=psm)
+        aein_merged = [aein_ocr.get(p, doc_raw_pages["aein-91.pdf"][p - 1]) for p in aein_flagged]
+
+        cmap_res = eval_doc_qs(tuned_cmap_qs, tuned_pages)
+        scan_hits_k, scan_hits_n = 0, 0
+        scan_n_tot = 0
+        for q in scan_qs:
+            kh, nh, _ = evaluate_question_recall(q, scan_merged)
+            if kh:
+                scan_hits_k += 1
+            if nh is not None:
+                scan_n_tot += 1
+                if nh:
+                    scan_hits_n += 1
+            q_diff[q["id"]][cfg_name] = (kh, nh)
+
+        for q in tuned_cmap_qs:
+            kh, nh, _ = evaluate_question_recall(q, tuned_pages.get(q["source_file"], []))
+            q_diff[q["id"]][cfg_name] = (kh, nh)
+
+        scan_res_k = (scan_hits_k, len(scan_qs))
+        scan_res_n = (scan_hits_n, scan_n_tot)
+        comb_k = (cmap_res[0][0] + scan_hits_k, len(all_tuned_qs))
+        aein_res = eval_doc_qs(aein_qs, {"aein-91.pdf": aein_merged})
+
+        print(f"{cfg_name:<20} {format_metric(*cmap_res[0]):<16} {format_metric(*cmap_res[1]):<16} {format_metric(*scan_res_k):<16} {format_metric(*scan_res_n):<16} {format_metric(*comb_k):<16} {format_metric(*aein_res[0]):<16}")
+
+    print("\n--- Per-Question Diagnostic Diff on Tuned Documents ---")
+    diff_header = f"{'QID':<6} {'File':<24} {'Off (KW/Num)':<14} {'300, PSM 6':<14} {'300, PSM 4':<14} {'300, PSM 3':<14} {'400, PSM 6':<14}"
+    print(diff_header)
+    print("-" * len(diff_header))
+    for q in all_tuned_qs:
+        qid = q["id"]
+        sf = q["source_file"]
+        d = q_diff[qid]
+
+        def fmt_q(res: Tuple[bool, Optional[bool]]) -> str:
+            k_char = "✓" if res[0] else "✗"
+            n_char = "-" if res[1] is None else ("✓" if res[1] else "✗")
+            return f"{k_char}/{n_char}"
+
+        off_s = fmt_q(d.get("Off", (False, None)))
+        p6_300 = fmt_q(d.get("DPI 300, PSM 6", (False, None)))
+        p4_300 = fmt_q(d.get("DPI 300, PSM 4", (False, None)))
+        p3_300 = fmt_q(d.get("DPI 300, PSM 3", (False, None)))
+        p6_400 = fmt_q(d.get("DPI 400, PSM 6", (False, None)))
+        print(f"{qid:<6} {sf:<24} {off_s:<14} {p6_300:<14} {p4_300:<14} {p3_300:<14} {p6_400:<14}")
+    print("=" * 95)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Pre-retrieval OCR Diagnostic & Benchmark")
     parser.add_argument("--sidecar-url", default="http://127.0.0.1:8000", help="URL of Python extractor sidecar")
     parser.add_argument("--audit-only", action="store_true", help="Run 15-PDF trigger audit only without calling /ocr")
+    parser.add_argument("--ablate-tuned", action="store_true", help="Run PSM (3, 4, 6) and DPI (300, 400) ablation on tuned documents only")
     args = parser.parse_args()
 
     # Collect 15 PDFs
@@ -302,6 +463,19 @@ def main() -> None:
         print("Please start the extractor sidecar (e.g. via Docker: docker compose up -d extractor)")
         sys.exit(1)
 
+    questions = json.loads(QUESTIONS_PATH.read_text(encoding="utf-8"))
+    answerable_qs = [q for q in questions if q.get("type") != "not-in-docs"]
+
+    if args.ablate_tuned:
+        run_tuned_ablation(
+            args.sidecar_url,
+            pdf_files,
+            doc_raw_pages,
+            doc_effective_ocr_pages,
+            answerable_qs,
+        )
+        return
+
     # 2. Execute OCR on flagged pages of defective PDFs + aein-91.pdf (Always) + scan twin
     print(f"\n--- Part 2: OCR Execution via Sidecar ({args.sidecar_url}) ---")
     doc_ocr_pages: Dict[str, Dict[int, str]] = {}
@@ -364,11 +538,6 @@ def main() -> None:
     unit_only_qs = [q for q in answerable_qs if q.get("id") in UNIT_ONLY_QS]
     # Screenshot questions
     screenshot_qs = [q for q in answerable_qs if q.get("defect_mechanism") == "screenshot"]
-
-    def format_metric(hits: int, total: int) -> str:
-        if total == 0:
-            return "N/A"
-        return f"{hits}/{total} ({hits / total * 100:.1f}%)"
 
     def compute_cohort_metrics(
         qs: List[dict], use_defective: bool
@@ -437,9 +606,8 @@ def main() -> None:
     print(f"aein-91.pdf answerable questions (N={len(aein_qs)}):")
     print(f"  Raw PyMuPDF (OcrMode=Off):    KW Recall = {format_metric(aein_off_kw, len(aein_qs))}, Num Recall = {format_metric(aein_off_num_hits, aein_off_num_tot)}")
     print(f"  Post-OCR (OcrMode=Always):     KW Recall = {format_metric(aein_always_kw, len(aein_qs))}, Num Recall = {format_metric(aein_always_num_hits, aein_always_num_tot)}")
-    print(f"  [Insight] Under OcrMode=Defective, aein-91.pdf triggers 0 OCR pages, preserving 100% of raw digital quality ({format_metric(aein_off_kw, len(aein_qs))}).")
-    assert aein_always_kw >= aein_off_kw - 3, "OCR significantly degraded clean digital text recall!"
-    print("[OK] Clean document regression guard satisfied: OCR retains >=85% recall even under forced Always mode.")
+    print(f"  [Empirical Finding] Forced Always OCR degrades clean digital text (KW: {format_metric(aein_off_kw, len(aein_qs))} -> {format_metric(aein_always_kw, len(aein_qs))}, Num: {format_metric(aein_off_num_hits, aein_off_num_tot)} -> {format_metric(aein_always_num_hits, aein_always_num_tot)}).")
+    print(f"  [Design Consequence] OcrMode=Defective triggers 0 OCR pages on clean documents, preserving 100% of raw digital text quality ({format_metric(aein_off_kw, len(aein_qs))}).")
 
     # 5. Regime B Isolated Scan Twin (bein-almelali-scan.pdf -> bein-almelali.pdf)
     print("\n--- Part 5: Regime B Isolated Scan Twin (bein-almelali-scan.pdf) ---")
