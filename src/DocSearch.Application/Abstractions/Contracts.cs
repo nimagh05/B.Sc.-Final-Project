@@ -4,7 +4,17 @@ using DocSearch.Domain;
 
 namespace DocSearch.Application.Abstractions;
 
-public sealed record PageText(int PageNumber, string Text, double Quality, bool NeedsOcr, bool LooksReversed = false);
+public sealed record PageText(
+    int PageNumber,
+    string Text,
+    double Quality,
+    bool NeedsOcr,
+    bool LooksReversed = false,
+    string ExtractionSource = "text_layer",
+    string? RawText = null)
+{
+    public bool IsOcr => ExtractionSource == "ocr";
+}
 
 public interface IPdfExtractor
 {
