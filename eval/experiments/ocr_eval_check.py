@@ -521,6 +521,8 @@ def main() -> None:
 
     # Cohort groupings
     primary_cmap_qs = [q for q in answerable_qs if q.get("source_file") in KNOWN_CMAP_PDFS]
+    heldout_cmap_qs = [q for q in answerable_qs if q.get("source_file") in HELDOUT_CMAP_PDFS]
+    assert len(heldout_cmap_qs) == 27, f"Expected 27 heldout CMap questions, found {len(heldout_cmap_qs)}"
     secondary_union_cmap = [q for q in answerable_qs if q.get("defect_mechanism") == "cmap"]
 
     # auto_cmap parsed explicitly from eval/text_layer_audit.csv per ADR 0008 (N=16)
@@ -564,11 +566,12 @@ def main() -> None:
                     unit_hits += 1
         return (kw_hits, kw_total), (num_hits, num_total), (unit_hits, unit_total)
 
-    print(f"{'Cohort':<44} {'N':<4} {'Mode':<10} {'KW Recall':<18} {'Num Recall':<18} {'Unit Recall'}")
-    print("-" * 110)
+    print(f"{'Cohort':<58} {'N':<4} {'Mode':<10} {'KW Recall':<18} {'Num Recall':<18} {'Unit Recall'}")
+    print("-" * 124)
 
     cohorts = [
         ("Primary (6 CMap PDFs, all answerable)", primary_cmap_qs),
+        ("Heldout CMap PDFs only (tarh-dakheli + forsat-motaleati)", heldout_cmap_qs),
         ("Secondary (defect_mechanism == cmap, union)", secondary_union_cmap),
         ("Secondary (auto_cmap subset)", secondary_auto_cmap),
         ("Breakout (5 unit-only questions)", unit_only_qs),
@@ -585,9 +588,9 @@ def main() -> None:
         num_def_str = format_metric(n_def, n_tot)
         unit_def_str = format_metric(u_def, u_tot)
 
-        print(f"{label:<44} {len(qs):<4} {'Off':<10} {kw_off_str:<18} {num_off_str:<18} {unit_off_str}")
-        print(f"{'':<44} {'':<4} {'Defective':<10} {kw_def_str:<18} {num_def_str:<18} {unit_def_str}")
-        print("." * 110)
+        print(f"{label:<58} {len(qs):<4} {'Off':<10} {kw_off_str:<18} {num_off_str:<18} {unit_off_str}")
+        print(f"{'':<58} {'':<4} {'Defective':<10} {kw_def_str:<18} {num_def_str:<18} {unit_def_str}")
+        print("." * 124)
 
     # 4. Clean-Document Regression Guard (aein-91.pdf under Always mode)
     print("\n--- Part 4: Clean-Document Regression Guard (aein-91.pdf) ---")

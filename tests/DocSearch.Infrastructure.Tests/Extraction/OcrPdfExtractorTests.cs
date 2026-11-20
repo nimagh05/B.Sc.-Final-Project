@@ -443,14 +443,15 @@ public sealed class OcrPdfExtractorTests
     }
 
     [Fact]
-    public async Task ExtractAsync_WhenLaterBatchFails_PreservesEarlierBatchOcrResults_AndFallsBackForFailedBatch()
+    public async Task ExtractAsync_WhenBatchFails_AbortsRemainingBatchesFailFast_AndPreservesEarlierResults()
     {
         var basePages = new List<PageText>
         {
             new(1, "پایه ۱", 0.0, true),
             new(2, "پایه ۲", 0.0, true),
             new(3, "پایه ۳", 0.0, true),
-            new(4, "پایه ۴", 0.0, true)
+            new(4, "پایه ۴", 0.0, true),
+            new(5, "پایه ۵", 0.0, true)
         };
 
         var innerExtractor = new StubExtractor(basePages);
@@ -461,7 +462,7 @@ public sealed class OcrPdfExtractorTests
             requestCount++;
             var content = await request.Content!.ReadAsStringAsync(ct);
 
-            if (content.Contains("1,2"))
+            if (content.Contains("1,2", StringComparison.Ordinal))
             {
                 // Batch 1 succeeds
                 var ocrResponse = new
@@ -478,10 +479,19 @@ public sealed class OcrPdfExtractorTests
                 };
             }
 
-            // Batch 2 fails with 500 error
-            return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            if (content.Contains("3,4", StringComparison.Ordinal))
             {
-                Content = new StringContent("{\"detail\":\"Internal Tesseract failure\"}")
+                // Batch 2 fails with 503 Service Unavailable
+                return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+                {
+                    Content = new StringContent("{\"detail\":\"Tesseract service unavailable\"}")
+                };
+            }
+
+            // Batch 3 (page 5) should never be called due to fail-fast
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"pages\":[{\"page\":5,\"text\":\"ocr متن ۵\"}]}", Encoding.UTF8, "application/json")
             };
         });
 
@@ -497,8 +507,9 @@ public sealed class OcrPdfExtractorTests
         using var pdfStream = new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4 sample"));
         var result = await extractor.ExtractAsync(pdfStream, CancellationToken.None);
 
+        // Fail-fast assertion: only 2 requests sent (batch 1 and batch 2), batch 3 was skipped
         Assert.Equal(2, requestCount);
-        Assert.Equal(4, result.Count);
+        Assert.Equal(5, result.Count);
 
         // Batch 1 pages got OCR merged
         Assert.Equal("ocr", result[0].ExtractionSource);
@@ -509,7 +520,7 @@ public sealed class OcrPdfExtractorTests
         Assert.Equal("ocr متن ۲", result[1].Text);
         Assert.Equal("پایه ۲", result[1].RawText);
 
-        // Batch 2 pages degraded gracefully to base text
+        // Batch 2 and Batch 3 pages degraded gracefully to base text
         Assert.Equal("text_layer", result[2].ExtractionSource);
         Assert.Equal("پایه ۳", result[2].Text);
         Assert.False(result[2].IsOcr);
@@ -517,6 +528,10 @@ public sealed class OcrPdfExtractorTests
         Assert.Equal("text_layer", result[3].ExtractionSource);
         Assert.Equal("پایه ۴", result[3].Text);
         Assert.False(result[3].IsOcr);
+
+        Assert.Equal("text_layer", result[4].ExtractionSource);
+        Assert.Equal("پایه ۵", result[4].Text);
+        Assert.False(result[4].IsOcr);
     }
 
     private sealed class StubExtractor(IReadOnlyList<PageText> pages) : IPdfExtractor

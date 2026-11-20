@@ -149,13 +149,13 @@ public sealed class OcrPdfExtractor : IPdfExtractor
                 catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
                 {
                     // HTTP client timeout for this batch
-                    _logger.LogWarning(ex, "OCR extraction request timed out for batch [{BatchPages}]; degrading gracefully for this batch.", batchPagesStr);
-                    continue;
+                    _logger.LogWarning(ex, "OCR extraction request timed out for batch [{BatchPages}]; aborting remaining OCR batches and falling back to base text.", batchPagesStr);
+                    break;
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "OCR extraction connection failed for batch [{BatchPages}]; degrading gracefully for this batch.", batchPagesStr);
-                    continue;
+                    _logger.LogWarning(ex, "OCR extraction connection failed for batch [{BatchPages}]; aborting remaining OCR batches and falling back to base text.", batchPagesStr);
+                    break;
                 }
 
                 using (response)
@@ -179,10 +179,11 @@ public sealed class OcrPdfExtractor : IPdfExtractor
                     {
                         var errorBody = await response.Content.ReadAsStringAsync(ct);
                         _logger.LogWarning(
-                            "OCR extraction endpoint returned status {StatusCode} for batch [{BatchPages}]: {ErrorDetail}. Degrading gracefully for this batch.",
+                            "OCR extraction endpoint returned status {StatusCode} for batch [{BatchPages}]: {ErrorDetail}. Aborting remaining OCR batches and falling back to base text.",
                             response.StatusCode,
                             batchPagesStr,
                             errorBody);
+                        break;
                     }
                 }
             }
@@ -192,7 +193,8 @@ public sealed class OcrPdfExtractor : IPdfExtractor
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Unexpected error during OCR extraction for batch [{BatchPages}]; degrading gracefully for this batch.", batchPagesStr);
+                _logger.LogWarning(ex, "Unexpected error during OCR extraction for batch [{BatchPages}]; aborting remaining OCR batches and falling back to base text.", batchPagesStr);
+                break;
             }
         }
 
