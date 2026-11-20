@@ -150,4 +150,57 @@ public sealed class HeaderFooterCleanerTests
         Assert.Equal(0.92, cleaned[1].Quality);
         Assert.False(cleaned[1].NeedsOcr);
     }
+
+    [Fact]
+    public void Clean_RemovesRepeatingHeadersAndFooters_AndPreservesOcrExtractionSourceRawTextAndLooksReversed()
+    {
+        // Arrange: 4-page document with repeating header and footer lines
+        const string header = "دانشگاه شهید مدنی آذربایجان - معاونت پژوهشی";
+        const string footer = "شماره تماس دبیرخانه: ۰۴۱۳۴۳۲۷۵۰۰";
+
+        var pages = new List<PageText>
+        {
+            new(1, $"{header}\nمتن صفحه اول آیین نامه آموزشی دانشگاه\n{footer}", 0.95, false, LooksReversed: false, ExtractionSource: "text_layer", RawText: null),
+            new(2, $"{header}\nمتن صفحه دوم که با او سی آر استخراج گردیده است\n{footer}", 0.85, false, LooksReversed: true, ExtractionSource: "ocr", RawText: "raw corrupted text 2"),
+            new(3, $"{header}\nمتن صفحه سوم آیین نامه آموزشی دانشگاه\n{footer}", 0.95, false, LooksReversed: false, ExtractionSource: "text_layer", RawText: null),
+            new(4, $"{header}\nمتن صفحه چهارم با فونت غیر استاندارد و او سی آر\n{footer}", 0.80, false, LooksReversed: true, ExtractionSource: "ocr", RawText: "raw corrupted text 4"),
+        };
+
+        // Act
+        var cleaned = _cleaner.Clean(pages);
+
+        // Assert: repeating header and footer removed from all pages
+        Assert.Equal(4, cleaned.Count);
+        for (var i = 0; i < cleaned.Count; i++)
+        {
+            Assert.DoesNotContain(header, cleaned[i].Text);
+            Assert.DoesNotContain(footer, cleaned[i].Text);
+        }
+
+        // Verify page 1 (text_layer)
+        Assert.Equal("text_layer", cleaned[0].ExtractionSource);
+        Assert.False(cleaned[0].IsOcr);
+        Assert.False(cleaned[0].LooksReversed);
+        Assert.Null(cleaned[0].RawText);
+
+        // Verify page 2 (ocr with LooksReversed and RawText preserved)
+        Assert.Equal("ocr", cleaned[1].ExtractionSource);
+        Assert.True(cleaned[1].IsOcr);
+        Assert.True(cleaned[1].LooksReversed);
+        Assert.Equal("raw corrupted text 2", cleaned[1].RawText);
+        Assert.Contains("متن صفحه دوم که با او سی آر استخراج گردیده است", cleaned[1].Text);
+
+        // Verify page 3 (text_layer)
+        Assert.Equal("text_layer", cleaned[2].ExtractionSource);
+        Assert.False(cleaned[2].IsOcr);
+        Assert.False(cleaned[2].LooksReversed);
+        Assert.Null(cleaned[2].RawText);
+
+        // Verify page 4 (ocr with LooksReversed and RawText preserved)
+        Assert.Equal("ocr", cleaned[3].ExtractionSource);
+        Assert.True(cleaned[3].IsOcr);
+        Assert.True(cleaned[3].LooksReversed);
+        Assert.Equal("raw corrupted text 4", cleaned[3].RawText);
+        Assert.Contains("متن صفحه چهارم با فونت غیر استاندارد و او سی آر", cleaned[3].Text);
+    }
 }
