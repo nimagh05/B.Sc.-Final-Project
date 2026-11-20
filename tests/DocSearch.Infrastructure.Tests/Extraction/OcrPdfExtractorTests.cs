@@ -379,6 +379,146 @@ public sealed class OcrPdfExtractorTests
         Assert.Equal("متن پایه صفحه ۱", result[0].Text);
     }
 
+    [Fact]
+    public async Task ExtractAsync_WhenFlaggedPagesExceedBatchSize_SplitsIntoMultipleBatches()
+    {
+        var basePages = new List<PageText>
+        {
+            new(1, "", 0.0, true),
+            new(2, "", 0.0, true),
+            new(3, "", 0.0, true),
+            new(4, "", 0.0, true),
+            new(5, "", 0.0, true)
+        };
+
+        var innerExtractor = new StubExtractor(basePages);
+        var capturedBatches = new List<string>();
+
+        var handler = new MockHttpMessageHandler(async (request, ct) =>
+        {
+            var content = await request.Content!.ReadAsStringAsync(ct);
+            // Extract pages parameter
+            capturedBatches.Add(content);
+
+            var pageNums = new List<int>();
+            if (content.Contains("1,2", StringComparison.Ordinal)) pageNums.AddRange([1, 2]);
+            else if (content.Contains("3,4", StringComparison.Ordinal)) pageNums.AddRange([3, 4]);
+            else if (content.Contains('5')) pageNums.Add(5);
+
+            var ocrResponse = new
+            {
+                pages = pageNums.Select(p => new { page = p, text = $"ocr text {p}" }).ToArray()
+            };
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(ocrResponse), Encoding.UTF8, "application/json")
+            };
+        });
+
+        var factory = new StubHttpClientFactory(handler);
+        var options = Microsoft.Extensions.Options.Options.Create(new ExtractionOptions
+        {
+            OcrMode = OcrMode.Defective,
+            OcrBatchSize = 2
+        });
+
+        var extractor = new OcrPdfExtractor(innerExtractor, factory, _normalizer, options, NullLogger<OcrPdfExtractor>.Instance);
+
+        using var pdfStream = new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4 sample"));
+        var result = await extractor.ExtractAsync(pdfStream, CancellationToken.None);
+
+        Assert.Equal(3, capturedBatches.Count);
+        Assert.Contains("1,2", capturedBatches[0]);
+        Assert.Contains("3,4", capturedBatches[1]);
+        Assert.Contains("5", capturedBatches[2]);
+
+        Assert.Equal(5, result.Count);
+        Assert.All(result, p =>
+        {
+            Assert.Equal("ocr", p.ExtractionSource);
+            Assert.True(p.IsOcr);
+            Assert.Equal($"ocr text {p.PageNumber}", p.Text);
+        });
+    }
+
+    [Fact]
+    public async Task ExtractAsync_WhenLaterBatchFails_PreservesEarlierBatchOcrResults_AndFallsBackForFailedBatch()
+    {
+        var basePages = new List<PageText>
+        {
+            new(1, "پایه ۱", 0.0, true),
+            new(2, "پایه ۲", 0.0, true),
+            new(3, "پایه ۳", 0.0, true),
+            new(4, "پایه ۴", 0.0, true)
+        };
+
+        var innerExtractor = new StubExtractor(basePages);
+        var requestCount = 0;
+
+        var handler = new MockHttpMessageHandler(async (request, ct) =>
+        {
+            requestCount++;
+            var content = await request.Content!.ReadAsStringAsync(ct);
+
+            if (content.Contains("1,2"))
+            {
+                // Batch 1 succeeds
+                var ocrResponse = new
+                {
+                    pages = new[]
+                    {
+                        new { page = 1, text = "ocr متن ۱" },
+                        new { page = 2, text = "ocr متن ۲" }
+                    }
+                };
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(ocrResponse), Encoding.UTF8, "application/json")
+                };
+            }
+
+            // Batch 2 fails with 500 error
+            return new HttpResponseMessage(HttpStatusCode.InternalServerError)
+            {
+                Content = new StringContent("{\"detail\":\"Internal Tesseract failure\"}")
+            };
+        });
+
+        var factory = new StubHttpClientFactory(handler);
+        var options = Microsoft.Extensions.Options.Options.Create(new ExtractionOptions
+        {
+            OcrMode = OcrMode.Defective,
+            OcrBatchSize = 2
+        });
+
+        var extractor = new OcrPdfExtractor(innerExtractor, factory, _normalizer, options, NullLogger<OcrPdfExtractor>.Instance);
+
+        using var pdfStream = new MemoryStream(Encoding.UTF8.GetBytes("%PDF-1.4 sample"));
+        var result = await extractor.ExtractAsync(pdfStream, CancellationToken.None);
+
+        Assert.Equal(2, requestCount);
+        Assert.Equal(4, result.Count);
+
+        // Batch 1 pages got OCR merged
+        Assert.Equal("ocr", result[0].ExtractionSource);
+        Assert.Equal("ocr متن ۱", result[0].Text);
+        Assert.Equal("پایه ۱", result[0].RawText);
+
+        Assert.Equal("ocr", result[1].ExtractionSource);
+        Assert.Equal("ocr متن ۲", result[1].Text);
+        Assert.Equal("پایه ۲", result[1].RawText);
+
+        // Batch 2 pages degraded gracefully to base text
+        Assert.Equal("text_layer", result[2].ExtractionSource);
+        Assert.Equal("پایه ۳", result[2].Text);
+        Assert.False(result[2].IsOcr);
+
+        Assert.Equal("text_layer", result[3].ExtractionSource);
+        Assert.Equal("پایه ۴", result[3].Text);
+        Assert.False(result[3].IsOcr);
+    }
+
     private sealed class StubExtractor(IReadOnlyList<PageText> pages) : IPdfExtractor
     {
         public Task<IReadOnlyList<PageText>> ExtractAsync(Stream pdf, CancellationToken ct) => Task.FromResult(pages);

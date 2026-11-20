@@ -192,6 +192,30 @@ public sealed class OptionsValidationTests
         Assert.Contains(results, r => r.MemberNames.Contains(nameof(ExtractionOptions.OcrLanguages)));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(51)]
+    public void ExtractionOptions_OcrBatchSize_OutOfRange_Fails_Validation(int batchSize)
+    {
+        var options = new ExtractionOptions { OcrBatchSize = batchSize };
+        var results = ValidateModel(options);
+
+        Assert.Contains(results, r => r.MemberNames.Contains(nameof(ExtractionOptions.OcrBatchSize)));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(5)]
+    [InlineData(50)]
+    public void ExtractionOptions_OcrBatchSize_ValidRange_Succeeds(int batchSize)
+    {
+        var options = new ExtractionOptions { OcrBatchSize = batchSize };
+        var results = ValidateModel(options);
+
+        Assert.DoesNotContain(results, r => r.MemberNames.Contains(nameof(ExtractionOptions.OcrBatchSize)));
+    }
+
     [Fact]
     public void ExtractionOptions_OcrMode_Precedence_Over_OcrEnabled()
     {

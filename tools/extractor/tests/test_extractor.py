@@ -274,6 +274,15 @@ def test_ocr_endpoint_invalid_dpi_or_lang(monkeypatch):
     assert res3.status_code == 400
     assert "Invalid OCR language specification" in res3.json()["detail"]
 
+    # Invalid PSM
+    res4 = client.post(
+        "/ocr",
+        files={"file": ("test.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
+        data={"pages": "1", "dpi": "300", "lang": "fas+eng", "psm": "7"},
+    )
+    assert res4.status_code == 400
+    assert "Invalid PSM" in res4.json()["detail"]
+
 
 def test_ocr_endpoint_encrypted_pdf_returns_422(monkeypatch):
     import app.main as app_main

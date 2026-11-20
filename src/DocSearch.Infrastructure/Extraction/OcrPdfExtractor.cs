@@ -116,86 +116,106 @@ public sealed class OcrPdfExtractor : IPdfExtractor
             return basePages;
         }
 
-        // 4. Call /ocr endpoint
-        try
-        {
-            var httpClient = _httpClientFactory.CreateClient("OcrExtractor");
-            using var content = new MultipartFormDataContent();
-            var pdfByteArrayContent = new ByteArrayContent(pdfBytes);
-            pdfByteArrayContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
-            content.Add(pdfByteArrayContent, "file", "document.pdf");
-            content.Add(new StringContent(string.Join(",", pagesToOcr)), "pages");
-            content.Add(new StringContent(_options.OcrDpi.ToString(CultureInfo.InvariantCulture)), "dpi");
-            content.Add(new StringContent(_options.OcrLanguages), "lang");
+        // 4. Call /ocr endpoint in batches
+        var ocrMap = new Dictionary<int, string>();
+        var batchSize = Math.Clamp(_options.OcrBatchSize, 1, 50);
+        var httpClient = _httpClientFactory.CreateClient("OcrExtractor");
 
-            HttpResponseMessage response;
+        for (var i = 0; i < pagesToOcr.Count; i += batchSize)
+        {
+            var batch = pagesToOcr.Skip(i).Take(batchSize).ToList();
+            var batchPagesStr = string.Join(",", batch);
+
             try
             {
-                response = await httpClient.PostAsync("ocr", content, ct);
+                using var content = new MultipartFormDataContent();
+                var pdfByteArrayContent = new ByteArrayContent(pdfBytes);
+                pdfByteArrayContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+                content.Add(pdfByteArrayContent, "file", "document.pdf");
+                content.Add(new StringContent(batchPagesStr), "pages");
+                content.Add(new StringContent(_options.OcrDpi.ToString(CultureInfo.InvariantCulture)), "dpi");
+                content.Add(new StringContent(_options.OcrLanguages), "lang");
+
+                HttpResponseMessage response;
+                try
+                {
+                    response = await httpClient.PostAsync("ocr", content, ct);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    // Rethrow host shutdown or caller cancellation
+                    throw;
+                }
+                catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+                {
+                    // HTTP client timeout for this batch
+                    _logger.LogWarning(ex, "OCR extraction request timed out for batch [{BatchPages}]; degrading gracefully for this batch.", batchPagesStr);
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "OCR extraction connection failed for batch [{BatchPages}]; degrading gracefully for this batch.", batchPagesStr);
+                    continue;
+                }
+
+                using (response)
+                {
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var stream = await response.Content.ReadAsStreamAsync(ct);
+                        var ocrResponse = await JsonSerializer.DeserializeAsync<OcrResponseDto>(stream, _jsonOptions, ct);
+                        if (ocrResponse?.Pages != null)
+                        {
+                            foreach (var p in ocrResponse.Pages)
+                            {
+                                if (!string.IsNullOrWhiteSpace(p.Text))
+                                {
+                                    ocrMap[p.Page] = p.Text;
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var errorBody = await response.Content.ReadAsStringAsync(ct);
+                        _logger.LogWarning(
+                            "OCR extraction endpoint returned status {StatusCode} for batch [{BatchPages}]: {ErrorDetail}. Degrading gracefully for this batch.",
+                            response.StatusCode,
+                            batchPagesStr,
+                            errorBody);
+                    }
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                // Rethrow host shutdown or caller cancellation
                 throw;
-            }
-            catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
-            {
-                // HTTP client timeout
-                _logger.LogWarning(ex, "OCR extraction request timed out; degrading gracefully to base text layer.");
-                return basePages;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "OCR extraction connection failed; degrading gracefully to base text layer.");
-                return basePages;
+                _logger.LogWarning(ex, "Unexpected error during OCR extraction for batch [{BatchPages}]; degrading gracefully for this batch.", batchPagesStr);
             }
+        }
 
-            using (response)
+        // 5. Merge OCR results into base pages
+        var mergedPages = new List<PageText>(basePages.Count);
+        foreach (var basePage in basePages)
+        {
+            if (ocrMap.TryGetValue(basePage.PageNumber, out var ocrText) && !string.IsNullOrWhiteSpace(ocrText))
             {
-                if (response.IsSuccessStatusCode)
+                var rescored = PageQualityScorer.ScorePage(basePage.PageNumber, ocrText, _options.MinPageQuality);
+                mergedPages.Add(rescored with
                 {
-                    var stream = await response.Content.ReadAsStreamAsync(ct);
-                    var ocrResponse = await JsonSerializer.DeserializeAsync<OcrResponseDto>(stream, _jsonOptions, ct);
-                    var ocrMap = ocrResponse?.Pages?.ToDictionary(p => p.Page, p => p.Text) ?? [];
-
-                    var mergedPages = new List<PageText>(basePages.Count);
-                    foreach (var basePage in basePages)
-                    {
-                        if (ocrMap.TryGetValue(basePage.PageNumber, out var ocrText) && !string.IsNullOrWhiteSpace(ocrText))
-                        {
-                            var rescored = PageQualityScorer.ScorePage(basePage.PageNumber, ocrText, _options.MinPageQuality);
-                            mergedPages.Add(rescored with
-                            {
-                                ExtractionSource = "ocr",
-                                RawText = basePage.Text
-                            });
-                        }
-                        else
-                        {
-                            mergedPages.Add(basePage);
-                        }
-                    }
-
-                    return mergedPages;
-                }
-
-                var errorBody = await response.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning(
-                    "OCR extraction endpoint returned status {StatusCode}: {ErrorDetail}. Degrading gracefully to base text layer.",
-                    response.StatusCode,
-                    errorBody);
-                return basePages;
+                    ExtractionSource = "ocr",
+                    RawText = basePage.Text
+                });
+            }
+            else
+            {
+                mergedPages.Add(basePage);
             }
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Unexpected error during OCR extraction; degrading gracefully to base text layer.");
-            return basePages;
-        }
+
+        return mergedPages;
     }
 
     private static bool ContainsPersian(string? text)

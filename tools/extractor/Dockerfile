@@ -10,6 +10,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --default-timeout=120 --retries=5 -r requirements.txt
 COPY app/ app/
 
+# Prevent Tesseract / OpenMP from oversubscribing CPU threads on CPU-only hosts
+ENV OMP_THREAD_LIMIT=1
+
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 

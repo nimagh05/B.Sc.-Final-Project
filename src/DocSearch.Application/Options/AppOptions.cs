@@ -237,6 +237,9 @@ public sealed class ExtractionOptions : IValidatableObject
     [Range(72, 600)]
     public int OcrDpi { get; set; } = 300;
 
+    [Range(1, 50)]
+    public int OcrBatchSize { get; set; } = 5;
+
     [Required]
     public string OcrLanguages { get; set; } = "fas+eng";
 

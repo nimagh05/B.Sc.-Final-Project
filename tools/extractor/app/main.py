@@ -112,6 +112,7 @@ def extract(request: Request, file: UploadFile = File(...)):
 
 
 LANG_PATTERN = re.compile(r"^[a-zA-Z0-9_]+(\+[a-zA-Z0-9_]+)*$")
+VALID_PSMS = {3, 4, 6, 11}
 
 
 def is_tesseract_available() -> bool:
@@ -160,11 +161,18 @@ def ocr(
     pages: str = Form(default=""),
     dpi: int = Form(300),
     lang: str = Form("fas+eng"),
+    psm: int = Form(6),
 ):
     if not (72 <= dpi <= 600):
         raise HTTPException(
             status_code=400,
             detail=f"Invalid DPI: {dpi}. Must be between 72 and 600.",
+        )
+
+    if psm not in VALID_PSMS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid PSM: {psm}. Must be one of {sorted(VALID_PSMS)}.",
         )
 
     if not LANG_PATTERN.match(lang):
@@ -257,7 +265,7 @@ def ocr(
     ocr_results: List[PageExtraction] = []
     for p, img in images_to_ocr:
         try:
-            text = pytesseract.image_to_string(img, lang=lang, config="--psm 6")
+            text = pytesseract.image_to_string(img, lang=lang, config=f"--psm {psm}")
         except Exception as ex:
             raise HTTPException(
                 status_code=500,
