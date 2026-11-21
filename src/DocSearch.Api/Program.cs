@@ -404,6 +404,23 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("TraceId", Activity.Current?.Id ?? httpContext.TraceIdentifier);
+        if (httpContext.User.Identity?.IsAuthenticated == true)
+        {
+            var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? httpContext.User.FindFirst("sub")?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                diagnosticContext.Set("UserId", userId);
+            }
+        }
+    };
+});
+
 // Global Exception Handling per RFC 7807
 app.UseExceptionHandler();
 
@@ -499,23 +516,6 @@ app.Use(async (context, next) =>
 });
 
 app.UseResponseCompression();
-
-app.UseSerilogRequestLogging(options =>
-{
-    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
-    {
-        diagnosticContext.Set("TraceId", Activity.Current?.Id ?? httpContext.TraceIdentifier);
-        if (httpContext.User.Identity?.IsAuthenticated == true)
-        {
-            var userId = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? httpContext.User.FindFirst("sub")?.Value;
-            if (!string.IsNullOrEmpty(userId))
-            {
-                diagnosticContext.Set("UserId", userId);
-            }
-        }
-    };
-});
 
 app.UseRouting();
 
