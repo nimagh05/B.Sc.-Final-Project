@@ -68,6 +68,32 @@ PRIMARY_CMAP_FILES: Set[str] = {
     "forsat-motaleati.pdf",
 }
 
+COHORTS_DEF = [
+    # (docset, split)
+    ("overall", lambda q: True),
+    ("heldout_all", lambda q: q.get("docset") == "heldout"),
+    ("heldout_test", lambda q: q.get("docset") == "heldout" and q.get("split") == "test"),
+    ("tuned_test", lambda q: q.get("docset") == "tuned" and q.get("split") == "test"),
+    ("tuned_dev", lambda q: q.get("docset") == "tuned" and q.get("split") == "dev"),
+    # Question type
+    ("type_legal_reference", lambda q: q.get("type") == "legal-reference"),
+    ("type_numeric", lambda q: q.get("type") == "numeric"),
+    ("type_paraphrase", lambda q: q.get("type") == "paraphrase"),
+    ("type_multi_chunk", lambda q: q.get("type") == "multi-chunk"),
+    ("type_factual", lambda q: q.get("type") == "factual"),
+    ("type_english", lambda q: q.get("type") == "english"),
+    # ADR 0008 defect cohorts
+    ("primary_cmap", lambda q: q.get("source_file") in PRIMARY_CMAP_FILES),
+    ("heldout_cmap", lambda q: q.get("source_file") in HELDOUT_CMAP_FILES),
+    ("heldout_cmap_tarh_dakheli", lambda q: q.get("source_file") == "tarh-dakheli.pdf"),
+    ("heldout_cmap_forsat_motaleati", lambda q: q.get("source_file") == "forsat-motaleati.pdf"),
+    ("secondary_cmap_union", lambda q: q.get("defect_mechanism") == "cmap"),
+    ("secondary_auto_cmap", lambda q: q.get("defect_mechanism") == "cmap" and q.get("id") not in {"q023", "q028", "q032", "q038", "q082", "q083", "q084", "q086", "q088", "q091", "q093"}),
+    ("breakout_unit_only", lambda q: q.get("id") in UNIT_ONLY_QS),
+    ("separate_screenshot", lambda q: q.get("defect_mechanism") == "screenshot"),
+    ("clean", lambda q: q.get("defect_mechanism") == "none"),
+]
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -92,6 +118,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--smoke", action="store_true", help="Run fast smoke test on 5 questions")
     parser.add_argument("--out", type=Path, default=None, help="Output directory for benchmark results")
     parser.add_argument("--sleep", type=float, default=0.0, help="Sleep between requests in seconds")
+    parser.add_argument("--regenerate-report", type=Path, default=None, help="Regenerate report.md and summary.csv offline from a results.json file without running API or Ollama")
     return parser.parse_args()
 
 
@@ -141,6 +168,13 @@ def build_reproducibility_manifest(questions_path: Path, base_url: str) -> Dict[
     except Exception:
         pass
 
+    git_dirty = False
+    try:
+        status_out = subprocess.check_output(["git", "status", "--porcelain"], stderr=subprocess.DEVNULL, text=True).strip()
+        git_dirty = len(status_out) > 0
+    except Exception:
+        pass
+
     ollama_digest = "unavailable"
     try:
         resp = requests.get("http://localhost:11434/api/tags", timeout=3.0)
@@ -155,15 +189,25 @@ def build_reproducibility_manifest(questions_path: Path, base_url: str) -> Dict[
 
     docker_digest = "unavailable"
     try:
-        out = subprocess.check_output(["docker", "inspect", "--format={{.Id}}", "extractor"], stderr=subprocess.DEVNULL, text=True).strip()
+        out = subprocess.check_output(["docker", "compose", "images", "-q", "extractor"], stderr=subprocess.DEVNULL, text=True).strip()
         if out:
-            docker_digest = out
+            docker_digest = out.splitlines()[0]
+        else:
+            out = subprocess.check_output(["docker", "inspect", "--format={{.Id}}", "extractor"], stderr=subprocess.DEVNULL, text=True).strip()
+            if out:
+                docker_digest = out
     except Exception:
-        pass
+        try:
+            out = subprocess.check_output(["docker", "inspect", "--format={{.Id}}", "extractor"], stderr=subprocess.DEVNULL, text=True).strip()
+            if out:
+                docker_digest = out
+        except Exception:
+            pass
 
     return {
         "git_sha": git_sha,
         "git_branch": git_branch,
+        "git_dirty": git_dirty,
         "eval_dataset_tag": "eval-dataset-v2.2",
         "questions_sha256_lf": compute_file_sha256(questions_path),
         "timestamp_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -180,6 +224,12 @@ def build_reproducibility_manifest(questions_path: Path, base_url: str) -> Dict[
 
 
 # --- Hit Rules & Metric Calculation ---
+
+def get_hit_at_k(item: Dict[str, Any], k: int) -> float:
+    """Safely extracts hit@k handling both int and stringified JSON keys."""
+    hits = item.get("hits_at_k", {})
+    return float(hits.get(k, hits.get(str(k), 0.0)))
+
 
 def is_chunk_hit(
     chunk_file: str,
@@ -258,7 +308,7 @@ def calibrate_min_similarity(
 ) -> Dict[str, Any]:
     """Sweeps MinSimilarity strictly on (tuned, dev) questions using plateau center rule."""
     if sweep_range is None:
-        sweep_range = [round(x, 4) for x in np.arange(0.30, 0.801, 0.025)]
+        sweep_range = [round(float(x), 4) for x in np.arange(0.30, 0.801, 0.025)]
 
     # Hard programmatic anti-leakage guard
     for item in dev_items:
@@ -311,13 +361,13 @@ def calibrate_min_similarity(
         pure_cos_fa = sum(1 for it in not_items if it.get("bestVectorScore", 0.0) >= tau)
 
         sweep_records.append({
-            "threshold": tau,
-            "far": round(far, 4),
-            "frr": round(frr, 4),
-            "balanced_error": round(j_err, 4),
-            "balanced_accuracy": round(1.0 - j_err, 4),
-            "pure_cosine_far": round(pure_cos_fa / n_not, 4),
-            "pure_cosine_frr": round(pure_cos_fr / n_ans, 4),
+            "threshold": float(tau),
+            "far": round(float(far), 4),
+            "frr": round(float(frr), 4),
+            "balanced_error": round(float(j_err), 4),
+            "balanced_accuracy": round(float(1.0 - j_err), 4),
+            "pure_cosine_far": round(float(pure_cos_fa / n_not), 4),
+            "pure_cosine_frr": round(float(pure_cos_fr / n_ans), 4),
         })
 
     # Select the center of the optimal plateau: { tau | J(tau) <= best_error + epsilon }
@@ -325,12 +375,12 @@ def calibrate_min_similarity(
         rec["threshold"] for rec in sweep_records
         if rec["balanced_error"] <= (best_error + plateau_epsilon + 1e-6)
     ]
-    min_plateau = min(plateau_taus)
-    max_plateau = max(plateau_taus)
-    center_tau = round((min_plateau + max_plateau) / 2.0, 3)
+    min_plateau = float(min(plateau_taus))
+    max_plateau = float(max(plateau_taus))
+    center_tau = round(float((min_plateau + max_plateau) / 2.0), 3)
 
     # Snap center_tau to nearest discrete step in sweep_range
-    locked_tau = min(sweep_range, key=lambda t: abs(t - center_tau))
+    locked_tau = float(min(sweep_range, key=lambda t: abs(t - center_tau)))
 
     # Also compute pure cosine sensitivity (without FTS gate) for transparency
     cosine_best_error = min((rec["pure_cosine_far"] + rec["pure_cosine_frr"]) / 2.0 for rec in sweep_records)
@@ -338,22 +388,22 @@ def calibrate_min_similarity(
         rec["threshold"] for rec in sweep_records
         if ((rec["pure_cosine_far"] + rec["pure_cosine_frr"]) / 2.0) <= (cosine_best_error + plateau_epsilon + 1e-6)
     ]
-    cos_min_plateau = min(cosine_plateau_taus)
-    cos_max_plateau = max(cosine_plateau_taus)
-    cos_center_tau = round((cos_min_plateau + cos_max_plateau) / 2.0, 3)
-    cos_locked_tau = min(sweep_range, key=lambda t: abs(t - cos_center_tau))
+    cos_min_plateau = float(min(cosine_plateau_taus))
+    cos_max_plateau = float(max(cosine_plateau_taus))
+    cos_center_tau = round(float((cos_min_plateau + cos_max_plateau) / 2.0), 3)
+    cos_locked_tau = float(min(sweep_range, key=lambda t: abs(t - cos_center_tau)))
 
     cosine_only_sensitivity = {
         "locked_min_similarity": cos_locked_tau,
-        "best_balanced_error": round(cosine_best_error, 4),
+        "best_balanced_error": round(float(cosine_best_error), 4),
         "plateau_range": [cos_min_plateau, cos_max_plateau],
     }
 
     return {
         "locked_min_similarity": locked_tau,
-        "best_balanced_error": round(best_error, 4),
+        "best_balanced_error": round(float(best_error), 4),
         "plateau_range": [min_plateau, max_plateau],
-        "plateau_epsilon": plateau_epsilon,
+        "plateau_epsilon": float(plateau_epsilon),
         "dev_q_count": len(dev_items),
         "dev_ans_count": n_ans,
         "dev_nid_count": n_not,
@@ -987,67 +1037,6 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
             calibrations[arm_key] = {"locked_min_similarity": 0.55}
 
     # 5. Cohort Metrics & Statistical Significance
-    summary_rows = []
-    cohorts_def = [
-        # (docset, split)
-        ("overall", lambda q: True),
-        ("heldout_all", lambda q: q.get("docset") == "heldout"),
-        ("heldout_test", lambda q: q.get("docset") == "heldout" and q.get("split") == "test"),
-        ("tuned_test", lambda q: q.get("docset") == "tuned" and q.get("split") == "test"),
-        ("tuned_dev", lambda q: q.get("docset") == "tuned" and q.get("split") == "dev"),
-        # Question type
-        ("type_legal_reference", lambda q: q.get("type") == "legal-reference"),
-        ("type_numeric", lambda q: q.get("type") == "numeric"),
-        ("type_paraphrase", lambda q: q.get("type") == "paraphrase"),
-        ("type_multi_chunk", lambda q: q.get("type") == "multi-chunk"),
-        ("type_factual", lambda q: q.get("type") == "factual"),
-        ("type_english", lambda q: q.get("type") == "english"),
-        # ADR 0008 defect cohorts
-        ("primary_cmap", lambda q: q.get("source_file") in PRIMARY_CMAP_FILES),
-        ("heldout_cmap", lambda q: q.get("source_file") in HELDOUT_CMAP_FILES),
-        ("heldout_cmap_tarh_dakheli", lambda q: q.get("source_file") == "tarh-dakheli.pdf"),
-        ("heldout_cmap_forsat_motaleati", lambda q: q.get("source_file") == "forsat-motaleati.pdf"),
-        ("secondary_cmap_union", lambda q: q.get("defect_mechanism") == "cmap"),
-        ("secondary_auto_cmap", lambda q: q.get("defect_mechanism") == "cmap" and q.get("id") not in {"q023", "q028", "q032", "q038", "q082", "q083", "q084", "q086", "q088", "q091", "q093"}),
-        ("breakout_unit_only", lambda q: q.get("id") in UNIT_ONLY_QS),
-        ("separate_screenshot", lambda q: q.get("defect_mechanism") == "screenshot"),
-        ("clean", lambda q: q.get("defect_mechanism") == "none"),
-    ]
-
-    print(f"\n--- Computing Stage 1 Metrics & Paired Bootstrap CIs ---")
-    for c_name, c_filter in cohorts_def:
-        row = {"cohort": c_name}
-        for arm_key in ["arm1_vector_ocr_off", "arm2_hybrid_ocr_off", "arm3_hybrid_ocr_defective"]:
-            items = [it for it in arms_data[arm_key] if c_filter(it) and it.get("type") != "not-in-docs"]
-            n = len(items)
-            row[f"{arm_key}_N"] = n
-            if n > 0:
-                row[f"{arm_key}_R1"] = round(float(np.mean([it["hits_at_k"][1] for it in items])), 4)
-                row[f"{arm_key}_R5"] = round(float(np.mean([it["hits_at_k"][5] for it in items])), 4)
-                row[f"{arm_key}_MRR"] = round(float(np.mean([it["mrr"] for it in items])), 4)
-                row[f"{arm_key}_StrictMRR"] = round(float(np.mean([it["strict_mrr"] for it in items])), 4)
-
-        # Paired differences: Arm 2 vs Arm 1 & Arm 3 vs Arm 2
-        items_1 = [it for it in arms_data["arm1_vector_ocr_off"] if c_filter(it) and it.get("type") != "not-in-docs"]
-        items_2 = [it for it in arms_data["arm2_hybrid_ocr_off"] if c_filter(it) and it.get("type") != "not-in-docs"]
-        items_3 = [it for it in arms_data["arm3_hybrid_ocr_defective"] if c_filter(it) and it.get("type") != "not-in-docs"]
-
-        if len(items_1) > 0 and len(items_2) > 0 and not args.smoke:
-            boot_q_2v1 = paired_bootstrap_ci([it["mrr"] for it in items_1], [it["mrr"] for it in items_2])
-            boot_c_2v1 = document_cluster_paired_bootstrap_ci(items_1, items_2, "mrr")
-            row["delta_mrr_arm2_vs_arm1"] = boot_q_2v1["mean_delta"]
-            row["ci_q_arm2_vs_arm1"] = f"[{boot_q_2v1['ci_low']}, {boot_q_2v1['ci_high']}]"
-            row["ci_cluster_arm2_vs_arm1"] = f"[{boot_c_2v1['ci_low']}, {boot_c_2v1['ci_high']}]" if boot_c_2v1["status"] == "valid" else boot_c_2v1["status"]
-
-            boot_q_3v2 = paired_bootstrap_ci([it["mrr"] for it in items_2], [it["mrr"] for it in items_3])
-            boot_c_3v2 = document_cluster_paired_bootstrap_ci(items_2, items_3, "mrr")
-            row["delta_mrr_arm3_vs_arm2"] = boot_q_3v2["mean_delta"]
-            row["ci_q_arm3_vs_arm2"] = f"[{boot_q_3v2['ci_low']}, {boot_q_3v2['ci_high']}]"
-            row["ci_cluster_arm3_vs_arm2"] = f"[{boot_c_3v2['ci_low']}, {boot_c_3v2['ci_high']}]" if boot_c_3v2["status"] == "valid" else boot_c_3v2["status"]
-
-        summary_rows.append(row)
-
-    # Regime B Analysis (8 scan twin gold questions vs digital reference)
     regime_b_off_items = arms_data.get("regime_b_scan_off", [])
     regime_b_def_items = arms_data.get("regime_b_scan_defective", [])
     regime_b_ref_items = [
@@ -1060,38 +1049,12 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
         mrr_off = float(np.mean([it["mrr"] for it in regime_b_off_items]))
         mrr_def = float(np.mean([it["mrr"] for it in regime_b_def_items]))
         mrr_ref = float(np.mean([it["mrr"] for it in regime_b_ref_items]))
-        r1_off = float(np.mean([it["hits_at_k"][1] for it in regime_b_off_items]))
-        r1_def = float(np.mean([it["hits_at_k"][1] for it in regime_b_def_items]))
-        r1_ref = float(np.mean([it["hits_at_k"][1] for it in regime_b_ref_items]))
-        r5_off = float(np.mean([it["hits_at_k"][5] for it in regime_b_off_items]))
-        r5_def = float(np.mean([it["hits_at_k"][5] for it in regime_b_def_items]))
-        r5_ref = float(np.mean([it["hits_at_k"][5] for it in regime_b_ref_items]))
-
-        regime_b_row = {
-            "cohort": "regime_b_scan_twin_8qs",
-            "arm1_vector_ocr_off_N": n_b,
-            "arm1_vector_ocr_off_R1": round(r1_off, 4),
-            "arm1_vector_ocr_off_R5": round(r5_off, 4),
-            "arm1_vector_ocr_off_MRR": round(mrr_off, 4),
-            "arm1_vector_ocr_off_StrictMRR": 0.0,
-            "arm2_hybrid_ocr_off_N": n_b,
-            "arm2_hybrid_ocr_off_R1": round(r1_ref, 4),
-            "arm2_hybrid_ocr_off_R5": round(r5_ref, 4),
-            "arm2_hybrid_ocr_off_MRR": round(mrr_ref, 4),
-            "arm2_hybrid_ocr_off_StrictMRR": round(float(np.mean([it["strict_mrr"] for it in regime_b_ref_items])), 4),
-            "arm3_hybrid_ocr_defective_N": n_b,
-            "arm3_hybrid_ocr_defective_R1": round(r1_def, 4),
-            "arm3_hybrid_ocr_defective_R5": round(r5_def, 4),
-            "arm3_hybrid_ocr_defective_MRR": round(mrr_def, 4),
-            "arm3_hybrid_ocr_defective_StrictMRR": round(float(np.mean([it["strict_mrr"] for it in regime_b_def_items])), 4),
-            "delta_mrr_arm2_vs_arm1": round(mrr_ref - mrr_off, 4),
-            "ci_q_arm2_vs_arm1": "ref_vs_off",
-            "ci_cluster_arm2_vs_arm1": "N/A (single doc)",
-            "delta_mrr_arm3_vs_arm2": round(mrr_def - mrr_ref, 4),
-            "ci_q_arm3_vs_arm2": "def_vs_ref",
-            "ci_cluster_arm3_vs_arm2": "N/A (single doc)",
-        }
-        summary_rows.append(regime_b_row)
+        r1_off = float(np.mean([get_hit_at_k(it, 1) for it in regime_b_off_items]))
+        r1_def = float(np.mean([get_hit_at_k(it, 1) for it in regime_b_def_items]))
+        r1_ref = float(np.mean([get_hit_at_k(it, 1) for it in regime_b_ref_items]))
+        r5_off = float(np.mean([get_hit_at_k(it, 5) for it in regime_b_off_items]))
+        r5_def = float(np.mean([get_hit_at_k(it, 5) for it in regime_b_def_items]))
+        r5_ref = float(np.mean([get_hit_at_k(it, 5) for it in regime_b_ref_items]))
 
         regime_b_summary = {
             "question_count": n_b,
@@ -1115,16 +1078,76 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
     # 6. Save Manifest and Results
     manifest = build_reproducibility_manifest(args.questions, args.base_url)
     results_json_path = out_dir / "results.json"
+    results_dict = {
+        "manifest": manifest,
+        "ocr_timing": ocr_timing,
+        "calibrations": calibrations,
+        "regime_b_summary": regime_b_summary,
+        "arms": arms_data,
+    }
     with open(results_json_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "manifest": manifest,
-            "ocr_timing": ocr_timing,
-            "calibrations": calibrations,
-            "regime_b_summary": regime_b_summary,
-            "arms": arms_data,
-        }, f, ensure_ascii=False, indent=2)
+        json.dump(results_dict, f, ensure_ascii=False, indent=2)
 
-    # 7. Write Summary CSV
+    # 7. Generate Reports
+    out_paths = generate_stage1_reports(results_dict, out_dir, smoke=args.smoke)
+
+    print(f"\n[OK] Stage 1 evaluation complete!")
+    print(f"  Results JSON: {results_json_path}")
+    print(f"  Summary CSV:  {out_paths['summary_csv']}")
+    if "regime_b_csv" in out_paths:
+        print(f"  Regime B CSV: {out_paths['regime_b_csv']}")
+    print(f"  Report MD:    {out_paths['report_md']}")
+
+
+def generate_stage1_reports(
+    results_data: Dict[str, Any],
+    out_dir: Path,
+    smoke: bool = False,
+) -> Dict[str, Path]:
+    """Generates summary.csv, regime_b_summary.csv, and report.md from results data."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    manifest = results_data.get("manifest", {})
+    ocr_timing = results_data.get("ocr_timing", {})
+    calibrations = results_data.get("calibrations", {})
+    regime_b_summary = results_data.get("regime_b_summary", {})
+    arms_data = results_data.get("arms", {})
+
+    # Compute summary_rows for Regime A cohorts strictly (excluding Regime B)
+    summary_rows = []
+    print(f"\n--- Computing Stage 1 Metrics & Paired Bootstrap CIs ---")
+    for c_name, c_filter in COHORTS_DEF:
+        row = {"cohort": c_name}
+        for arm_key in ["arm1_vector_ocr_off", "arm2_hybrid_ocr_off", "arm3_hybrid_ocr_defective"]:
+            items = [it for it in arms_data.get(arm_key, []) if c_filter(it) and it.get("type") != "not-in-docs"]
+            n = len(items)
+            row[f"{arm_key}_N"] = n
+            if n > 0:
+                row[f"{arm_key}_R1"] = round(float(np.mean([get_hit_at_k(it, 1) for it in items])), 4)
+                row[f"{arm_key}_R5"] = round(float(np.mean([get_hit_at_k(it, 5) for it in items])), 4)
+                row[f"{arm_key}_MRR"] = round(float(np.mean([it["mrr"] for it in items])), 4)
+                row[f"{arm_key}_StrictMRR"] = round(float(np.mean([it["strict_mrr"] for it in items])), 4)
+
+        # Paired differences: Arm 2 vs Arm 1 & Arm 3 vs Arm 2
+        items_1 = [it for it in arms_data.get("arm1_vector_ocr_off", []) if c_filter(it) and it.get("type") != "not-in-docs"]
+        items_2 = [it for it in arms_data.get("arm2_hybrid_ocr_off", []) if c_filter(it) and it.get("type") != "not-in-docs"]
+        items_3 = [it for it in arms_data.get("arm3_hybrid_ocr_defective", []) if c_filter(it) and it.get("type") != "not-in-docs"]
+
+        if len(items_1) > 0 and len(items_2) > 0 and not smoke:
+            boot_q_2v1 = paired_bootstrap_ci([it["mrr"] for it in items_1], [it["mrr"] for it in items_2])
+            boot_c_2v1 = document_cluster_paired_bootstrap_ci(items_1, items_2, "mrr")
+            row["delta_mrr_arm2_vs_arm1"] = boot_q_2v1["mean_delta"]
+            row["ci_q_arm2_vs_arm1"] = f"[{boot_q_2v1['ci_low']}, {boot_q_2v1['ci_high']}]"
+            row["ci_cluster_arm2_vs_arm1"] = f"[{boot_c_2v1['ci_low']}, {boot_c_2v1['ci_high']}]" if boot_c_2v1["status"] == "valid" else boot_c_2v1["status"]
+
+            boot_q_3v2 = paired_bootstrap_ci([it["mrr"] for it in items_2], [it["mrr"] for it in items_3])
+            boot_c_3v2 = document_cluster_paired_bootstrap_ci(items_2, items_3, "mrr")
+            row["delta_mrr_arm3_vs_arm2"] = boot_q_3v2["mean_delta"]
+            row["ci_q_arm3_vs_arm2"] = f"[{boot_q_3v2['ci_low']}, {boot_q_3v2['ci_high']}]"
+            row["ci_cluster_arm3_vs_arm2"] = f"[{boot_c_3v2['ci_low']}, {boot_c_3v2['ci_high']}]" if boot_c_3v2["status"] == "valid" else boot_c_3v2["status"]
+
+        summary_rows.append(row)
+
+    # 1. Write Summary CSV (Regime A)
     summary_csv_path = out_dir / "summary.csv"
     if summary_rows:
         fieldnames = list(summary_rows[0].keys())
@@ -1133,13 +1156,37 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
             writer.writeheader()
             writer.writerows(summary_rows)
 
-    # 8. Write Report Markdown
+    # 2. Write Dedicated Regime B Summary CSV
+    regime_b_csv_path = out_dir / "regime_b_summary.csv"
+    if regime_b_summary:
+        with open(regime_b_csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["variant", "question_count", "mrr", "recall_at_1", "recall_at_5"])
+            q_cnt = regime_b_summary.get("question_count", 8)
+            s_off = regime_b_summary.get("scan_off", {})
+            s_def = regime_b_summary.get("scan_defective", {})
+            d_ref = regime_b_summary.get("digital_reference", {})
+            writer.writerow(["scan_twin_ocr_off", q_cnt, s_off.get("mrr", 0.0), s_off.get("r1", 0.0), s_off.get("r5", 0.0)])
+            writer.writerow(["scan_twin_ocr_defective", q_cnt, s_def.get("mrr", 0.0), s_def.get("r1", 0.0), s_def.get("r5", 0.0)])
+            writer.writerow(["digital_reference_hybrid", q_cnt, d_ref.get("mrr", 0.0), d_ref.get("r1", 0.0), d_ref.get("r5", 0.0)])
+
+    # 3. Write Report Markdown
     report_md_path = out_dir / "report.md"
+    data_git_sha = manifest.get("git_sha", "unknown")
+    current_git_sha = get_git_sha()
+    current_git_dirty = False
+    try:
+        status_out = subprocess.check_output(["git", "status", "--porcelain"], stderr=subprocess.DEVNULL, text=True).strip()
+        current_git_dirty = len(status_out) > 0
+    except Exception:
+        pass
+
     with open(report_md_path, "w", encoding="utf-8") as f:
         f.write("# DocSearch Stage 1 Evaluation Report (T19a)\n\n")
-        f.write(f"- **Git SHA:** `{manifest['git_sha']}`\n")
+        f.write(f"- **Data generated at Git SHA:** `{data_git_sha}`\n")
+        f.write(f"- **Report rendered at Git SHA:** `{current_git_sha}` (dirty: `{current_git_dirty}`)\n")
         f.write(f"- **Dataset Tag:** `eval-dataset-v2.2`\n")
-        f.write(f"- **Timestamp UTC:** {manifest['timestamp_utc']}\n\n")
+        f.write(f"- **Timestamp UTC:** {manifest.get('timestamp_utc', 'unknown')}\n\n")
 
         f.write("## 1. Pre-Registered Primary Endpoints\n\n")
         f.write("1. **Primary Endpoint 1 (Hybrid Generalization):** `heldout` answerable questions ($N=52$) $\\Delta$MRR for `Arm 2 (Hybrid) vs Arm 1 (Vector-Only)`.\n")
@@ -1150,10 +1197,24 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
         f.write("|---|---|---|---|---|\n")
         for arm_k, c_info in calibrations.items():
             cos_info = c_info.get("cosine_only_sensitivity", {})
+            plateau = c_info.get("plateau_range")
+            if isinstance(plateau, (list, tuple)) and len(plateau) == 2:
+                plateau_str = f"[{float(plateau[0]):.4g}, {float(plateau[1]):.4g}]"
+            elif isinstance(plateau, str):
+                plateau_str = plateau.replace("np.float64(", "").replace(")", "")
+            else:
+                plateau_str = str(plateau)
+
+            locked_sim = c_info.get("locked_min_similarity")
+            locked_sim_str = f"**{float(locked_sim):.4g}**" if locked_sim is not None else "**N/A**"
+
+            cos_locked = cos_info.get("locked_min_similarity")
+            cos_locked_str = f"{float(cos_locked):.4g}" if cos_locked is not None else "N/A"
+
             f.write(
-                f"| `{arm_k}` | **{c_info.get('locked_min_similarity')}** | "
-                f"{c_info.get('plateau_range', 'N/A')} | {c_info.get('best_balanced_error', 'N/A')} | "
-                f"{cos_info.get('locked_min_similarity', 'N/A')} |\n"
+                f"| `{arm_k}` | {locked_sim_str} | "
+                f"{plateau_str} | {c_info.get('best_balanced_error', 'N/A')} | "
+                f"{cos_locked_str} |\n"
             )
         f.write("\n")
 
@@ -1185,23 +1246,31 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
             f.write(f"- **Overall Pure OCR:** `{ocr_timing.get('pure_ocr_sec_per_page', 'N/A')} s/page` ({ocr_timing.get('overall_pages', 0)} pages in {ocr_timing.get('overall_elapsed_sec', 0)}s)\n")
             f.write(f"- **Regime A (CMap Defective):** `{ocr_timing.get('regime_a_sec_per_page', 'N/A')} s/page` ({ocr_timing.get('regime_a_cmap_pages', 0)} pages)\n")
             f.write(f"- **Regime B (Scan Twin):** `{ocr_timing.get('regime_b_sec_per_page', 'N/A')} s/page` ({ocr_timing.get('regime_b_scan_pages', 0)} pages)\n\n")
-        for row in summary_rows:
-            f.write(
-                f"| `{row.get('cohort')}` | {row.get('arm1_vector_ocr_off_MRR', '-')} | "
-                f"{row.get('arm2_hybrid_ocr_off_MRR', '-')} | {row.get('arm3_hybrid_ocr_defective_MRR', '-')} | "
-                f"{row.get('delta_mrr_arm2_vs_arm1', '-')} {row.get('ci_q_arm2_vs_arm1', '')} | "
-                f"{row.get('delta_mrr_arm3_vs_arm2', '-')} {row.get('ci_q_arm3_vs_arm2', '')} | "
-                f"{row.get('ci_cluster_arm3_vs_arm2', '-')} |\n"
-            )
 
-    print(f"\n[OK] Stage 1 evaluation complete!")
-    print(f"  Results JSON: {results_json_path}")
-    print(f"  Summary CSV:  {summary_csv_path}")
-    print(f"  Report MD:    {report_md_path}")
+    return {
+        "summary_csv": summary_csv_path,
+        "regime_b_csv": regime_b_csv_path,
+        "report_md": report_md_path,
+    }
 
 
 def main() -> None:
     args = parse_args()
+
+    # Offline report regeneration from existing results.json (no API, Docker, or Ollama required)
+    if args.regenerate_report:
+        if not args.regenerate_report.exists():
+            raise FileNotFoundError(f"Results file {args.regenerate_report} not found.")
+        with open(args.regenerate_report, "r", encoding="utf-8") as f:
+            results_data = json.load(f)
+        out_dir = args.out or args.regenerate_report.parent
+        out_paths = generate_stage1_reports(results_data, out_dir, smoke=args.smoke)
+        print(f"\n[OK] Reports regenerated successfully in {out_dir}:")
+        print(f"  Summary CSV:  {out_paths['summary_csv']}")
+        if "regime_b_csv" in out_paths:
+            print(f"  Regime B CSV: {out_paths['regime_b_csv']}")
+        print(f"  Report MD:    {out_paths['report_md']}")
+        return
 
     # Standalone pure OCR benchmark on sidecar (no API login required)
     if args.benchmark_ocr:

@@ -21,6 +21,7 @@ from run_eval import (
     calibrate_min_similarity,
     document_cluster_paired_bootstrap_ci,
     evaluate_retrieval_ranking,
+    generate_stage1_reports,
     get_auth_token,
     is_chunk_hit,
     load_collection_manifest,
@@ -111,6 +112,9 @@ def test_plateau_calibration_selection():
     # Threshold must separate not-in-docs (< 0.55) from answerable (>= 0.60)
     assert 0.525 <= locked_tau <= 0.625
     assert plateau_range[0] <= locked_tau <= plateau_range[1]
+    assert isinstance(locked_tau, float)
+    assert isinstance(plateau_range[0], float)
+    assert isinstance(plateau_range[1], float)
     assert calib["best_balanced_error"] == 0.0
 
     # Verify cosine_only_sensitivity output
@@ -414,3 +418,116 @@ def test_resumable_ingestion_skip_ready_and_reupload_failed(tmp_path, monkeypatc
     # doc2.pdf was Failed -> deleted and re-uploaded
     assert "d2" in deleted_docs
     assert "doc2.pdf" in uploaded_docs
+
+
+def test_manifest_git_dirty_is_boolean(tmp_path):
+    dummy_q = tmp_path / "questions.json"
+    dummy_q.write_text("[]", encoding="utf-8")
+
+    manifest = build_reproducibility_manifest(dummy_q, "http://localhost:5000")
+    assert "git_dirty" in manifest
+    assert isinstance(manifest["git_dirty"], bool)
+    assert "extractor_docker_digest" in manifest
+    assert isinstance(manifest["extractor_docker_digest"], str)
+
+
+def test_generate_stage1_reports_formatting_and_isolation(tmp_path):
+    # Construct synthetic results_data
+    manifest = {
+        "git_sha": "abc1234",
+        "git_dirty": False,
+        "eval_dataset_tag": "eval-dataset-v2.2",
+        "timestamp_utc": "2026-11-21T18:00:00Z",
+    }
+    calibrations = {
+        "arm1_vector_ocr_off": {
+            "locked_min_similarity": 0.70,
+            "plateau_range": [0.675, 0.70],
+            "best_balanced_error": 0.2937,
+            "cosine_only_sensitivity": {"locked_min_similarity": 0.70},
+        },
+        "arm2_hybrid_ocr_off": {
+            "locked_min_similarity": 0.75,
+            "plateau_range": [0.70, 0.80],
+            "best_balanced_error": 0.3690,
+            "cosine_only_sensitivity": {"locked_min_similarity": 0.70},
+        },
+        "arm3_hybrid_ocr_defective": {
+            "locked_min_similarity": 0.75,
+            "plateau_range": [0.70, 0.80],
+            "best_balanced_error": 0.2976,
+            "cosine_only_sensitivity": {"locked_min_similarity": 0.675},
+        },
+    }
+    regime_b_summary = {
+        "question_count": 8,
+        "scan_off": {"mrr": 0.0, "r1": 0.0, "r5": 0.0},
+        "scan_defective": {"mrr": 0.875, "r1": 0.75, "r5": 1.0},
+        "digital_reference": {"mrr": 0.9167, "r1": 0.875, "r5": 1.0},
+        "delta_mrr_defective_vs_off": 0.875,
+        "delta_mrr_defective_vs_digital_ref": -0.0417,
+    }
+
+    # Dummy items for arms
+    dummy_item = {
+        "id": "q001",
+        "docset": "tuned",
+        "split": "test",
+        "type": "factual",
+        "source_file": "clean.pdf",
+        "defect_mechanism": "none",
+        "mrr": 1.0,
+        "strict_mrr": 1.0,
+        "hits_at_k": {1: 1, 5: 1},
+    }
+    arms = {
+        "arm1_vector_ocr_off": [dummy_item],
+        "arm2_hybrid_ocr_off": [dummy_item],
+        "arm3_hybrid_ocr_defective": [dummy_item],
+    }
+
+    results_data = {
+        "manifest": manifest,
+        "ocr_timing": {"pure_ocr_sec_per_page": 4.13, "overall_pages": 37, "overall_elapsed_sec": 152.8},
+        "calibrations": calibrations,
+        "regime_b_summary": regime_b_summary,
+        "arms": arms,
+    }
+
+    out_paths = generate_stage1_reports(results_data, tmp_path, smoke=True)
+    report_md_path = out_paths["report_md"]
+    summary_csv_path = out_paths["summary_csv"]
+    regime_b_csv_path = out_paths["regime_b_csv"]
+
+    report_content = report_md_path.read_text(encoding="utf-8")
+
+    # Dual-SHA header check
+    assert "- **Data generated at Git SHA:** `abc1234`" in report_content
+    assert "- **Report rendered at Git SHA:**" in report_content
+
+    # 1. No np.float64 strings in report.md
+    assert "np.float64" not in report_content
+
+    # 2. No duplicate table at the bottom of report.md
+    assert report_content.count("## 3. Retrieval Performance Summary by Cohort") == 1
+    assert report_content.count("## 4. Regime B: Scanned Twin Evaluation (8 Questions)") == 1
+    assert report_content.count("## 5. Pure OCR Timing Benchmark (Extractor Sidecar)") == 1
+
+    # Ensure no table appears after section 5
+    after_sec5 = report_content.split("## 5. Pure OCR Timing Benchmark (Extractor Sidecar)")[1]
+    assert "| Cohort |" not in after_sec5
+    assert "| `overall` |" not in after_sec5
+
+    # 3. No Regime B row mixed into the Section 3 Regime A Arm 1/2/3 table
+    sec3_content = report_content.split("## 3. Retrieval Performance Summary by Cohort")[1].split("## 4.")[0]
+    assert "regime_b" not in sec3_content
+    assert "scan_twin" not in sec3_content
+
+    # 4. Summary CSV contains only Regime A cohorts, and Regime B CSV contains 3 rows
+    summary_csv_content = summary_csv_path.read_text(encoding="utf-8")
+    assert "regime_b" not in summary_csv_content
+
+    regime_b_csv_content = regime_b_csv_path.read_text(encoding="utf-8")
+    assert "scan_twin_ocr_off" in regime_b_csv_content
+    assert "scan_twin_ocr_defective" in regime_b_csv_content
+    assert "digital_reference_hybrid" in regime_b_csv_content
