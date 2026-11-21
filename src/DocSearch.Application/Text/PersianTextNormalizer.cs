@@ -43,8 +43,8 @@ public sealed partial class PersianTextNormalizer : ITextNormalizer
         {
             var c = normalized[i];
 
-            // Step 2: Remove invisible/bidi control characters (ZWNJ U+200C is explicitly kept)
-            if (PersianUnicodeConstants.IsInvisibleOrBidiControl(c))
+            // Step 2: Remove invisible/bidi control characters (ZWNJ U+200C is explicitly kept) and NUL bytes
+            if (c == PersianUnicodeConstants.NullChar || PersianUnicodeConstants.IsInvisibleOrBidiControl(c))
             {
                 removedChar = true;
                 continue;

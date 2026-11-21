@@ -118,7 +118,8 @@ public sealed class HttpPdfExtractor : IPdfExtractor
                     var results = new List<PageText>(payload.Pages.Count);
                     foreach (var page in payload.Pages)
                     {
-                        var pageText = PageQualityScorer.ScorePage(page.Page, page.Text, _options.MinPageQuality);
+                        var sanitizedText = page.Text?.Replace("\0", string.Empty, StringComparison.Ordinal) ?? string.Empty;
+                        var pageText = PageQualityScorer.ScorePage(page.Page, sanitizedText, _options.MinPageQuality);
                         results.Add(pageText);
                     }
 

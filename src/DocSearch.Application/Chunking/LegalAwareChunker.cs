@@ -306,9 +306,13 @@ public sealed partial class LegalAwareChunker : IChunker
             title = null;
         }
 
-        if (title != null && title.Length > 200)
+        if (title != null)
         {
-            title = title[..200].TrimEnd();
+            title = title.Replace("\0", string.Empty, StringComparison.Ordinal);
+            if (title.Length > 200)
+            {
+                title = title[..200].TrimEnd();
+            }
         }
 
         return title;

@@ -327,3 +327,90 @@ def test_benchmark_pure_ocr_mocked(tmp_path, monkeypatch):
     assert timing_res["overall_pages"] == 37
     assert "pure_ocr_sec_per_page" in timing_res
     assert (cache_dir / "ocr_timing.json").exists()
+
+
+def test_resumable_ingestion_skip_ready_and_reupload_failed(tmp_path, monkeypatch):
+    import argparse
+    from run_eval import DocSearchClient, run_ingestion_phase
+
+    pdfs_dir = tmp_path / "pdfs"
+    pdfs_dir.mkdir()
+    pdf1 = pdfs_dir / "doc1.pdf"
+    pdf1.write_bytes(b"%PDF-1.4 dummy")
+    pdf2 = pdfs_dir / "doc2.pdf"
+    pdf2.write_bytes(b"%PDF-1.4 dummy")
+
+    deleted_docs = []
+    uploaded_docs = []
+    checked_ready_docs = []
+
+    class MockClient(DocSearchClient):
+        def __init__(self, base_url, token):
+            super().__init__(base_url, token)
+
+        def create_collection(self, name, description=""):
+            return "col-123"
+
+        def get_collections(self):
+            return [{"id": "col-123", "name": "test-col"}]
+
+        def list_documents(self, collection_id):
+            return [
+                {"id": "d1", "fileName": "doc1.pdf", "status": "Ready"},
+                {"id": "d2", "fileName": "doc2.pdf", "status": "Failed"},
+            ]
+
+        def get_document(self, doc_id):
+            checked_ready_docs.append(doc_id)
+            return {"id": doc_id, "fileName": "doc1.pdf", "status": "Ready", "ocrPages": [], "pageCount": 1}
+
+        def delete_document(self, doc_id):
+            deleted_docs.append(doc_id)
+
+        def upload_document(self, collection_id, pdf_path):
+            uploaded_docs.append(pdf_path.name)
+            return {"id": "d2_new", "status": "Uploaded"}
+
+        def wait_until_ready(self, doc_id, timeout_sec=900.0, expect_empty=False):
+            assert timeout_sec == 900.0, "wait_until_ready must use 900.0s timeout"
+            return {"id": doc_id, "status": "Ready", "pageCount": 1, "ocrPages": []}
+
+    monkeypatch.setattr("run_eval.DocSearchClient", MockClient)
+
+    scan_pdf = tmp_path / "bein-almelali-scan.pdf"
+    scan_pdf.write_bytes(b"%PDF-1.4 scan")
+
+    args = argparse.Namespace(
+        base_url="http://mock-api:5000",
+        ocr_mode="Off",
+        reuse_collections=False,
+        pdfs_dir=pdfs_dir,
+        scan_pdf=scan_pdf,
+        cache_dir=tmp_path / "cache",
+        sidecar_url="http://mock-sidecar:8000",
+    )
+
+    config = {
+        "collections": {
+            "regime_a_ocr_off": {
+                "id_name": "test-col",
+                "pdfs_subset": "digital_14",
+                "ocr_mode": "Off",
+            },
+            "regime_b_scan_off": {
+                "id_name": "test-col-b",
+                "pdfs_subset": "scan_twin_only",
+                "ocr_mode": "Off",
+            }
+        }
+    }
+
+    run_ingestion_phase(args, config, "fake_token")
+
+    # doc1.pdf was Ready -> skipped upload, verified via get_document
+    assert "d1" in checked_ready_docs
+    assert "doc1.pdf" not in uploaded_docs
+
+    # doc2.pdf was Failed -> deleted and re-uploaded
+    assert "d2" in deleted_docs
+    assert "doc2.pdf" in uploaded_docs

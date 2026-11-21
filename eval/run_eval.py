@@ -513,7 +513,12 @@ class DocSearchClient:
         resp.raise_for_status()
         return resp.json().get("items", [])
 
-    def wait_until_ready(self, doc_id: str, timeout_sec: float = 300.0, expect_empty: bool = False) -> Dict[str, Any]:
+    def delete_document(self, doc_id: str) -> None:
+        resp = self.session.delete(f"{self.base_url}/api/v1/documents/{doc_id}", timeout=15.0)
+        if resp.status_code not in (200, 204, 404):
+            resp.raise_for_status()
+
+    def wait_until_ready(self, doc_id: str, timeout_sec: float = 900.0, expect_empty: bool = False) -> Dict[str, Any]:
         start = time.time()
         while time.time() - start < timeout_sec:
             doc = self.get_document(doc_id)
@@ -751,34 +756,68 @@ def run_ingestion_phase(args: argparse.Namespace, config: Dict[str, Any], token:
         else:
             pdf_files = [args.scan_pdf]
 
-        print(f"Uploading {len(pdf_files)} PDF(s) to {col_name}...")
+        existing_docs = {d["fileName"]: d for d in client.list_documents(col_id)}
+        print(f"Uploading / verifying {len(pdf_files)} PDF(s) in {col_name}...")
+
         for pdf_path in pdf_files:
-            is_scan = (pdf_path.name == "bein-almelali-scan.pdf")
+            file_name = pdf_path.name
+            is_scan = (file_name == "bein-almelali-scan.pdf")
             expect_empty = (is_scan and ocr_mode == "Off")
+
+            # Resumable check: skip if Ready, delete and re-upload if Failed (except expected empty scan)
+            existing = existing_docs.get(file_name)
+            if existing:
+                doc_status = existing.get("status")
+                doc_id = existing.get("id")
+
+                if doc_status == "Ready":
+                    doc_detail = client.get_document(doc_id)
+                    ocr_pages = doc_detail.get("ocrPages") or []
+                    print(f"  {file_name}: already Ready (id: {doc_id}, OCR pages: {ocr_pages}). Skipping re-upload.")
+
+                    # Assert exact expected OCR pages
+                    if ocr_mode == "Off":
+                        assert len(ocr_pages) == 0, f"Expected 0 OCR pages in OcrMode=Off, but {file_name} had {ocr_pages}!"
+                    else:
+                        expected_pages = EXPECTED_OCR_PAGES_DEFECTIVE.get(file_name, [])
+                        assert ocr_pages == expected_pages, (
+                            f"OCR page set mismatch for {file_name} in Defective mode! "
+                            f"Expected {expected_pages}, got {ocr_pages}"
+                        )
+                    continue
+
+                if doc_status == "Failed":
+                    if expect_empty:
+                        print(f"  {file_name}: already in expected Failed state (0 text). Skipping re-upload.")
+                        continue
+                    else:
+                        print(f"  {file_name}: previously Failed (id: {doc_id}). Deleting and re-uploading cleanly...")
+                        client.delete_document(doc_id)
+                        existing_docs.pop(file_name, None)
 
             upload_start = time.perf_counter()
             res = client.upload_document(col_id, pdf_path)
             doc_id = res.get("id")
 
             if doc_id == "duplicate":
-                print(f"  {pdf_path.name}: already present in collection.")
-                continue
+                curr_docs = {d["fileName"]: d for d in client.list_documents(col_id)}
+                doc_id = curr_docs.get(file_name, {}).get("id", doc_id)
 
-            doc_detail = client.wait_until_ready(doc_id, timeout_sec=300.0, expect_empty=expect_empty)
+            doc_detail = client.wait_until_ready(doc_id, timeout_sec=900.0, expect_empty=expect_empty)
             elapsed = time.perf_counter() - upload_start
             page_count = doc_detail.get("pageCount") or 1
             sec_per_page = elapsed / page_count
 
             ocr_pages = doc_detail.get("ocrPages") or []
-            print(f"  {pdf_path.name}: {doc_detail.get('status')} ({page_count} pages, {elapsed:.1f}s, {sec_per_page:.2f} s/page, OCR pages: {ocr_pages})")
+            print(f"  {file_name}: {doc_detail.get('status')} ({page_count} pages, {elapsed:.1f}s, {sec_per_page:.2f} s/page, OCR pages: {ocr_pages})")
 
             # Assert exact expected OCR pages
             if ocr_mode == "Off":
-                assert len(ocr_pages) == 0, f"Expected 0 OCR pages in OcrMode=Off, but {pdf_path.name} had {ocr_pages}!"
+                assert len(ocr_pages) == 0, f"Expected 0 OCR pages in OcrMode=Off, but {file_name} had {ocr_pages}!"
             else:
-                expected_pages = EXPECTED_OCR_PAGES_DEFECTIVE.get(pdf_path.name, [])
+                expected_pages = EXPECTED_OCR_PAGES_DEFECTIVE.get(file_name, [])
                 assert ocr_pages == expected_pages, (
-                    f"OCR page set mismatch for {pdf_path.name} in Defective mode! "
+                    f"OCR page set mismatch for {file_name} in Defective mode! "
                     f"Expected {expected_pages}, got {ocr_pages}"
                 )
 

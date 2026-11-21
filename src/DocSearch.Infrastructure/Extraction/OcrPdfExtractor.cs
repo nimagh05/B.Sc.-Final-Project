@@ -170,7 +170,7 @@ public sealed class OcrPdfExtractor : IPdfExtractor
                             {
                                 if (!string.IsNullOrWhiteSpace(p.Text))
                                 {
-                                    ocrMap[p.Page] = p.Text;
+                                    ocrMap[p.Page] = p.Text.Replace("\0", string.Empty, StringComparison.Ordinal);
                                 }
                             }
                         }
