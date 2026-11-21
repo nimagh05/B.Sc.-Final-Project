@@ -241,6 +241,35 @@ public sealed class HttpPdfExtractorTests
     }
 
     [Fact]
+    public async Task ExtractAsync_WhenExtractedTextContainsNullBytes_StripsNullBytes()
+    {
+        var responseJson = JsonSerializer.Serialize(new
+        {
+            pages = new[]
+            {
+                new { page = 1, text = "Hello\u0000 World\0 from page 1" },
+                new { page = 2, text = "\u0000Clean\u0000" }
+            }
+        });
+
+        var handler = new TestHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(responseJson, Encoding.UTF8, "application/json")
+        });
+
+        var extractor = CreateExtractor(handler);
+        using var pdfStream = new MemoryStream("%PDF-1.4 mock"u8.ToArray());
+
+        var pages = await extractor.ExtractAsync(pdfStream, CancellationToken.None);
+
+        Assert.Equal(2, pages.Count);
+        Assert.DoesNotContain('\0', pages[0].Text);
+        Assert.Equal("Hello World from page 1", pages[0].Text);
+        Assert.DoesNotContain('\0', pages[1].Text);
+        Assert.Equal("Clean", pages[1].Text);
+    }
+
+    [Fact]
     public async Task ExtractAsync_ConnectionFailure_ThrowsExternalServiceUnavailableException()
     {
         var callCount = 0;

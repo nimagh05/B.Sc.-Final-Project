@@ -133,6 +133,8 @@ public sealed record RetrievalResult(IReadOnlyList<ScoredChunk> Chunks, double B
 public interface IRetriever
 {
     Task<RetrievalResult> RetrieveAsync(string question, IReadOnlyCollection<Guid> collectionIds, int? topK, CancellationToken ct);
+    Task<RetrievalResult> RetrieveAsync(string question, IReadOnlyCollection<Guid> collectionIds, int? topK, bool? useHybrid, CancellationToken ct)
+        => RetrieveAsync(question, collectionIds, topK, ct);
 }
 
 public sealed record AskRequest(
@@ -156,7 +158,9 @@ public sealed record AnswerResult(
     bool NotFound,
     bool Degraded,
     IReadOnlyList<SourceCitation> Sources,
-    Guid? ConversationId);
+    Guid? ConversationId,
+    long EmbedRetrieveMs = 0,
+    long LlmMs = 0);
 
 public interface IRagService
 {

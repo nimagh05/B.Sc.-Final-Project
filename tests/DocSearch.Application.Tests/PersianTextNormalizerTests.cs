@@ -274,6 +274,29 @@ public sealed class PersianTextNormalizerTests
         Assert.Equal("مدرس", search);
     }
 
+    [Theory]
+    [InlineData("متن\0 با\0 نال", "متن با نال", "متن با نال", "متن با نال")]
+    [InlineData("BGE-M3\u0000 Paper\0", "BGE-M3 Paper", "BGE-M3 Paper", "bge-m3 paper")]
+    [InlineData("\0\0\0", "", "", "")]
+    public void Normalizer_StripsNullBytes_AcrossAllLayers(
+        string input,
+        string expectedDisplay,
+        string expectedEmbedding,
+        string expectedSearch)
+    {
+        var display = _normalizer.NormalizeForDisplay(input);
+        var embedding = _normalizer.NormalizeForEmbedding(input);
+        var search = _normalizer.NormalizeForSearch(input);
+
+        Assert.DoesNotContain('\0', display);
+        Assert.DoesNotContain('\0', embedding);
+        Assert.DoesNotContain('\0', search);
+
+        Assert.Equal(expectedDisplay, display);
+        Assert.Equal(expectedEmbedding, embedding);
+        Assert.Equal(expectedSearch, search);
+    }
+
     [Fact]
     public void ArabicSuperscriptAlef_IsRemovedInEmbedding()
     {

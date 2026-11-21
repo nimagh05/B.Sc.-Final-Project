@@ -9,6 +9,7 @@ namespace DocSearch.Application.Text;
 public static class PersianUnicodeConstants
 {
     // --- Invisible and Bidi Control Characters (SPEC-PERSIAN-AND-RAG.md §1.1 #2) ---
+    public const char NullChar = '\0';
     public const char SoftHyphen = '\u00AD';
     public const char ZeroWidthSpace = '\u200B';
     public const char LeftToRightMark = '\u200E';
@@ -136,7 +137,8 @@ public static class PersianUnicodeConstants
     /// </summary>
     public static bool IsInvisibleOrBidiControl(char c)
     {
-        return c is ZeroWidthSpace
+        return c is NullChar
+            or ZeroWidthSpace
             or ZeroWidthNoBreakSpace
             or SoftHyphen
             or LeftToRightMark

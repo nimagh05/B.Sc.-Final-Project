@@ -91,7 +91,7 @@ public sealed class ChunkEmbeddingTextBuilderTests
         foreach (var chunk in chunks)
         {
             var chunkId = chunk.GetProperty("chunk_id").GetString();
-            var expectedEmbeddingText = chunk.GetProperty("text").GetString()!;
+            var expectedEmbeddingText = chunk.GetProperty("text").GetString()!.Replace("\0", string.Empty, StringComparison.Ordinal);
             var draftText = chunk.GetProperty("draft_text").GetString()!;
             var sectionTitle = chunk.TryGetProperty("section_title", out var sectionProp) &&
                                sectionProp.ValueKind == JsonValueKind.String

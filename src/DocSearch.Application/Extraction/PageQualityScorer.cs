@@ -26,8 +26,9 @@ public sealed partial class PageQualityScorer
 
     public static PageText ScorePage(int pageNumber, string? text, double minPageQuality = 0.35)
     {
-        var metrics = ComputeMetrics(text, minPageQuality);
-        return new PageText(pageNumber, text ?? string.Empty, metrics.Quality, metrics.NeedsOcr, metrics.LooksReversed);
+        var sanitizedText = text?.Replace("\0", string.Empty, StringComparison.Ordinal) ?? string.Empty;
+        var metrics = ComputeMetrics(sanitizedText, minPageQuality);
+        return new PageText(pageNumber, sanitizedText, metrics.Quality, metrics.NeedsOcr, metrics.LooksReversed);
     }
 
     public static PageQualityMetrics ComputeMetrics(string? text, double minPageQuality = 0.35)

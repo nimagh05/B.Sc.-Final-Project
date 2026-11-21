@@ -350,6 +350,15 @@ public sealed class DocsOptions
     public bool Enabled { get; set; } = true;
 }
 
+public sealed class DiagnosticsOptions
+{
+    public const string SectionName = "Diagnostics";
+
+    public bool EnableEvalEndpoints { get; set; }
+
+    public bool ExposeTimings { get; set; }
+}
+
 public sealed class RateLimitingOptions
 {
     public const string SectionName = "RateLimiting";

@@ -26,7 +26,8 @@ logs/
 # Evaluation (documents stay local, questions tracked)
 eval/pdfs/
 eval/experiments/out/
-eval/results/*/*.png
+eval/results/
+eval/cache/
 !eval/questions.json
 conformance/results/
 
