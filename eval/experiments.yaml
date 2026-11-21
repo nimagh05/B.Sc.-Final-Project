@@ -1,0 +1,96 @@
+schema_version: "1.0"
+description: "Declarative evaluation and multi-arm benchmark configuration for DocSearch (T19a)."
+
+global:
+  base_url: "http://localhost:5000"
+  auth:
+    email_env: "EVAL_EMAIL"
+    password_env: "EVAL_PASSWORD"
+  questions_path: "eval/questions.json"
+  pdfs_dir: "eval/pdfs"
+  scan_pdf_path: "eval/pdfs/ocr/bein-almelali-scan.pdf"
+  top_k_list: [1, 3, 5, 10]
+  eval_batch_size: 16
+  timeout: 60.0
+  bootstrap_resamples: 10000
+  bootstrap_seed: 42
+  omitted_models:
+    multilingual-e5: "Omitted per ADR 0002 §4: not published on official Ollama model registry."
+
+collections:
+  regime_a_ocr_off:
+    id_name: "eval-regime-a-ocr-off"
+    pdfs_subset: "digital_14"
+    ocr_mode: "Off"
+    description: "14 digital PDFs in eval/pdfs/ ingested with OcrMode=Off (shared by Arm 1 & 2)"
+
+  regime_a_ocr_defective:
+    id_name: "eval-regime-a-ocr-defective"
+    pdfs_subset: "digital_14"
+    ocr_mode: "Defective"
+    description: "14 digital PDFs in eval/pdfs/ ingested with OcrMode=Defective (used by Arm 3)"
+
+  regime_b_scan_off:
+    id_name: "eval-regime-b-scan-off"
+    pdfs_subset: "scan_twin_only"
+    ocr_mode: "Off"
+    description: "8-page synthetic scan twin (eval/pdfs/ocr/bein-almelali-scan.pdf) ingested with OcrMode=Off (0 text expected)"
+
+  regime_b_scan_defective:
+    id_name: "eval-regime-b-scan-defective"
+    pdfs_subset: "scan_twin_only"
+    ocr_mode: "Defective"
+    description: "8-page synthetic scan twin ingested with OcrMode=Defective (Tesseract fas+eng)"
+
+arms:
+  arm1_vector_ocr_off:
+    name: "Arm 1: Vector-Only (Baseline)"
+    collection_ref: "regime_a_ocr_off"
+    use_hybrid: false
+    description: "Pure dense HNSW vector search, Extraction:OcrMode=Off"
+
+  arm2_hybrid_ocr_off:
+    name: "Arm 2: Hybrid RRF + ArticleKeys (OCR Off)"
+    collection_ref: "regime_a_ocr_off"
+    use_hybrid: true
+    description: "Dense + FTS + ArticleKeys RRF (k=60), Extraction:OcrMode=Off"
+
+  arm3_hybrid_ocr_defective:
+    name: "Arm 3: Full System (Hybrid + Selective OCR)"
+    collection_ref: "regime_a_ocr_defective"
+    use_hybrid: true
+    description: "Dense + FTS + ArticleKeys RRF (k=60), Extraction:OcrMode=Defective"
+
+  regime_b_scan_off:
+    name: "Regime B: Scan Twin (OCR Off)"
+    collection_ref: "regime_b_scan_off"
+    use_hybrid: true
+    twin_mapping:
+      "bein-almelali-scan.pdf": "bein-almelali.pdf"
+    description: "8-page scan twin without OCR (0 text expected)"
+
+  regime_b_scan_defective:
+    name: "Regime B: Scan Twin (Selective OCR)"
+    collection_ref: "regime_b_scan_defective"
+    use_hybrid: true
+    twin_mapping:
+      "bein-almelali-scan.pdf": "bein-almelali.pdf"
+    description: "8-page scan twin with Tesseract OCR"
+
+# Optional chunking ablation profiles (non-blocking for T19a)
+ablation_chunking_arms:
+  chunk_300:
+    target_tokens: 300
+    max_tokens: 400
+    min_tokens: 50
+    overlap: 0.15
+  chunk_800:
+    target_tokens: 700
+    max_tokens: 800
+    min_tokens: 100
+    overlap: 0.15
+  no_overlap:
+    target_tokens: 425
+    max_tokens: 500
+    min_tokens: 80
+    overlap: 0.0

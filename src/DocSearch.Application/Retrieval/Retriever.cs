@@ -15,10 +15,18 @@ public sealed partial class Retriever(
 {
     private readonly ITextNormalizer _normalizer = normalizer ?? new PersianTextNormalizer();
 
+    public Task<RetrievalResult> RetrieveAsync(
+        string question,
+        IReadOnlyCollection<Guid> collectionIds,
+        int? topK,
+        CancellationToken ct)
+        => RetrieveAsync(question, collectionIds, topK, null, ct);
+
     public async Task<RetrievalResult> RetrieveAsync(
         string question,
         IReadOnlyCollection<Guid> collectionIds,
         int? topK,
+        bool? useHybrid,
         CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(question);
@@ -34,7 +42,7 @@ public sealed partial class Retriever(
 
         var candidateK = ragOptions.Value.CandidateK;
         var model = aiOptions.Value.Embedding.Model;
-        var useHybrid = ragOptions.Value.UseHybrid;
+        var effectiveUseHybrid = useHybrid ?? ragOptions.Value.UseHybrid;
 
         var queryEmbedding = await queryEmbedder.EmbedQueryAsync(question, ct).ConfigureAwait(false);
 
@@ -43,7 +51,7 @@ public sealed partial class Retriever(
 
         string? tsQuery = null;
         string? qSearch = null;
-        if (useHybrid)
+        if (effectiveUseHybrid)
         {
             qSearch = _normalizer.NormalizeForSearch(question);
             tsQuery = TsQueryBuilder.BuildTsQuery(qSearch);
@@ -59,11 +67,11 @@ public sealed partial class Retriever(
             EmbeddingModel: model,
             CandidateK: candidateK,
             TopK: effectiveTopK,
-            UseHybrid: useHybrid);
+            UseHybrid: effectiveUseHybrid);
 
         var searchResult = await vectorStore.SearchHybridAsync(hybridRequest, ct).ConfigureAwait(false);
 
-        if (!useHybrid)
+        if (!effectiveUseHybrid)
         {
             var vectorOnlyChunks = searchResult.VectorCandidates
                 .Take(effectiveTopK)

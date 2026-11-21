@@ -99,7 +99,9 @@ public sealed partial class RagService : IRagService
                 NotFound: true,
                 Degraded: false,
                 Sources: [],
-                ConversationId: request.ConversationId);
+                ConversationId: request.ConversationId,
+                EmbedRetrieveMs: embedRetrieveMs,
+                LlmMs: 0);
 
             return await CompleteAndPersistAsync(
                 request,
@@ -124,7 +126,9 @@ public sealed partial class RagService : IRagService
                 NotFound: true,
                 Degraded: false,
                 Sources: sources,
-                ConversationId: request.ConversationId);
+                ConversationId: request.ConversationId,
+                EmbedRetrieveMs: embedRetrieveMs,
+                LlmMs: 0);
 
             return await CompleteAndPersistAsync(
                 request,
@@ -226,7 +230,9 @@ public sealed partial class RagService : IRagService
                 NotFound: false,
                 Degraded: true,
                 Sources: FormatSources(builtPrompt.IncludedChunks),
-                ConversationId: request.ConversationId);
+                ConversationId: request.ConversationId,
+                EmbedRetrieveMs: embedRetrieveMs,
+                LlmMs: llmMs);
 
             return await CompleteAndPersistAsync(
                 request,
@@ -251,7 +257,9 @@ public sealed partial class RagService : IRagService
                 NotFound: true,
                 Degraded: false,
                 Sources: sources,
-                ConversationId: request.ConversationId);
+                ConversationId: request.ConversationId,
+                EmbedRetrieveMs: embedRetrieveMs,
+                LlmMs: llmMs);
 
             return await CompleteAndPersistAsync(
                 request,
@@ -284,7 +292,9 @@ public sealed partial class RagService : IRagService
             NotFound: false,
             Degraded: false,
             Sources: finalSources,
-            ConversationId: request.ConversationId);
+            ConversationId: request.ConversationId,
+            EmbedRetrieveMs: embedRetrieveMs,
+            LlmMs: llmMs);
 
         return await CompleteAndPersistAsync(
             request,
