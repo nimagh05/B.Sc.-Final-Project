@@ -91,8 +91,8 @@ To strictly obey ADR 0008 anti-leakage rules, OCR hyperparameter selection (`--p
 #### Leak-Free Model Comparison (`tessdata_fast` vs `tessdata_best`):
 
 To empirically test whether an unquantized model improves accuracy, a leak-free benchmark was executed on `tuned` documents + `bein-almelali-scan.pdf` (19 pages, DPI 300, PSM 6) comparing Debian's packaged `tesseract-ocr-fas` (`tessdata_fast`, ~422 KB) with pinned upstream `tesseract-ocr/tessdata_best` (commit `e12c65a915945e4c28e237a9b52bc4a8f39a0cec`, `fas.traineddata` 3.17 MB, SHA-256 `99e420969b5ddd2cb135b416316a7ed417c59c4faf9e0d28941348f6448114df`, mounted read-only while `eng.traineddata` remained Debian's `tessdata_fast`):
-- **Latency:** `tessdata_best` took `132.4s` for 19 pages (~7.0s/page on CPU), an 8.8x slowdown compared to `tessdata_fast` (~15s total, ~0.8s/page).
-- **Recall Degradation:** Rather than improving accuracy, `tessdata_best` significantly underperformed Debian's `tessdata_fast` on both Combined KW (`11/17 = 64.7%` vs `14/17 = 82.4%`) and Combined Num (`1/6 = 16.7%` vs `4/6 = 66.7%`). On the Scan Twin (`bein-almelali-scan.pdf`), KW dropped from `6/8 -> 3/8` and Num dropped from `2/3 -> 0/3`.
+- **Latency:** `tessdata_best` took `132.4s` for 19 pages (~7.0s/page on CPU; ~6 min for a 48-page PDF, impractical for CPU-only ingestion; exact `tessdata_fast` sidecar `sec/page` is measured directly in T19).
+- **Recall on This Sample (`N=17`):** In this mixed configuration (`fas` from `tessdata_best` alongside Debian's `eng` from `tessdata_fast`) on this small sample, `tessdata_best` did not improve over Debian's `tessdata_fast` — Combined KW was `11/17 (64.7%)` vs `14/17 (82.4%)`, Combined Num was `1/6 (16.7%)` vs `4/6 (66.7%)`, and on the Scan Twin (`bein-almelali-scan.pdf`) KW was `3/8` vs `6/8` and Num was `0/3` vs `2/3`.
 - **Decision:** Retain Debian's packaged `tesseract-ocr-fas` (`tessdata_fast`) with zero external model downloads in `Dockerfile`.
 
 ### 6. Scope & Known Limitations
