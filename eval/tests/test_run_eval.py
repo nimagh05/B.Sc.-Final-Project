@@ -28,6 +28,22 @@ from run_eval import (
     paired_bootstrap_ci,
     save_collection_manifest,
 )
+from stage2 import (
+    append_checkpoint,
+    compute_cache_key,
+    document_cluster_paired_bootstrap_ci as stage2_cluster_bootstrap_ci,
+    evaluate_generation_metrics,
+    generate_stage2_plots,
+    get_from_cache,
+    get_system_prompt_sha256,
+    load_checkpoint,
+    mcnemar_exact,
+    normalize_text,
+    run_stage2_report,
+    save_to_cache,
+    simulate_threshold,
+    wilson_score_interval,
+)
 
 
 def test_hit_rules_standard_vs_strict():
@@ -531,3 +547,324 @@ def test_generate_stage1_reports_formatting_and_isolation(tmp_path):
     assert "scan_twin_ocr_off" in regime_b_csv_content
     assert "scan_twin_ocr_defective" in regime_b_csv_content
     assert "digital_reference_hybrid" in regime_b_csv_content
+
+
+# --- Stage 2 Unit Tests (T19b) ---
+
+def test_stage2_cache_key_formula_exact_order_and_prompt_sha():
+    chunks_order1 = ["chunk_a", "chunk_b"]
+    chunks_order2 = ["chunk_b", "chunk_a"]
+    sha = "abc123prompt"
+
+    key1 = compute_cache_key("q", chunks_order1, 6, "gemini-2.5-flash", 0.0, sha)
+    key2 = compute_cache_key("q", chunks_order2, 6, "gemini-2.5-flash", 0.0, sha)
+
+    # Order matters: must NOT sort chunk IDs
+    assert key1 != key2, "Cache key must preserve exact retrieved chunk ordering!"
+
+    # Changing top_k, model, temp, or prompt_sha changes key
+    key_topk = compute_cache_key("q", chunks_order1, 10, "gemini-2.5-flash", 0.0, sha)
+    key_model = compute_cache_key("q", chunks_order1, 6, "other-model", 0.0, sha)
+    key_temp = compute_cache_key("q", chunks_order1, 6, "gemini-2.5-flash", 0.5, sha)
+    key_sha = compute_cache_key("q", chunks_order1, 6, "gemini-2.5-flash", 0.0, "different_sha")
+
+    assert len({key1, key_topk, key_model, key_temp, key_sha}) == 5
+
+
+def test_stage2_cache_store_and_load(tmp_path):
+    cache_dir = tmp_path / "llm_cache"
+    key = "sample_key_123"
+
+    # Initially empty
+    assert get_from_cache(cache_dir, key) is None
+
+    # Save valid entry
+    data = {
+        "answer": "پاسخ معتبر [1]",
+        "notFound": False,
+        "degraded": False,
+        "sources": [{"index": 1, "fileName": "doc.pdf", "page": 2}],
+    }
+    save_to_cache(cache_dir, key, data)
+
+    cached = get_from_cache(cache_dir, key)
+    assert cached is not None
+    assert cached["is_cached"] is True
+    assert cached["answer"] == "پاسخ معتبر [1]"
+
+    # Degradation invariant: never cache degraded responses
+    degraded_key = "degraded_key"
+    save_to_cache(cache_dir, degraded_key, {"answer": None, "degraded": True})
+    assert get_from_cache(cache_dir, degraded_key) is None
+
+
+def test_stage2_checkpoint_jsonl_append_and_load(tmp_path):
+    checkpoint_file = tmp_path / "arm1.jsonl"
+
+    rec1 = {"id": "q001", "answer": "ans1", "degraded": False}
+    rec2 = {"id": "q002", "answer": "ans2", "degraded": False}
+    rec_deg = {"id": "q003", "answer": None, "degraded": True}
+
+    append_checkpoint(checkpoint_file, rec1)
+    append_checkpoint(checkpoint_file, rec2)
+    append_checkpoint(checkpoint_file, rec_deg)  # Must be ignored
+
+    records = load_checkpoint(checkpoint_file)
+    assert len(records) == 2
+    assert "q001" in records
+    assert "q002" in records
+    assert "q003" not in records
+
+
+def test_stage2_offline_threshold_simulation_exact_logic():
+    # Case 1: 0 chunks retrieved -> NoContext
+    item_zero_chunks = {
+        "retrieved_chunk_count": 0,
+        "bestVectorScore": 0.0,
+        "hasFtsHit": False,
+        "notFound": True,
+        "answer": "raw refusal",
+    }
+    sim_zc = simulate_threshold(item_zero_chunks, tau=0.55)
+    assert sim_zc["notFound"] is True
+    assert sim_zc["no_answer_reason"] == "NoContext"
+    assert sim_zc["gated"] is True
+
+    # Case 2: Low similarity and NO FTS hit -> LowSimilarity rejection
+    item_low_sim = {
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.50,
+        "hasFtsHit": False,
+        "notFound": False,
+        "answer": "some generated text",
+    }
+    sim_ls = simulate_threshold(item_low_sim, tau=0.55)
+    assert sim_ls["notFound"] is True
+    assert sim_ls["no_answer_reason"] == "LowSimilarity"
+    assert sim_ls["gated"] is True
+    assert sim_ls["sources"] == []
+
+    # Case 3: Low similarity with FTS rescue (hasFtsHit=True) -> passed to LLM
+    item_fts_rescue = {
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.50,
+        "hasFtsHit": True,
+        "notFound": False,
+        "answer": "answered text [1]",
+        "sources": [{"index": 1}],
+    }
+    sim_fts = simulate_threshold(item_fts_rescue, tau=0.55)
+    assert sim_fts["notFound"] is False
+    assert sim_fts["no_answer_reason"] == "None"
+    assert sim_fts["gated"] is False
+    assert len(sim_fts["sources"]) == 1
+
+    # Case 4: High similarity with LLM self-refusal -> ModelRefusal
+    item_model_refusal = {
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.75,
+        "hasFtsHit": True,
+        "notFound": True,
+        "answer": "در اسناد موجود پاسخی برای این پرسش پیدا نشد",
+    }
+    sim_mr = simulate_threshold(item_model_refusal, tau=0.55)
+    assert sim_mr["notFound"] is True
+    assert sim_mr["no_answer_reason"] == "ModelRefusal"
+    assert sim_mr["gated"] is False
+
+
+def test_stage2_non_vacuous_multidigit_and_unit_recall():
+    gold_keywords = ["20", "واحد"]
+    expected_with_num_and_unit = "حداکثر 20 واحد در سال مجاز است."
+    sources = [{"index": 1, "fileName": "doc.pdf", "page": 5}]
+
+    # Answer matches keywords, numbers, and units strictly
+    ans_strict = "مطابق آیین‌نامه، سقف مجاز 20 واحد در سال است [1]."
+    m_strict = evaluate_generation_metrics(
+        answer=ans_strict,
+        not_found=False,
+        expected_answer=expected_with_num_and_unit,
+        answer_keywords=gold_keywords,
+        sources=sources,
+        gold_file="doc.pdf",
+        gold_pages=[5],
+    )
+    assert m_strict["kw_hit"] is True
+    assert m_strict["num_hit"] is True
+    assert m_strict["unit_hit_strict"] is True
+    assert m_strict["unit_hit_proximity_10"] is True
+
+    # Answer has unit and number separated loosely (proximity <= 10) but not strict consecutive
+    ans_prox = "مطابق آیین‌نامه، 20 حداکثر واحد مجاز است [1]."
+    expected_unit = "20 واحد"
+    m_prox = evaluate_generation_metrics(
+        answer=ans_prox,
+        not_found=False,
+        expected_answer=expected_unit,
+        answer_keywords=["20"],
+        sources=sources,
+        gold_file="doc.pdf",
+        gold_pages=[5],
+    )
+    assert m_prox["num_hit"] is True
+    assert m_prox["unit_hit_strict"] is False
+    assert m_prox["unit_hit_proximity_10"] is True
+
+    # Non-vacuous check: question without multi-digit numbers or units returns None
+    expected_no_num = "دانشگاه تهران مسئول است."
+    m_no_num = evaluate_generation_metrics(
+        answer="دانشگاه تهران مسئول است [1].",
+        not_found=False,
+        expected_answer=expected_no_num,
+        answer_keywords=["دانشگاه"],
+        sources=sources,
+        gold_file="doc.pdf",
+        gold_pages=[1],
+    )
+    assert m_no_num["num_hit"] is None
+    assert m_no_num["unit_hit_strict"] is None
+    assert m_no_num["unit_hit_proximity_10"] is None
+
+
+def test_stage2_citation_metrics_four_types_and_twin_mapping():
+    sources = [
+        {"index": 1, "fileName": "bein-almelali-scan.pdf", "page": 2},
+        {"index": 2, "fileName": "other.pdf", "page": 10},
+    ]
+    twin_mapping = {"bein-almelali-scan.pdf": "bein-almelali.pdf"}
+
+    # Answer cites [1] (which hits gold page 2 via twin mapping) and [2] (which misses)
+    ans = "طبق ماده ۲ این بند الزامی است [1][2]."
+    m = evaluate_generation_metrics(
+        answer=ans,
+        not_found=False,
+        expected_answer="بند الزامی است",
+        answer_keywords=["ماده"],
+        sources=sources,
+        gold_file="bein-almelali.pdf",
+        gold_pages=[2, 3],
+        twin_mapping=twin_mapping,
+    )
+
+    assert m["citation_validity"] is True
+    assert m["citation_page_hit"] is True
+    assert m["cited_source_count"] == 2
+    assert m["valid_gold_hits_count"] == 1
+    assert m["citation_precision"] == 0.5  # 1 hit out of 2 cited
+    assert m["citation_recall"] == 0.5     # page 2 cited out of gold pages [2, 3]
+
+    # Answer without bracket citations has validity = False
+    ans_no_cit = "طبق ماده ۲ این بند الزامی است بدون مرجع."
+    m_no_cit = evaluate_generation_metrics(
+        answer=ans_no_cit,
+        not_found=False,
+        expected_answer="بند الزامی است",
+        answer_keywords=["ماده"],
+        sources=sources,
+        gold_file="bein-almelali.pdf",
+        gold_pages=[2],
+    )
+    assert m_no_cit["citation_validity"] is False
+    assert m_no_cit["citation_page_hit"] is False
+    assert m_no_cit["citation_precision"] == 0.0
+
+
+def test_stage2_cluster_bootstrap_g_guard():
+    # Case 1: G = 2 (heldout-CMap cohort) -> status 'N/A'
+    items_a_g2 = [
+        {"source_file": "d1.pdf", "kw_hit": 1.0},
+        {"source_file": "d2.pdf", "kw_hit": 0.0},
+    ]
+    items_b_g2 = [
+        {"source_file": "d1.pdf", "kw_hit": 1.0},
+        {"source_file": "d2.pdf", "kw_hit": 1.0},
+    ]
+    res_g2 = stage2_cluster_bootstrap_ci(items_a_g2, items_b_g2, metric_key="kw_hit", n_resamples=500, seed=42)
+    assert res_g2["status"] == "N/A (G < 5 clusters)"
+    assert res_g2["cluster_count"] == 2
+    assert res_g2["ci_low"] is None
+
+    # Case 2: G = 3 (heldout cohort) -> status 'Descriptive only'
+    items_a_g3 = [
+        {"source_file": "d1.pdf", "kw_hit": 1.0},
+        {"source_file": "d2.pdf", "kw_hit": 0.0},
+        {"source_file": "d3.pdf", "kw_hit": 0.0},
+    ]
+    items_b_g3 = [
+        {"source_file": "d1.pdf", "kw_hit": 1.0},
+        {"source_file": "d2.pdf", "kw_hit": 1.0},
+        {"source_file": "d3.pdf", "kw_hit": 1.0},
+    ]
+    res_g3 = stage2_cluster_bootstrap_ci(items_a_g3, items_b_g3, metric_key="kw_hit", n_resamples=500, seed=42)
+    assert res_g3["status"] == "Descriptive only (G < 5 clusters)"
+    assert res_g3["cluster_count"] == 3
+
+    # Case 3: G = 5 -> valid cluster bootstrap
+    items_a_g5 = [{"source_file": f"d{i}.pdf", "kw_hit": 0.2} for i in range(5)]
+    items_b_g5 = [{"source_file": f"d{i}.pdf", "kw_hit": 0.8} for i in range(5)]
+    res_g5 = stage2_cluster_bootstrap_ci(items_a_g5, items_b_g5, metric_key="kw_hit", n_resamples=500, seed=42)
+    assert res_g5["status"] == "valid"
+    assert res_g5["cluster_count"] == 5
+    assert res_g5["ci_low"] is not None
+    assert res_g5["ci_high"] is not None
+
+
+def test_stage2_wilson_and_mcnemar_statistical_routines():
+    # Wilson interval bounds check
+    w_zero = wilson_score_interval(0, 10)
+    assert w_zero[0] == 0.0
+    assert 0.20 <= w_zero[1] <= 0.35
+
+    w_full = wilson_score_interval(10, 10)
+    assert 0.65 <= w_full[0] <= 0.80
+    assert w_full[1] == 1.0
+
+    # McNemar's exact test
+    # Concordant / no discordance -> p = 1.0
+    assert mcnemar_exact(0, 0) == 1.0
+    assert mcnemar_exact(5, 5) == 1.0
+
+    # Significant discordance: 0 vs 10
+    p_val_disc = mcnemar_exact(0, 10)
+    assert p_val_disc < 0.05
+
+
+def test_stage2_headless_matplotlib_plots_generation(tmp_path):
+    dummy_item = {
+        "id": "q001",
+        "docset": "tuned",
+        "split": "test",
+        "type": "factual",
+        "source_file": "doc.pdf",
+        "bestVectorScore": 0.8,
+        "hasFtsHit": True,
+        "retrieved_chunk_count": 6,
+        "notFound": False,
+        "answer": "answer [1]",
+        "kw_hit": True,
+        "num_hit": True,
+        "unit_hit_strict": True,
+        "unit_hit_proximity_10": True,
+        "citation_validity": True,
+        "citation_page_hit": True,
+        "citation_precision": 1.0,
+        "citation_recall": 1.0,
+    }
+
+    dummy_results = {
+        "arms": {
+            "arm1_vector_ocr_off": [dummy_item],
+            "arm2_hybrid_ocr_off": [dummy_item],
+            "arm3_hybrid_ocr_defective": [dummy_item],
+            "regime_b_scan_off": [dummy_item],
+            "regime_b_scan_defective": [dummy_item],
+        }
+    }
+
+    plots = generate_stage2_plots(dummy_results, tmp_path)
+    assert len(plots) == 3
+
+    for p in plots:
+        assert p.exists()
+        assert p.stat().st_size > 1000, f"Plot file {p} must be non-empty image"
+

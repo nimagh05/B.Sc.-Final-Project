@@ -114,6 +114,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ocr-mode", choices=["Off", "Defective"], default=None, help="Server OCR mode for --ingest-only")
     parser.add_argument("--eval-only", action="store_true", help="Run Stage 1 evaluation without ingesting")
     parser.add_argument("--stage1", action="store_true", default=True, help="Execute Stage 1 retrieval & calibration")
+    parser.add_argument("--stage2", action="store_true", help="Execute Stage 2 end-to-end evaluation")
+    parser.add_argument("--arms", default=None, help="Comma-separated arm keys to execute or validate")
+    parser.add_argument("--chat-model", default=None, help="Chat model name (must match API Ai:Chat:Model, e.g. gemini-2.5-flash)")
+    parser.add_argument("--temperature", type=float, default=0.0, help="Temperature setting (default: 0.0)")
+    parser.add_argument("--top-k", type=int, default=6, help="Top-K context chunks (default: 6)")
+    parser.add_argument("--stage1-results", type=Path, default=None, help="Path to Stage 1 results.json (for locked tau* cross-check)")
+    parser.add_argument("--validate-offline-sim", action="store_true", help="Run live cross-check of offline threshold simulation against API with MinSimilarity=0.55")
+    parser.add_argument("--stage2-phase-a", type=Path, default=None, help="Phase A results directory")
+    parser.add_argument("--stage2-phase-b", type=Path, default=None, help="Phase B results directory")
+    parser.add_argument("--phase-a-dir", type=Path, default=None, help="Phase A results directory (alias)")
+    parser.add_argument("--phase-b-dir", type=Path, default=None, help="Phase B results directory (alias)")
+    parser.add_argument("--stage2-report", action="store_true", help="Merge Phase A and Phase B results and generate Stage 2 summary, report, and plots")
+    parser.add_argument("--no-cache", action="store_true", help="Bypass LLM cache")
+    parser.add_argument("--allow-dirty", action="store_true", help="Allow running evaluation on a dirty git working tree")
     parser.add_argument("--reuse-collections", action="store_true", help="Reuse existing ready collections if present")
     parser.add_argument("--smoke", action="store_true", help="Run fast smoke test on 5 questions")
     parser.add_argument("--out", type=Path, default=None, help="Output directory for benchmark results")
@@ -1272,6 +1286,12 @@ def main() -> None:
         print(f"  Report MD:    {out_paths['report_md']}")
         return
 
+    # Offline Stage 2 report & plot generation (no API, Docker, or Ollama required)
+    if args.stage2_report:
+        from stage2 import run_stage2_report
+        run_stage2_report(args)
+        return
+
     # Standalone pure OCR benchmark on sidecar (no API login required)
     if args.benchmark_ocr:
         benchmark_pure_ocr(
@@ -1293,6 +1313,12 @@ def main() -> None:
 
     if args.ingest_only:
         run_ingestion_phase(args, config, token)
+    elif args.validate_offline_sim:
+        from stage2 import run_validate_offline_sim
+        run_validate_offline_sim(args, config, token)
+    elif args.stage2:
+        from stage2 import run_stage2_eval
+        run_stage2_eval(args, config, token)
     else:
         run_stage1_eval(args, config, token)
 
