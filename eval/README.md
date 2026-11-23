@@ -147,10 +147,13 @@ Before executing full benchmark phases, run a fast 5-question smoke test to veri
    ```
 
 #### Step 4.3: Live Threshold Validation Cross-Check (`--validate-offline-sim`)
-Validates that the offline `prod_055` simulation exactly matches live gated API behavior:
-1. In Terminal 1, restart the API with production similarity threshold:
+Validates that the offline `prod_055` simulation exactly matches live gated API behavior. Because `/ask` reads server-level `UseHybrid`, validation is split into two short runs matching the server setting:
+
+**Part A (Vector-Only Validation):**
+1. In Terminal 1, restart the API with vector search and `MinSimilarity=0.55`:
    ```powershell
    . .\scripts\load-env.ps1
+   $env:Rag__UseHybrid = "false"
    $env:Rag__MinSimilarity = "0.55"
    $env:Rag__Temperature = "0"
    $env:Diagnostics__ExposeTimings = "true"
@@ -158,9 +161,26 @@ Validates that the offline `prod_055` simulation exactly matches live gated API 
    $env:RateLimiting__Enabled = "false"
    dotnet run --project src/DocSearch.Api
    ```
-2. In Terminal 2, run the cross-check with `--no-cache` across target arms:
+2. In Terminal 2, validate the vector-only arm against Phase A:
    ```powershell
-   .venv\Scripts\python eval/run_eval.py --validate-offline-sim --stage2-phase-a eval/results/t19b_phase_a --stage2-phase-b eval/results/t19b_phase_b --arms arm2_hybrid_ocr_off,arm1_vector_ocr_off --no-cache
+   .venv\Scripts\python eval/run_eval.py --validate-offline-sim --stage2-phase-a eval/results/t19b_phase_a --arms arm1_vector_ocr_off --no-cache
+   ```
+
+**Part B (Hybrid Validation):**
+1. In Terminal 1, restart the API with hybrid search and `MinSimilarity=0.55`:
+   ```powershell
+   . .\scripts\load-env.ps1
+   $env:Rag__UseHybrid = "true"
+   $env:Rag__MinSimilarity = "0.55"
+   $env:Rag__Temperature = "0"
+   $env:Diagnostics__ExposeTimings = "true"
+   $env:Diagnostics__EnableEvalEndpoints = "true"
+   $env:RateLimiting__Enabled = "false"
+   dotnet run --project src/DocSearch.Api
+   ```
+2. In Terminal 2, validate the hybrid arms against Phase B:
+   ```powershell
+   .venv\Scripts\python eval/run_eval.py --validate-offline-sim --stage2-phase-b eval/results/t19b_phase_b --arms arm2_hybrid_ocr_off,arm3_hybrid_ocr_defective,regime_b_scan_off --no-cache
    ```
 
 #### Step 4.4: Merge Phases, Final Reports & Plot Generation

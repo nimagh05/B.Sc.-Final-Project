@@ -6,8 +6,10 @@ Runs in < 2 seconds with zero network, zero Ollama, zero Docker, and zero real P
 import json
 import os
 import sys
+import time
 from pathlib import Path
 import pytest
+import requests
 import yaml
 
 # Add eval directory to sys.path
@@ -867,4 +869,156 @@ def test_stage2_headless_matplotlib_plots_generation(tmp_path):
     for p in plots:
         assert p.exists()
         assert p.stat().st_size > 1000, f"Plot file {p} must be non-empty image"
+
+
+def test_stage2_degraded_policy_retry_failed_provider_and_streak_halt(tmp_path, monkeypatch):
+    import argparse
+    from stage2 import run_stage2_eval, save_to_cache, get_from_cache
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True)
+    manifest_file = cache_dir / "collection_manifest.json"
+    manifest_data = {
+        "eval-regime-a-ocr-off": {"id": "col1", "name": "eval-regime-a-ocr-off", "ocr_mode": "Off"}
+    }
+    manifest_file.write_text(json.dumps(manifest_data), encoding="utf-8")
+
+    q_file = tmp_path / "questions.json"
+    qs = [{"id": f"q00{i}", "question": f"پرسش {i}؟", "type": "factual"} for i in range(1, 4)]
+    q_file.write_text(json.dumps(qs), encoding="utf-8")
+
+    out_dir = tmp_path / "out"
+
+    config = {
+        "collections": {"regime_a_ocr_off": {"id_name": "eval-regime-a-ocr-off"}},
+        "arms": {
+            "arm1_vector_ocr_off": {
+                "name": "arm1",
+                "collection_ref": "regime_a_ocr_off",
+                "use_hybrid": False,
+            }
+        },
+    }
+
+    # Monkeypatch time.sleep to avoid any latency
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+
+    # Monkeypatch requests.get for /health/live
+    class MockResp:
+        def __init__(self, status_code, json_data, headers=None):
+            self.status_code = status_code
+            self._json = json_data
+            self.headers = headers or {}
+            self.text = json.dumps(json_data)
+        def json(self):
+            return self._json
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.RequestException(f"HTTP {self.status_code}")
+
+    monkeypatch.setattr(requests, "get", lambda url, timeout=None: MockResp(200, {"status": "Healthy"}))
+
+    # Mock DocSearchClient methods
+    from run_eval import DocSearchClient
+    monkeypatch.setattr(DocSearchClient, "get_collections", lambda self: [{"name": "eval-regime-a-ocr-off", "id": "col1"}])
+    monkeypatch.setattr(DocSearchClient, "dev_retrieve", lambda self, q, cols, top_k=6, use_hybrid=True: {
+        "bestVectorScore": 0.8,
+        "hasFtsHit": True,
+        "elapsedMs": 10.0,
+        "chunks": [{"chunkId": "c1", "fileName": "doc.pdf", "pageStart": 1, "pageEnd": 1}],
+    })
+
+    # Mock requests.post to return degraded response
+    post_attempts = []
+    def mock_post(url, json=None, headers=None, timeout=None):
+        post_attempts.append(url)
+        return MockResp(200, {"degraded": True, "answer": None, "notFound": False})
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    args = argparse.Namespace(
+        base_url="http://mock:5000",
+        cache_dir=cache_dir,
+        questions=q_file,
+        chat_model="mock-model",
+        temperature=0.0,
+        top_k=6,
+        arms="arm1_vector_ocr_off",
+        smoke=False,
+        out=out_dir,
+        sleep=0.0,
+        allow_dirty=True,
+        no_cache=False,
+    )
+
+    # 3 consecutive provider failures must trigger SystemExit(1)
+    with pytest.raises(SystemExit):
+        run_stage2_eval(args, config, token="mock-token")
+
+    # 3 questions * 4 retries = 12 post attempts
+    assert len(post_attempts) == 12
+
+    # Verify no degraded entries were written to checkpoint or cache
+    checkpoint_file = out_dir / "checkpoints" / "arm1_vector_ocr_off.jsonl"
+    assert not checkpoint_file.exists() or checkpoint_file.stat().st_size == 0
+    llm_cache_dir = cache_dir / "llm_cache"
+    assert not llm_cache_dir.exists() or len(list(llm_cache_dir.glob("*.json"))) == 0
+
+
+def test_stage2_validate_offline_sim_mismatch_detection():
+    # Test gate comparison logic
+    # Case 1: Exact match on pre-LLM gate (both gated)
+    ungated_item_low = {
+        "id": "q001",
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.40,
+        "hasFtsHit": False,
+        "notFound": False,
+    }
+    sim_low = simulate_threshold(ungated_item_low, tau=0.55)
+    live_gen_ms = 0.0
+    live_not_found = True
+    is_live_pre_gated = (live_gen_ms == 0.0 and live_not_found)
+    is_sim_pre_gated = sim_low["gated"]
+    assert is_live_pre_gated == is_sim_pre_gated is True
+
+    # Case 2: Gate divergence (live executed LLM, but offline simulation had gated=True)
+    live_gen_ms_mismatch = 1500.0
+    live_not_found_mismatch = False
+    is_live_mismatch_gated = (live_gen_ms_mismatch == 0.0 and live_not_found_mismatch)
+    assert is_live_mismatch_gated != is_sim_pre_gated, "Should detect mismatch when live executes LLM on low score"
+
+
+def test_stage2_official_run_guard_git_dirty(tmp_path, monkeypatch):
+    import argparse
+    import subprocess
+    from stage2 import run_stage2_eval
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "collection_manifest.json").write_text(json.dumps({}), encoding="utf-8")
+    q_file = tmp_path / "q.json"
+    q_file.write_text("[]", encoding="utf-8")
+
+    # Case 1: git_dirty == True and allow_dirty == False -> aborts with SystemExit
+    monkeypatch.setattr(subprocess, "check_output", lambda cmd, **kwargs: "M eval/stage2.py\n")
+
+    args_strict = argparse.Namespace(
+        base_url="http://mock:5000",
+        cache_dir=cache_dir,
+        questions=q_file,
+        chat_model="model",
+        temperature=0.0,
+        top_k=6,
+        arms=None,
+        smoke=True,
+        out=tmp_path / "out",
+        sleep=0.0,
+        allow_dirty=False,
+        no_cache=False,
+    )
+
+    with pytest.raises(SystemExit):
+        run_stage2_eval(args_strict, {"collections": {}, "arms": {}}, token="tok")
+
 

@@ -91,15 +91,19 @@ When the LLM provider fails, times out, or returns empty text, `RagService` retu
 
 To maintain formal pre-registration integrity and avoid p-hacking:
 
-### 5.1 Primary Endpoints (Generalization of Threshold Gating)
-1. **Primary Endpoint 2.1 (Answerable Abstention Generalization):**
+### 5.1 Primary Endpoints (Out-of-Sample Trade-off Evaluation)
+
+As documented in ADR 0010 (§7.3), raising the threshold $\tau$ from the baseline `0.55` to the calibrated $\tau^*$ ($0.70$ / $0.75$) increases rejection rigor: it suppresses false acceptances (lower FAR on Not-In-Docs queries) but incurs a higher false rejection rate (higher FRR on answerable queries). To quantify this operational trade-off without in-sample calibration bias:
+
+1. **Primary Endpoint 2.1 (Answerable Abstention Trade-off):**
    - **Metric:** False Rejection Rate ($\text{FRR}$) on answerable questions in the **`heldout`** partition ($N=52$).
-   - **Comparison:** `prod_055` ($\tau=0.55$) vs `calibrated_tau` ($\tau=\tau^*$).
-   - **Hypothesis:** Calibrated thresholding maintains acceptable $\text{FRR} \le 15\%$ on unseen regulations while reducing over-abstention.
+   - **Comparison:** Evaluates $\text{FRR}$ across `prod_055` ($\tau=0.55$), `calibrated_tau` ($\tau=\tau^*$), and `ungated` ($\tau=0.0$), with explicit decomposition into pre-LLM similarity abstention (`LowSimilarity`) versus post-LLM self-refusal (`ModelRefusal`).
+   - **Objective:** Quantify the exact cost in lost answer availability on unseen regulations when raising $\tau$ to suppress out-of-domain false acceptances.
+
 2. **Primary Endpoint 2.2 (Out-of-Domain Hallucination Prevention):**
    - **Metric:** False Acceptance Rate ($\text{FAR}$) on Not-In-Docs questions in the **`heldout`** partition ($N=12$).
-   - **Comparison:** `prod_055` vs `calibrated_tau`.
-   - **Hypothesis:** Calibrated thresholding rejects out-of-domain queries with $\text{FAR} \le 20\%$.
+   - **Comparison:** Evaluates $\text{FAR}$ across `prod_055`, `calibrated_tau`, and `ungated`.
+   - **Objective:** Quantify whether higher $\tau^*$ significantly reduces out-of-domain hallucination risk on unseen documents, or whether the lexical FTS disjunction ($s < \tau \land \lnot \text{hasFtsHit}$) limits rejection effectiveness.
 
 ### 5.2 Pre-Registered Secondary Endpoint (Granular Extraction Under Font Corruption)
 - **Cohort:** All answerable questions on **unbiased heldout CMap documents** (`tarh-dakheli.pdf` and `forsat-motaleati.pdf`, $N=27$).

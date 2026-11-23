@@ -776,6 +776,8 @@ def run_stage2_eval(args: Any, config: Dict[str, Any], token: str) -> None:
     # Manifest
     manifest = build_reproducibility_manifest(args.questions, args.base_url)
     manifest["stage"] = "stage2_execution"
+    manifest["git_dirty"] = git_dirty
+    manifest["run_status"] = "unofficial" if git_dirty else "official"
     manifest["chat_model"] = chat_model
     manifest["temperature"] = args.temperature
     manifest["top_k"] = args.top_k
@@ -1182,10 +1184,13 @@ def run_stage2_report(args: Any) -> Dict[str, Path]:
 
     # Generate Markdown Report
     report_md_path = out_dir / "report.md"
+    run_status = manifest.get("run_status", "unofficial" if manifest.get("git_dirty", False) else "official")
     report_lines = [
         "# DocSearch Stage 2 End-to-End Evaluation Report (T19b)",
         "",
+        f"- **Run Status:** `{run_status}`",
         f"- **Data generated at Git SHA:** `{manifest.get('git_sha', 'unknown')}`",
+        f"- **Git Working Tree Dirty:** `{manifest.get('git_dirty', False)}`",
         f"- **Chat Model:** `{manifest.get('chat_model', 'unknown')}`",
         f"- **System Prompt SHA:** `{manifest.get('system_prompt_sha256', 'unknown')[:12]}...`",
         f"- **Cache Hit Rate:** `{manifest.get('cache_hit_rate', 0.0) * 100:.1f}%`",
@@ -1209,13 +1214,15 @@ def run_stage2_report(args: Any) -> Dict[str, Path]:
             sim_ans = [simulate_threshold(it, tau) for it in h_ans]
             sim_nid = [simulate_threshold(it, tau) for it in h_nid]
 
-            frr = sum(1 for s in sim_ans if s["notFound"]) / len(h_ans) if h_ans else 0.0
+            fr_count = sum(1 for s in sim_ans if s["notFound"])
+            frr = fr_count / len(h_ans) if h_ans else 0.0
             frr_low = sum(1 for s in sim_ans if s["no_answer_reason"] == "LowSimilarity") / len(h_ans) if h_ans else 0.0
             frr_mod = sum(1 for s in sim_ans if s["no_answer_reason"] == "ModelRefusal") / len(h_ans) if h_ans else 0.0
-            far = sum(1 for s in sim_nid if not s["notFound"]) / len(h_nid) if h_nid else 0.0
+            fa_count = sum(1 for s in sim_nid if not s["notFound"])
+            far = fa_count / len(h_nid) if h_nid else 0.0
 
-            ci_frr = wilson_score_interval(int(frr * len(h_ans)), len(h_ans))
-            ci_far = wilson_score_interval(int(far * len(h_nid)), len(h_nid))
+            ci_frr = wilson_score_interval(fr_count, len(h_ans))
+            ci_far = wilson_score_interval(fa_count, len(h_nid))
 
             report_lines.append(
                 f"| `{arm_k}` | `{op_name}` | {frr*100:.1f}% [{ci_frr[0]*100:.1f}%, {ci_frr[1]*100:.1f}%] | "
