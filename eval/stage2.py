@@ -14,12 +14,14 @@ Evaluates the complete DocSearch RAG pipeline (POST /api/v1/ask) across multi-ar
 - Headless Matplotlib publication plots.
 """
 
+import csv
 import datetime
 import hashlib
 import json
 import math
 import os
 import re
+import subprocess
 import sys
 import time
 import unicodedata
@@ -36,6 +38,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def get_git_sha() -> str:
+    try:
+        return subprocess.check_output(["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True).strip()
+    except Exception:
+        return "unknown"
 
 # --- Normalization Maps & Regexes matching C# and T12/ADR 0008 ---
 
@@ -1025,7 +1034,7 @@ def generate_stage2_plots(results: Dict[str, Any], out_dir: Path) -> List[Path]:
     sweep_range = np.arange(0.30, 0.825, 0.025)
 
     for ax_panel, subset_name in [(ax_dev, "tuned_dev"), (ax_test, "tuned_test")]:
-        arm_items = arms_data.get("arm3_hybrid_ocr_defective", [])
+        arm_items = arms_data.get("arm3_hybrid_ocr_defective") or (next(iter(arms_data.values())) if arms_data else [])
         if subset_name == "tuned_dev":
             sub_qs = [it for it in arm_items if it.get("docset") == "tuned" and it.get("split") == "dev"]
             title_label = "Tuned Dev (In-Sample Calibration)"
@@ -1119,22 +1128,54 @@ def generate_stage2_plots(results: Dict[str, Any], out_dir: Path) -> List[Path]:
 
 def run_stage2_report(args: Any) -> Dict[str, Path]:
     """Merges Phase A and Phase B results, computes metrics across 3 threshold operating points, and renders report."""
-    phase_a_dir = args.phase_a_dir or args.stage2_phase_a
-    phase_b_dir = args.phase_b_dir or args.stage2_phase_b
-    out_dir = args.out or Path("eval/results") / "t19b_stage2"
+    phase_a_dir = getattr(args, "phase_a_dir", None) or getattr(args, "stage2_phase_a", None)
+    phase_b_dir = getattr(args, "phase_b_dir", None) or getattr(args, "stage2_phase_b", None)
+    out_dir = getattr(args, "out", None) or Path("eval/results") / "t19b_stage2"
+    out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     merged_arms: Dict[str, List[Dict[str, Any]]] = {}
     manifest: Dict[str, Any] = {}
 
+    phase_data_shas: List[str] = []
+    phase_dirty_flags: List[bool] = []
+    chat_models: List[str] = []
+    prompt_shas: List[str] = []
+    total_queries_sum = 0
+    total_cache_hits_sum = 0
+    all_failed_provider_ids: List[str] = []
+
     for p_dir in [phase_a_dir, phase_b_dir]:
-        if not p_dir or not Path(p_dir).exists():
+        if not p_dir:
             continue
-        p_res = Path(p_dir) / "phase_results.json"
+        p_path = Path(p_dir)
+        p_res = p_path if p_path.is_file() else (p_path / "phase_results.json")
         if p_res.exists():
             with open(p_res, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                manifest.update(data.get("manifest", {}))
+                p_manifest = data.get("manifest", {})
+                for k, v in p_manifest.items():
+                    if k not in manifest:
+                        manifest[k] = v
+
+                sha = p_manifest.get("data_git_sha") or p_manifest.get("git_sha")
+                if sha:
+                    phase_data_shas.append(sha)
+
+                if "git_dirty" in p_manifest:
+                    phase_dirty_flags.append(bool(p_manifest["git_dirty"]))
+
+                if p_manifest.get("chat_model"):
+                    chat_models.append(p_manifest["chat_model"])
+                if p_manifest.get("system_prompt_sha256"):
+                    prompt_shas.append(p_manifest["system_prompt_sha256"])
+
+                total_queries_sum += int(p_manifest.get("total_queries", 0))
+                total_cache_hits_sum += int(p_manifest.get("total_cache_hits", 0))
+                for fid in p_manifest.get("failed_provider_ids", []):
+                    if fid not in all_failed_provider_ids:
+                        all_failed_provider_ids.append(fid)
+
                 for arm_k, arm_items in data.get("arms", {}).items():
                     merged_arms[arm_k] = arm_items
 
@@ -1146,6 +1187,39 @@ def run_stage2_report(args: Any) -> Dict[str, Path]:
         "regime_b_scan_off": 0.55,
         "regime_b_scan_defective": 0.55,
     }
+
+    stage1_path = getattr(args, "stage1_results", None)
+    if stage1_path and Path(stage1_path).exists():
+        try:
+            with open(stage1_path, "r", encoding="utf-8") as f:
+                s1_data = json.load(f)
+                s1_cals = s1_data.get("calibrations", {})
+                for k, v in s1_cals.items():
+                    if k in calibrations and isinstance(v, (int, float)):
+                        calibrations[k] = float(v)
+        except Exception as ex:
+            print(f"  [WARN] Failed to load calibrations from stage1-results: {ex}")
+
+    data_git_sha = phase_data_shas[0] if phase_data_shas else manifest.get("git_sha", "unknown")
+    report_git_sha = get_git_sha()
+    is_dirty = any(phase_dirty_flags) if phase_dirty_flags else bool(manifest.get("git_dirty", False))
+    run_status = "unofficial" if is_dirty else "official"
+
+    manifest["stage"] = "stage2_merged_report"
+    manifest["data_git_sha"] = data_git_sha
+    manifest["report_git_sha"] = report_git_sha
+    manifest["git_sha"] = data_git_sha
+    manifest["git_dirty"] = is_dirty
+    manifest["run_status"] = run_status
+    if chat_models:
+        manifest["chat_model"] = chat_models[0]
+    if prompt_shas:
+        manifest["system_prompt_sha256"] = prompt_shas[0]
+    manifest["total_queries"] = total_queries_sum
+    manifest["total_cache_hits"] = total_cache_hits_sum
+    manifest["cache_hit_rate"] = round(total_cache_hits_sum / total_queries_sum, 4) if total_queries_sum > 0 else 0.0
+    manifest["failed_provider_ids"] = all_failed_provider_ids
+    manifest["failed_provider_count"] = len(all_failed_provider_ids)
 
     results_data = {
         "manifest": manifest,
@@ -1245,11 +1319,12 @@ def run_stage2_report(args: Any) -> Dict[str, Path]:
         "# DocSearch Stage 2 End-to-End Evaluation Report (T19b)",
         "",
         f"- **Run Status:** `{run_status}`",
-        f"- **Data generated at Git SHA:** `{manifest.get('git_sha', 'unknown')}`",
+        f"- **Data generated at Git SHA:** `{manifest.get('data_git_sha', manifest.get('git_sha', 'unknown'))}`",
+        f"- **Report generated at Git SHA:** `{manifest.get('report_git_sha', 'unknown')}`",
         f"- **Git Working Tree Dirty:** `{manifest.get('git_dirty', False)}`",
         f"- **Chat Model:** `{manifest.get('chat_model', 'unknown')}`",
-        f"- **System Prompt SHA:** `{manifest.get('system_prompt_sha256', 'unknown')[:12]}...`",
-        f"- **Cache Hit Rate:** `{manifest.get('cache_hit_rate', 0.0) * 100:.1f}%`",
+        f"- **System Prompt SHA:** `{(manifest.get('system_prompt_sha256') or 'unknown')[:12]}...`",
+        f"- **Cache Hit Rate:** `{float(manifest.get('cache_hit_rate') or 0.0) * 100:.1f}%`",
         f"- **Provider Failures:** `{manifest.get('failed_provider_count', 0)}`",
         "",
         "## 1. Pre-Registered Primary Endpoints (Held-out Generalization)",
@@ -1314,9 +1389,14 @@ def run_stage2_report(args: Any) -> Dict[str, Path]:
     unit_p2 = sum(1 for it in h_cmap_a2 if it.get("unit_hit_proximity_10") is True)
     unit_p3 = sum(1 for it in h_cmap_a3 if it.get("unit_hit_proximity_10") is True)
 
+    rec2_us = (unit_s2 / unit_tot) if unit_tot else 0.0
+    rec3_us = (unit_s3 / unit_tot) if unit_tot else 0.0
+    rec2_up = (unit_p2 / unit_tot) if unit_tot else 0.0
+    rec3_up = (unit_p3 / unit_tot) if unit_tot else 0.0
+
     report_lines.append(f"| Multi-digit Numbers ($N={num_tot}$) | {num_h2}/{num_tot} ({rec2_n*100:.1f}%) | {num_h3}/{num_tot} ({rec3_n*100:.1f}%) | +{(rec3_n - rec2_n)*100:.1f}% | Descriptive only (ADR 0010 §7.1) |")
-    report_lines.append(f"| Unit Phrases Strict ($N={unit_tot}$) | {unit_s2}/{unit_tot} ({(unit_s2/unit_tot)*100:.1f}%) | {unit_s3}/{unit_tot} ({(unit_s3/unit_tot)*100:.1f}%) | +{((unit_s3 - unit_s2)/unit_tot)*100:.1f}% | Descriptive only |")
-    report_lines.append(f"| Unit Phrases Proximity<=10 ($N={unit_tot}$) | {unit_p2}/{unit_tot} ({(unit_p2/unit_tot)*100:.1f}%) | {unit_p3}/{unit_tot} ({(unit_p3/unit_tot)*100:.1f}%) | +{((unit_p3 - unit_p2)/unit_tot)*100:.1f}% | Descriptive only |")
+    report_lines.append(f"| Unit Phrases Strict ($N={unit_tot}$) | {unit_s2}/{unit_tot} ({rec2_us*100:.1f}%) | {unit_s3}/{unit_tot} ({rec3_us*100:.1f}%) | +{(rec3_us - rec2_us)*100:.1f}% | Descriptive only |")
+    report_lines.append(f"| Unit Phrases Proximity<=10 ($N={unit_tot}$) | {unit_p2}/{unit_tot} ({rec2_up*100:.1f}%) | {unit_p3}/{unit_tot} ({rec3_up*100:.1f}%) | +{(rec3_up - rec2_up)*100:.1f}% | Descriptive only |")
 
     report_lines.extend([
         "",

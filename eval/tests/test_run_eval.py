@@ -1234,4 +1234,169 @@ def test_stage2_refused_question_preserves_non_vacuous_denominators():
     assert denom_055 == 1  # Denominator invariant: 1 question with numbers in both!
 
 
+def test_stage2_run_stage2_report_end_to_end(tmp_path):
+    """Verifies run_stage2_report end-to-end: merges Phase A & B, generates summary.csv, report.md with dual git SHAs, and all 3 plots."""
+    import argparse
+    from stage2 import run_stage2_report
+
+    phase_a_dir = tmp_path / "phase_a"
+    phase_a_dir.mkdir(parents=True)
+    phase_b_dir = tmp_path / "phase_b"
+    phase_b_dir.mkdir(parents=True)
+    out_dir = tmp_path / "out"
+
+    # Base item builder
+    def make_item(qid, arm, docset, split, qtype, src_file="aein-91.pdf", num_hit=None, unit_hit=None, score=0.85, not_found=False):
+        return {
+            "id": qid,
+            "arm": arm,
+            "docset": docset,
+            "split": split,
+            "type": qtype,
+            "source_file": src_file,
+            "source_pages": [1],
+            "bestVectorScore": score,
+            "hasFtsHit": True,
+            "retrieved_chunk_count": 6,
+            "notFound": not_found,
+            "answer": "پاسخ نمونه [1]" if not not_found else "«در اسناد موجود پاسخی برای این پرسش پیدا نشد.»",
+            "sources": [{"fileName": src_file, "page": 1}] if not not_found else [],
+            "kw_hit": not not_found,
+            "num_hit": num_hit,
+            "unit_hit_strict": unit_hit,
+            "unit_hit_proximity_10": unit_hit,
+            "citation_validity": not not_found,
+            "citation_page_hit": not not_found,
+            "citation_precision": 1.0 if not not_found else 0.0,
+            "citation_recall": 1.0 if not not_found else 0.0,
+            "total_ms": 1250.0,
+            "is_cached": False,
+        }
+
+    # 1. Phase A fixture (Arm 1 vector-only)
+    arm1_items = [
+        make_item("q001", "arm1_vector_ocr_off", "heldout", "test", "factual"),
+        make_item("q002", "arm1_vector_ocr_off", "heldout", "test", "not-in-docs", score=0.35, not_found=True),
+        make_item("q003", "arm1_vector_ocr_off", "tuned", "dev", "factual"),
+        make_item("q004", "arm1_vector_ocr_off", "tuned", "test", "factual"),
+    ]
+    phase_a_data = {
+        "manifest": {
+            "stage": "stage2_execution",
+            "git_sha": "git-sha-phase-a-1234",
+            "git_dirty": False,
+            "chat_model": "mock-chat-model",
+            "system_prompt_sha256": "systempromptsha256abcdef",
+            "total_queries": 4,
+            "total_cache_hits": 1,
+            "failed_provider_ids": [],
+        },
+        "arms": {
+            "arm1_vector_ocr_off": arm1_items,
+        },
+    }
+    (phase_a_dir / "phase_results.json").write_text(json.dumps(phase_a_data), encoding="utf-8")
+
+    # 2. Phase B fixture (Arms 2, 3, regime_b scan twins)
+    arm2_items = [
+        make_item("q001", "arm2_hybrid_ocr_off", "heldout", "test", "factual"),
+        make_item("q002", "arm2_hybrid_ocr_off", "heldout", "test", "not-in-docs", score=0.35, not_found=True),
+        make_item("q003", "arm2_hybrid_ocr_off", "tuned", "dev", "factual"),
+        make_item("q004", "arm2_hybrid_ocr_off", "tuned", "test", "factual"),
+        make_item("q010", "arm2_hybrid_ocr_off", "heldout", "test", "numeric", src_file="tarh-dakheli.pdf", num_hit=False, unit_hit=False),
+        make_item("q011", "arm2_hybrid_ocr_off", "heldout", "test", "numeric", src_file="forsat-motaleati.pdf", num_hit=False, unit_hit=False),
+    ]
+    arm3_items = [
+        make_item("q001", "arm3_hybrid_ocr_defective", "heldout", "test", "factual"),
+        make_item("q002", "arm3_hybrid_ocr_defective", "heldout", "test", "not-in-docs", score=0.35, not_found=True),
+        make_item("q003", "arm3_hybrid_ocr_defective", "tuned", "dev", "factual"),
+        make_item("q004", "arm3_hybrid_ocr_defective", "tuned", "test", "factual"),
+        make_item("q010", "arm3_hybrid_ocr_defective", "heldout", "test", "numeric", src_file="tarh-dakheli.pdf", num_hit=True, unit_hit=True),
+        make_item("q011", "arm3_hybrid_ocr_defective", "heldout", "test", "numeric", src_file="forsat-motaleati.pdf", num_hit=True, unit_hit=True),
+    ]
+    scan_off_items = [
+        make_item("q020", "regime_b_scan_off", "heldout", "test", "factual", not_found=True),
+    ]
+    scan_def_items = [
+        make_item("q020", "regime_b_scan_defective", "heldout", "test", "factual", not_found=False),
+    ]
+
+    phase_b_data = {
+        "manifest": {
+            "stage": "stage2_execution",
+            "git_sha": "git-sha-phase-b-5678",
+            "git_dirty": False,
+            "chat_model": "mock-chat-model",
+            "system_prompt_sha256": "systempromptsha256abcdef",
+            "total_queries": 14,
+            "total_cache_hits": 5,
+            "failed_provider_ids": [],
+        },
+        "arms": {
+            "arm2_hybrid_ocr_off": arm2_items,
+            "arm3_hybrid_ocr_defective": arm3_items,
+            "regime_b_scan_off": scan_off_items,
+            "regime_b_scan_defective": scan_def_items,
+        },
+    }
+    (phase_b_dir / "phase_results.json").write_text(json.dumps(phase_b_data), encoding="utf-8")
+
+    # 3. Stage 1 Calibrations fixture
+    stage1_file = tmp_path / "stage1_results.json"
+    stage1_data = {
+        "calibrations": {
+            "arm1_vector_ocr_off": 0.70,
+            "arm2_hybrid_ocr_off": 0.75,
+            "arm3_hybrid_ocr_defective": 0.75,
+        }
+    }
+    stage1_file.write_text(json.dumps(stage1_data), encoding="utf-8")
+
+    args = argparse.Namespace(
+        phase_a_dir=phase_a_dir,
+        stage2_phase_a=None,
+        phase_b_dir=phase_b_dir,
+        stage2_phase_b=None,
+        stage1_results=stage1_file,
+        out=out_dir,
+    )
+
+    out_paths = run_stage2_report(args)
+
+    # Verify return dictionary and file paths
+    assert out_paths["results_json"].exists()
+    assert out_paths["summary_csv"].exists()
+    assert out_paths["report_md"].exists()
+    assert len(out_paths["plots"]) == 3
+
+    # Verify all 3 plots exist on disk with non-zero bytes
+    for p in out_paths["plots"]:
+        assert p.exists()
+        assert p.stat().st_size > 0
+
+    # Verify results.json merged manifest
+    res_data = json.loads(out_paths["results_json"].read_text(encoding="utf-8"))
+    manifest = res_data["manifest"]
+    assert manifest["data_git_sha"] == "git-sha-phase-a-1234"
+    assert "report_git_sha" in manifest
+    assert manifest["chat_model"] == "mock-chat-model"
+    assert manifest["total_queries"] == 18
+    assert manifest["total_cache_hits"] == 6
+
+    # Verify summary.csv structure and data rows
+    csv_text = out_paths["summary_csv"].read_text(encoding="utf-8")
+    assert "arm,operating_point,cohort,q_count" in csv_text
+    assert "arm1_vector_ocr_off,prod_055,overall" in csv_text
+    assert "arm3_hybrid_ocr_defective,calibrated_tau,heldout_cmap" in csv_text
+
+    # Verify report.md header and sections
+    md_text = out_paths["report_md"].read_text(encoding="utf-8")
+    assert "- **Data generated at Git SHA:** `git-sha-phase-a-1234`" in md_text
+    assert "- **Report generated at Git SHA:**" in md_text
+    assert "## 1. Pre-Registered Primary Endpoints (Held-out Generalization)" in md_text
+    assert "## 2. Pre-Registered Secondary Endpoint: Granular Extraction on `heldout-CMap`" in md_text
+    assert "## 3. Citation Quality & Performance Across All Questions" in md_text
+
+
+
 
