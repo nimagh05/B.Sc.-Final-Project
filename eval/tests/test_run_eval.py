@@ -1398,5 +1398,57 @@ def test_stage2_run_stage2_report_end_to_end(tmp_path):
     assert "## 3. Citation Quality & Performance Across All Questions" in md_text
 
 
+def test_stage2_validate_offline_sim_zero_questions(tmp_path, monkeypatch):
+    """Verifies that run_validate_offline_sim raises SystemExit(2) and prints [FAIL] when zero questions match."""
+    import argparse
+    from stage2 import run_validate_offline_sim
+
+    class DummyClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_collections(self):
+            return []
+
+    monkeypatch.setattr("run_eval.DocSearchClient", DummyClient)
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "collection_manifest.json").write_text("{}", encoding="utf-8")
+
+    phase_a_dir = tmp_path / "phase_a"
+    phase_a_dir.mkdir()
+    phase_a_data = {
+        "manifest": {"stage": "stage2_execution"},
+        "arms": {
+            "arm1_vector_ocr_off": [{"id": "q001", "bestVectorScore": 0.7, "hasFtsHit": False}]
+        },
+    }
+    (phase_a_dir / "phase_results.json").write_text(json.dumps(phase_a_data), encoding="utf-8")
+
+    q_file = tmp_path / "questions.json"
+    q_file.write_text(json.dumps([{"id": "q001", "question": "dummy"}]), encoding="utf-8")
+
+    args = argparse.Namespace(
+        base_url="http://mock-api:5000",
+        cache_dir=cache_dir,
+        phase_a_dir=phase_a_dir,
+        stage2_phase_a=None,
+        phase_b_dir=None,
+        stage2_phase_b=None,
+        questions=q_file,
+        arms="nonexistent_arm_123",
+        top_k=6,
+    )
+
+    config = {"collections": {}, "arms": {}}
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_validate_offline_sim(args, config, "dummy_token")
+
+    assert exc_info.value.code == 2
+
+
+
 
 

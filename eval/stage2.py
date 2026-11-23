@@ -908,8 +908,14 @@ def run_validate_offline_sim(args: Any, config: Dict[str, Any], token: str) -> N
         if arm_k in selected_arms:
             validation_pairs.append((arm_k, q_id, item))
 
+    questions_tested = len(validation_pairs)
+    if questions_tested == 0:
+        print("\n[FAIL] No questions validated. Check that selected arms match records in phase results.")
+        sys.exit(2)
+
     # Pick up to 18 stratified items
     validation_pairs = validation_pairs[:18]
+    questions_tested = len(validation_pairs)
     pre_llm_mismatches = 0
     post_llm_mismatches = 0
 
@@ -918,7 +924,26 @@ def run_validate_offline_sim(args: Any, config: Dict[str, Any], token: str) -> N
         name = col_meta["id_name"]
         col_map[col_key] = manifest[name]["id"] if name in manifest else existing_cols[name]
 
+    stratum_counts = {
+        "NoContext": 0,
+        "LowSimilarity": 0,
+        "FTS-rescue": 0,
+        "Above-tau": 0,
+    }
+
     for arm_k, q_id, ungated_item in validation_pairs:
+        ret_count = ungated_item.get("retrieved_chunk_count", 0)
+        b_score = ungated_item.get("bestVectorScore", 0.0)
+        h_fts = ungated_item.get("hasFtsHit", False)
+        if ret_count == 0:
+            stratum_counts["NoContext"] += 1
+        elif b_score < 0.55 and not h_fts:
+            stratum_counts["LowSimilarity"] += 1
+        elif b_score < 0.55 and h_fts:
+            stratum_counts["FTS-rescue"] += 1
+        else:
+            stratum_counts["Above-tau"] += 1
+
         arm_meta = config["arms"][arm_k]
         col_id = col_map[arm_meta["collection_ref"]]
         use_hybrid = arm_meta.get("use_hybrid", True)
@@ -961,9 +986,14 @@ def run_validate_offline_sim(args: Any, config: Dict[str, Any], token: str) -> N
                 print(f"  [POST-LLM VARIATION] {arm_k} {q_id}: Live notFound={live_not_found} vs Sim notFound={sim['notFound']}")
 
     print(f"\n--- Validation Summary ---")
-    print(f"  Questions Tested:       {len(validation_pairs)}")
-    print(f"  Pre-LLM Gate Agreement: {len(validation_pairs) - pre_llm_mismatches}/{len(validation_pairs)} (100% required)")
-    print(f"  Post-LLM Agreement:     {len(validation_pairs) - post_llm_mismatches}/{len(validation_pairs)}")
+    print(f"  Questions Tested:       {questions_tested}")
+    print(f"  Strata Breakdown:")
+    print(f"    - NoContext:          {stratum_counts['NoContext']}")
+    print(f"    - LowSimilarity:      {stratum_counts['LowSimilarity']}")
+    print(f"    - FTS-rescue:         {stratum_counts['FTS-rescue']}")
+    print(f"    - Above-tau:          {stratum_counts['Above-tau']}")
+    print(f"  Pre-LLM Gate Agreement: {questions_tested - pre_llm_mismatches}/{questions_tested} (100% required)")
+    print(f"  Post-LLM Agreement:     {questions_tested - post_llm_mismatches}/{questions_tested}")
 
     assert pre_llm_mismatches == 0, f"Pre-LLM gate mismatches detected ({pre_llm_mismatches})! Gate simulation failed."
     print("[OK] Live threshold cross-check passed with 100% pre-LLM gate agreement!")
@@ -981,97 +1011,225 @@ def generate_stage2_plots(results: Dict[str, Any], out_dir: Path) -> List[Path]:
         return []
 
     # Plot 1: Stage 2 Quality Comparison (Answer Rate, KW Recall, Citation Validity, Precision) under prod_055
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(10, 5.5))
     target_arms = ["arm1_vector_ocr_off", "arm2_hybrid_ocr_off", "arm3_hybrid_ocr_defective"]
     labels = ["Arm 1 (Vector)", "Arm 2 (Hybrid)", "Arm 3 (Full System)"]
     metrics_list = ["answer_rate", "kw_recall", "citation_validity", "citation_precision"]
+    metric_display_labels = [
+        "Answer Rate (N=112 answerable)",
+        "KW Recall (N=112)",
+        "Citation Validity",
+        "Citation Precision",
+    ]
 
     data_matrix = []
+    yerr_lower_matrix = []
+    yerr_upper_matrix = []
+
     for m in metrics_list:
         row = []
+        err_low_row = []
+        err_up_row = []
         for arm_k in target_arms:
             items = arms_data.get(arm_k, [])
             ans_items = [it for it in items if it.get("type") != "not-in-docs"]
             if not ans_items:
                 row.append(0.0)
+                err_low_row.append(0.0)
+                err_up_row.append(0.0)
                 continue
             # Apply prod_055 simulation
             sim_items = [simulate_threshold(it, 0.55) for it in ans_items]
             answered = [s for s in sim_items if not s["notFound"]]
 
             if m == "answer_rate":
-                val = len(answered) / len(ans_items)
+                k = len(answered)
+                n = len(ans_items)
+                val = k / n
+                ci_l, ci_u = wilson_score_interval(k, n)
+                err_low_row.append(max(0.0, val - ci_l))
+                err_up_row.append(max(0.0, ci_u - val))
             elif m == "kw_recall":
-                val = sum(1 for s in sim_items if s.get("kw_hit")) / len(ans_items)
+                k = sum(1 for s in sim_items if s.get("kw_hit"))
+                n = len(ans_items)
+                val = k / n
+                ci_l, ci_u = wilson_score_interval(k, n)
+                err_low_row.append(max(0.0, val - ci_l))
+                err_up_row.append(max(0.0, ci_u - val))
             elif m == "citation_validity":
-                val = sum(1 for s in answered if s.get("citation_validity")) / len(answered) if answered else 0.0
+                k = sum(1 for s in answered if s.get("citation_validity"))
+                n = len(answered)
+                val = k / n if n else 0.0
+                ci_l, ci_u = wilson_score_interval(k, n) if n else (0.0, 0.0)
+                err_low_row.append(max(0.0, val - ci_l))
+                err_up_row.append(max(0.0, ci_u - val))
             elif m == "citation_precision":
-                val = np.mean([s.get("citation_precision", 0.0) for s in answered]) if answered else 0.0
+                prec_list = [s.get("citation_precision", 0.0) for s in answered]
+                val = float(np.mean(prec_list)) if prec_list else 0.0
+                se = (float(np.std(prec_list, ddof=1)) / math.sqrt(len(prec_list))) if len(prec_list) > 1 else 0.0
+                err_low_row.append(min(val, 1.96 * se))
+                err_up_row.append(min(1.0 - val, 1.96 * se))
             row.append(val)
         data_matrix.append(row)
+        yerr_lower_matrix.append(err_low_row)
+        yerr_upper_matrix.append(err_up_row)
 
     x = np.arange(len(target_arms))
     width = 0.2
-    for idx, (m, row) in enumerate(zip(metrics_list, data_matrix)):
-        ax.bar(x + idx * width, row, width, label=m.replace("_", " ").title())
+    for idx, (disp_label, row) in enumerate(zip(metric_display_labels, data_matrix)):
+        yerr = [yerr_lower_matrix[idx], yerr_upper_matrix[idx]]
+        ax.bar(
+            x + idx * width,
+            row,
+            width,
+            yerr=yerr,
+            capsize=3,
+            error_kw={"elinewidth": 1.2, "ecolor": "black", "capthick": 1.2},
+            label=disp_label,
+        )
 
     ax.set_ylabel("Score / Proportion")
-    ax.set_title("DocSearch Stage 2 Generation Quality by Arm (prod_055)")
+    ax.set_title("DocSearch Stage 2 Generation Quality by Arm (prod_055, tau=0.55)", fontsize=11, pad=35)
     ax.set_xticks(x + width * 1.5)
     ax.set_xticklabels(labels)
-    ax.set_ylim(0.0, 1.1)
-    ax.legend(loc="lower right")
+    ax.set_ylim(0.0, 1.15)
+    ax.legend(
+        bbox_to_anchor=(0.5, 1.02),
+        loc="lower center",
+        ncol=4,
+        frameon=True,
+        fontsize=8.5,
+    )
     ax.grid(axis="y", linestyle="--", alpha=0.7)
 
     plot1_path = out_dir / "plot1_stage2_quality_comparison.png"
     fig.tight_layout()
-    fig.savefig(plot1_path, dpi=300)
+    fig.savefig(plot1_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     generated_plots.append(plot1_path)
 
-    # Plot 2: Threshold Sweep Trade-Off Curves (dev vs test side-by-side end-to-end)
-    fig, (ax_dev, ax_test) = plt.subplots(1, 2, figsize=(12, 5), sharey=True)
+    # Plot 2: Threshold Sweep Trade-Off Curves (dev vs test side-by-side end-to-end across all 3 arms)
+    fig, (ax_dev, ax_test) = plt.subplots(1, 2, figsize=(13, 5.5), sharey=True)
     sweep_range = np.arange(0.30, 0.825, 0.025)
 
-    for ax_panel, subset_name in [(ax_dev, "tuned_dev"), (ax_test, "tuned_test")]:
-        arm_items = arms_data.get("arm3_hybrid_ocr_defective") or (next(iter(arms_data.values())) if arms_data else [])
-        if subset_name == "tuned_dev":
-            sub_qs = [it for it in arm_items if it.get("docset") == "tuned" and it.get("split") == "dev"]
-            title_label = "Tuned Dev (In-Sample Calibration)"
-        else:
-            sub_qs = [it for it in arm_items if it.get("docset") == "tuned" and it.get("split") == "test"]
-            title_label = "Tuned Test (Out-of-Sample)"
+    arm_plot_styles = {
+        "arm1_vector_ocr_off": {
+            "label_base": "Arm 1 (Vector)",
+            "frr_color": "tab:blue",
+            "frr_style": ":",
+            "frr_marker": "^",
+            "far_color": "tab:red",
+            "far_style": ":",
+            "far_marker": "v",
+        },
+        "arm2_hybrid_ocr_off": {
+            "label_base": "Arm 2 (Hybrid)",
+            "frr_color": "teal",
+            "frr_style": "--",
+            "frr_marker": "s",
+            "far_color": "darkorange",
+            "far_style": "--",
+            "far_marker": "d",
+        },
+        "arm3_hybrid_ocr_defective": {
+            "label_base": "Arm 3 (Full System)",
+            "frr_color": "navy",
+            "frr_style": "-",
+            "frr_marker": "o",
+            "far_color": "crimson",
+            "far_style": "-",
+            "far_marker": "x",
+        },
+    }
 
-        ans_qs = [it for it in sub_qs if it.get("type") != "not-in-docs"]
-        nid_qs = [it for it in sub_qs if it.get("type") == "not-in-docs"]
+    panel_configs = [
+        (ax_dev, "tuned", "dev", "Tuned Dev (In-Sample Calibration)"),
+        (ax_test, "tuned", "test", "Tuned Test (Out-of-Sample)"),
+    ]
 
-        far_curve = []
-        frr_curve = []
-        for tau in sweep_range:
-            fa = sum(1 for it in nid_qs if not simulate_threshold(it, tau)["notFound"])
-            fr = sum(1 for it in ans_qs if simulate_threshold(it, tau)["notFound"])
-            far_curve.append(fa / len(nid_qs) if nid_qs else 0.0)
-            frr_curve.append(fr / len(ans_qs) if ans_qs else 0.0)
+    for ax_panel, docset_val, split_val, title_prefix in panel_configs:
+        n_ans_panel = 0
+        n_nid_panel = 0
 
-        ax_panel.plot(sweep_range, far_curve, "r-o", label="FAR (Not-In-Docs Acceptance)")
-        ax_panel.plot(sweep_range, frr_curve, "b-s", label="FRR (Answerable Rejection)")
+        for arm_k in ["arm1_vector_ocr_off", "arm2_hybrid_ocr_off", "arm3_hybrid_ocr_defective"]:
+            arm_items = arms_data.get(arm_k, [])
+            sub_qs = [it for it in arm_items if it.get("docset") == docset_val and it.get("split") == split_val]
+            ans_qs = [it for it in sub_qs if it.get("type") != "not-in-docs"]
+            nid_qs = [it for it in sub_qs if it.get("type") == "not-in-docs"]
+
+            if ans_qs:
+                n_ans_panel = len(ans_qs)
+            if nid_qs:
+                n_nid_panel = len(nid_qs)
+
+            if not sub_qs:
+                continue
+
+            style = arm_plot_styles.get(arm_k, {})
+            far_curve = []
+            frr_curve = []
+            for tau in sweep_range:
+                fa = sum(1 for it in nid_qs if not simulate_threshold(it, tau)["notFound"])
+                fr = sum(1 for it in ans_qs if simulate_threshold(it, tau)["notFound"])
+                far_curve.append(fa / len(nid_qs) if nid_qs else 0.0)
+                frr_curve.append(fr / len(ans_qs) if ans_qs else 0.0)
+
+            ax_panel.plot(
+                sweep_range,
+                frr_curve,
+                color=style.get("frr_color", "blue"),
+                linestyle=style.get("frr_style", "-"),
+                marker=style.get("frr_marker", "o"),
+                markersize=4,
+                label=f"{style.get('label_base', arm_k)} FRR",
+            )
+            ax_panel.plot(
+                sweep_range,
+                far_curve,
+                color=style.get("far_color", "red"),
+                linestyle=style.get("far_style", "--"),
+                marker=style.get("far_marker", "x"),
+                markersize=4,
+                label=f"{style.get('label_base', arm_k)} FAR",
+            )
+
         ax_panel.axvline(0.55, color="gray", linestyle=":", label="prod_055 (0.55)")
         ax_panel.axvline(0.75, color="purple", linestyle="--", label="calibrated_tau (0.75)")
         ax_panel.set_xlabel("Similarity Threshold (tau)")
-        ax_panel.set_title(title_label)
+        ax_panel.set_title(f"{title_prefix} (N_ans={n_ans_panel}, N_nid={n_nid_panel})")
         ax_panel.grid(True, linestyle="--", alpha=0.5)
-        ax_panel.legend(loc="center right")
 
     ax_dev.set_ylabel("Error Rate")
-    fig.suptitle("DocSearch Threshold Trade-Off Curves End-to-End (Arm 3)", fontsize=13)
+    fig.suptitle("DocSearch Threshold Trade-Off Curves End-to-End Across Arms", fontsize=12, y=1.02)
+
+    handles_dev, labels_dev = ax_dev.get_legend_handles_labels()
+    dedup_handles = []
+    dedup_labels = []
+    seen = set()
+    for h, l in zip(handles_dev, labels_dev):
+        if l not in seen:
+            seen.add(l)
+            dedup_handles.append(h)
+            dedup_labels.append(l)
+
+    fig.legend(
+        dedup_handles,
+        dedup_labels,
+        loc="lower center",
+        bbox_to_anchor=(0.5, -0.08),
+        ncol=4,
+        fontsize=8.5,
+        frameon=True,
+    )
+
     plot2_path = out_dir / "plot2_threshold_tradeoff_curves.png"
     fig.tight_layout()
-    fig.savefig(plot2_path, dpi=300)
+    fig.savefig(plot2_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     generated_plots.append(plot2_path)
 
     # Plot 3: OCR Impact (Number/Unit Recall on heldout-CMap & Regime B Twin)
-    fig, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(11, 4.5))
+    fig, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(12, 4.5))
 
     # Left: heldout-CMap Arm 3 vs Arm 2 under ungated
     arm2_items = arms_data.get("arm2_hybrid_ocr_off", [])
@@ -1090,36 +1248,119 @@ def generate_stage2_plots(results: Dict[str, Any], out_dir: Path) -> List[Path]:
     unit_hits_a3 = sum(1 for it in heldout_cmap_a3 if it.get("unit_hit_strict") is True)
     unit_tot_a3 = sum(1 for it in heldout_cmap_a3 if it.get("unit_hit_strict") is not None)
 
-    x3 = np.arange(2)
-    w3 = 0.35
-    a2_vals = [num_hits_a2 / num_tot_a2 if num_tot_a2 else 0, unit_hits_a2 / unit_tot_a2 if unit_tot_a2 else 0]
-    a3_vals = [num_hits_a3 / num_tot_a3 if num_tot_a3 else 0, unit_hits_a3 / unit_tot_a3 if unit_tot_a3 else 0]
+    unit_prox_hits_a2 = sum(1 for it in heldout_cmap_a2 if it.get("unit_hit_proximity_10") is True)
+    unit_prox_tot_a2 = sum(1 for it in heldout_cmap_a2 if it.get("unit_hit_proximity_10") is not None)
+    unit_prox_hits_a3 = sum(1 for it in heldout_cmap_a3 if it.get("unit_hit_proximity_10") is True)
+    unit_prox_tot_a3 = sum(1 for it in heldout_cmap_a3 if it.get("unit_hit_proximity_10") is not None)
 
-    ax_l.bar(x3 - w3/2, a2_vals, w3, label="Arm 2 (OCR Off)", color="salmon")
-    ax_l.bar(x3 + w3/2, a3_vals, w3, label="Arm 3 (Selective OCR)", color="mediumseagreen")
+    x3 = np.arange(3)
+    w3 = 0.35
+    a2_vals = [
+        num_hits_a2 / num_tot_a2 if num_tot_a2 else 0.0,
+        unit_hits_a2 / unit_tot_a2 if unit_tot_a2 else 0.0,
+        unit_prox_hits_a2 / unit_prox_tot_a2 if unit_prox_tot_a2 else 0.0,
+    ]
+    a3_vals = [
+        num_hits_a3 / num_tot_a3 if num_tot_a3 else 0.0,
+        unit_hits_a3 / unit_tot_a3 if unit_tot_a3 else 0.0,
+        unit_prox_hits_a3 / unit_prox_tot_a3 if unit_prox_tot_a3 else 0.0,
+    ]
+
+    bars_a2 = ax_l.bar(x3 - w3/2, a2_vals, w3, label="Arm 2 (OCR Off)", color="salmon")
+    bars_a3 = ax_l.bar(x3 + w3/2, a3_vals, w3, label="Arm 3 (Selective OCR)", color="mediumseagreen")
+
+    a2_labels = [
+        f"{num_hits_a2}/{num_tot_a2}",
+        f"{unit_hits_a2}/{unit_tot_a2}",
+        f"{unit_prox_hits_a2}/{unit_prox_tot_a2}",
+    ]
+    a3_labels = [
+        f"{num_hits_a3}/{num_tot_a3}",
+        f"{unit_hits_a3}/{unit_tot_a3}",
+        f"{unit_prox_hits_a3}/{unit_prox_tot_a3}",
+    ]
+
+    for b, lbl in zip(bars_a2, a2_labels):
+        h = b.get_height()
+        y_pos = max(h + 0.03, 0.03)
+        ax_l.annotate(
+            lbl,
+            xy=(b.get_x() + b.get_width() / 2, y_pos),
+            xytext=(0, 2),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=8.5,
+            fontweight="bold",
+        )
+
+    for b, lbl in zip(bars_a3, a3_labels):
+        h = b.get_height()
+        y_pos = max(h + 0.03, 0.03)
+        ax_l.annotate(
+            lbl,
+            xy=(b.get_x() + b.get_width() / 2, y_pos),
+            xytext=(0, 2),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=8.5,
+            fontweight="bold",
+        )
+
     ax_l.set_xticks(x3)
-    ax_l.set_xticklabels([f"Numbers (N={num_tot_a3})", f"Units Strict (N={unit_tot_a3})"])
+    ax_l.set_xticklabels([
+        f"Numbers (N={num_tot_a3})",
+        f"Units Strict (N={unit_tot_a3})",
+        f"Units Prox<=10 (N={unit_prox_tot_a3})",
+    ])
     ax_l.set_ylabel("Recall")
     ax_l.set_title("heldout-CMap Granular Recall (Ungated)")
-    ax_l.set_ylim(0.0, 1.1)
-    ax_l.legend()
+    ax_l.set_ylim(0.0, 1.18)
+    ax_l.legend(loc="upper left")
     ax_l.grid(axis="y", linestyle="--", alpha=0.7)
 
     # Right: Regime B Scan Twin Answer Rate
     scan_off_items = arms_data.get("regime_b_scan_off", [])
     scan_def_items = arms_data.get("regime_b_scan_defective", [])
-    ans_off = sum(1 for it in scan_off_items if not it.get("notFound")) / len(scan_off_items) if scan_off_items else 0.0
-    ans_def = sum(1 for it in scan_def_items if not it.get("notFound")) / len(scan_def_items) if scan_def_items else 0.0
 
-    ax_r.bar(["Scan Twin OCR Off", "Scan Twin OCR Defective"], [ans_off, ans_def], color=["gray", "teal"], width=0.5)
+    k_off = sum(1 for it in scan_off_items if not it.get("notFound"))
+    n_off = len(scan_off_items)
+    k_def = sum(1 for it in scan_def_items if not it.get("notFound"))
+    n_def = len(scan_def_items)
+
+    ans_off = k_off / n_off if n_off else 0.0
+    ans_def = k_def / n_def if n_def else 0.0
+
+    bars_r = ax_r.bar(
+        ["Scan Twin OCR Off", "Scan Twin OCR Defective"],
+        [ans_off, ans_def],
+        color=["gray", "teal"],
+        width=0.45,
+    )
+    r_labels = [f"{k_off}/{n_off}", f"{k_def}/{n_def}"]
+    for b, lbl in zip(bars_r, r_labels):
+        h = b.get_height()
+        y_pos = max(h + 0.03, 0.03)
+        ax_r.annotate(
+            lbl,
+            xy=(b.get_x() + b.get_width() / 2, y_pos),
+            xytext=(0, 2),
+            textcoords="offset points",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            fontweight="bold",
+        )
+
     ax_r.set_ylabel("Answer Rate")
-    ax_r.set_title("Regime B Scanned Twin (8 Questions)")
-    ax_r.set_ylim(0.0, 1.1)
+    ax_r.set_title("Regime B Scanned Twin (Single-Doc Case Study, N=8)")
+    ax_r.set_ylim(0.0, 1.18)
     ax_r.grid(axis="y", linestyle="--", alpha=0.7)
 
     plot3_path = out_dir / "plot3_ocr_generation_impact.png"
     fig.tight_layout()
-    fig.savefig(plot3_path, dpi=300)
+    fig.savefig(plot3_path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     generated_plots.append(plot3_path)
 
