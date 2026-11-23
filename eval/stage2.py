@@ -184,30 +184,58 @@ def simulate_threshold(
     raw_sources = item.get("sources", [])
 
     if retrieved_count == 0:
-        return {
-            "notFound": True,
-            "answer": refusal_sentence,
-            "sources": [],
-            "no_answer_reason": "NoContext",
-            "gated": True,
-        }
+        not_found = True
+        reason = "NoContext"
+        gated = True
     elif best_score < tau and not has_fts:
-        return {
-            "notFound": True,
-            "answer": refusal_sentence,
-            "sources": [],
-            "no_answer_reason": "LowSimilarity",
-            "gated": True,
-        }
+        not_found = True
+        reason = "LowSimilarity"
+        gated = True
     else:
+        not_found = raw_not_found
         reason = "ModelRefusal" if raw_not_found else "None"
-        return {
-            "notFound": raw_not_found,
-            "answer": raw_answer if not raw_not_found else refusal_sentence,
-            "sources": raw_sources,
-            "no_answer_reason": reason,
-            "gated": False,
-        }
+        gated = False
+
+    ans = raw_answer if not not_found else refusal_sentence
+    sources = raw_sources if not not_found else []
+
+    # Preserve non-vacuous denominators: if refused, convert hit to False if was not None
+    if not_found:
+        kw_hit = False
+        num_hit = False if item.get("num_hit") is not None else None
+        unit_hit_strict = False if item.get("unit_hit_strict") is not None else None
+        unit_hit_prox = False if item.get("unit_hit_proximity_10") is not None else None
+        cit_validity = False
+        cit_page_hit = False
+        cit_prec = 0.0
+        cit_rec = 0.0
+    else:
+        kw_hit = bool(item.get("kw_hit", False))
+        num_hit = item.get("num_hit")
+        unit_hit_strict = item.get("unit_hit_strict")
+        unit_hit_prox = item.get("unit_hit_proximity_10")
+        cit_validity = bool(item.get("citation_validity", False))
+        cit_page_hit = bool(item.get("citation_page_hit", False))
+        cit_prec = float(item.get("citation_precision", 0.0))
+        cit_rec = float(item.get("citation_recall", 0.0))
+
+    res = dict(item)
+    res.update({
+        "notFound": not_found,
+        "answer": ans,
+        "sources": sources,
+        "no_answer_reason": reason,
+        "gated": gated,
+        "kw_hit": kw_hit,
+        "num_hit": num_hit,
+        "unit_hit_strict": unit_hit_strict,
+        "unit_hit_proximity_10": unit_hit_prox,
+        "citation_validity": cit_validity,
+        "citation_page_hit": cit_page_hit,
+        "citation_precision": cit_prec,
+        "citation_recall": cit_rec,
+    })
+    return res
 
 
 # --- Generation & Citation Scoring ---
@@ -242,12 +270,16 @@ def evaluate_generation_metrics(
     twin_mapping: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """Computes Normalized Keyword Recall, non-vacuous Number/Unit Recall, and all 4 Citation metrics."""
+    norm_expected = normalize_text(expected_answer or "")
+    expected_nums = sorted(set(MULTI_DIGIT_RE.findall(norm_expected)))
+    unit_phrases = [f"{m[0]} {m[1]}" for m in UNIT_PHRASE_RE.findall(norm_expected)]
+
     if not_found or not answer:
         return {
             "kw_hit": False,
-            "num_hit": None,
-            "unit_hit_strict": None,
-            "unit_hit_proximity_10": None,
+            "num_hit": False if expected_nums else None,
+            "unit_hit_strict": False if unit_phrases else None,
+            "unit_hit_proximity_10": False if unit_phrases else None,
             "citation_validity": False,
             "citation_page_hit": False,
             "citation_precision": 0.0,
@@ -257,7 +289,6 @@ def evaluate_generation_metrics(
         }
 
     norm_ans = normalize_text(answer)
-    norm_expected = normalize_text(expected_answer or "")
 
     # 1. Normalized Keyword Recall (all keywords present)
     if answer_keywords:
@@ -267,7 +298,6 @@ def evaluate_generation_metrics(
         kw_hit = True
 
     # 2. Multi-Digit Number Recall (>= 2 digits) with non-vacuous denominator
-    expected_nums = sorted(set(MULTI_DIGIT_RE.findall(norm_expected)))
     if expected_nums:
         num_hits = sum(1 for num in expected_nums if re.search(rf"(?<!\d){re.escape(num)}(?!\d)", norm_ans))
         num_hit: Optional[bool] = (num_hits == len(expected_nums))
@@ -275,7 +305,6 @@ def evaluate_generation_metrics(
         num_hit = None
 
     # 3. Unit-Phrase Recall (strict and proximity <= 10) with non-vacuous denominator
-    unit_phrases = [f"{m[0]} {m[1]}" for m in UNIT_PHRASE_RE.findall(norm_expected)]
     if unit_phrases:
         strict_hits = 0
         prox_hits = 0
@@ -607,17 +636,36 @@ def run_stage2_eval(args: Any, config: Dict[str, Any], token: str) -> None:
             keywords = q.get("answer_keywords") or []
 
             # 1. Pre-Ask Diagnostics Call via dev/retrieve with explicit topK matching Rag:TopK
-            try:
-                ret_resp = client.dev_retrieve(q_text, [col_id], top_k=args.top_k, use_hybrid=use_hybrid)
-                best_score = float(ret_resp.get("bestVectorScore", 0.0))
-                has_fts = bool(ret_resp.get("hasFtsHit", False))
-                ret_elapsed_ms = float(ret_resp.get("elapsedMs", 0.0))
-                chunks = ret_resp.get("chunks", [])
-            except Exception as ex:
-                best_score = 0.0
-                has_fts = False
-                ret_elapsed_ms = 0.0
-                chunks = []
+            ret_retries = 4
+            backoffs = [2.0, 6.0, 18.0, 45.0]
+            ret_success = False
+            best_score = 0.0
+            has_fts = False
+            ret_elapsed_ms = 0.0
+            chunks = []
+
+            for ret_attempt in range(ret_retries):
+                try:
+                    ret_resp = client.dev_retrieve(q_text, [col_id], top_k=args.top_k, use_hybrid=use_hybrid)
+                    best_score = float(ret_resp.get("bestVectorScore", 0.0))
+                    has_fts = bool(ret_resp.get("hasFtsHit", False))
+                    ret_elapsed_ms = float(ret_resp.get("elapsedMs", 0.0))
+                    chunks = ret_resp.get("chunks", [])
+                    ret_success = True
+                    break
+                except Exception as ex:
+                    wait_sec = backoffs[ret_attempt] if ret_attempt < len(backoffs) else 5.0
+                    print(f"  [WARN] dev_retrieve attempt {ret_attempt + 1}/{ret_retries} failed on {q_id}: {ex}. Retrying in {wait_sec}s...")
+                    time.sleep(wait_sec)
+
+            if not ret_success:
+                print(f"  [FATAL] dev_retrieve on {q_id} exhausted all {ret_retries} retries. Marking failed_provider.")
+                failed_provider_ids.append(q_id)
+                consecutive_provider_failures += 1
+                if consecutive_provider_failures >= 3:
+                    print(f"\n[CRITICAL] 3 consecutive provider failures detected! Halting run to protect quota.")
+                    sys.exit(1)
+                continue
 
             chunk_ids = [c["chunkId"] for c in chunks]
             retrieved_chunk_count = len(chunks)
@@ -645,6 +693,7 @@ def run_stage2_eval(args: Any, config: Dict[str, Any], token: str) -> None:
                 retrieval_ms = ret_elapsed_ms
                 generation_ms = float(cached_entry.get("generation_ms", 0.0))
                 total_ms = retrieval_ms + generation_ms
+                consecutive_provider_failures = 0
             elif retrieved_chunk_count == 0:
                 # Pre-LLM short-circuit: 0 chunks retrieved
                 answer = PERSIAN_REFUSAL_SENTENCE
@@ -654,6 +703,7 @@ def run_stage2_eval(args: Any, config: Dict[str, Any], token: str) -> None:
                 retrieval_ms = ret_elapsed_ms
                 generation_ms = 0.0
                 total_ms = retrieval_ms
+                consecutive_provider_failures = 0
             else:
                 # Live /ask execution with retry logic for transient provider failures
                 ask_url = f"{args.base_url.rstrip('/')}/api/v1/ask"
@@ -711,11 +761,12 @@ def run_stage2_eval(args: Any, config: Dict[str, Any], token: str) -> None:
                     continue
 
                 # Save successful response to cache
+                compact_sources = [{"fileName": s.get("fileName"), "page": s.get("page")} for s in sources]
                 save_to_cache(cache_dir, cache_key, {
                     "answer": answer,
                     "notFound": not_found,
                     "degraded": False,
-                    "sources": sources,
+                    "sources": compact_sources,
                     "retrieval_ms": retrieval_ms,
                     "generation_ms": generation_ms,
                 })
@@ -733,6 +784,7 @@ def run_stage2_eval(args: Any, config: Dict[str, Any], token: str) -> None:
             )
 
             # Record
+            compact_sources = [{"fileName": s.get("fileName"), "page": s.get("page")} for s in sources]
             record = {
                 "id": q_id,
                 "arm": arm_key,
@@ -747,6 +799,7 @@ def run_stage2_eval(args: Any, config: Dict[str, Any], token: str) -> None:
                 "answer": answer,
                 "notFound": not_found,
                 "degraded": degraded,
+                "sources": compact_sources,
                 "bestVectorScore": best_score,
                 "hasFtsHit": has_fts,
                 "retrieved_chunk_count": retrieved_chunk_count,
@@ -789,13 +842,16 @@ def run_stage2_eval(args: Any, config: Dict[str, Any], token: str) -> None:
     manifest["cache_hit_rate"] = round(total_cache_hits / total_queries_run, 4) if total_queries_run > 0 else 0.0
 
     phase_results_file = out_dir / "phase_results.json"
+    results_payload = {"manifest": manifest, "arms": arms_data}
     with open(phase_results_file, "w", encoding="utf-8") as f:
-        json.dump({"manifest": manifest, "arms": arms_data}, f, ensure_ascii=False, indent=2)
+        json.dump(results_payload, f, ensure_ascii=False, indent=2)
 
     print(f"\n[OK] Stage 2 Phase Execution Complete!")
     print(f"     Results saved to: {phase_results_file}")
     if failed_provider_ids:
         print(f"     [WARN] Provider failures ({len(failed_provider_ids)}): {failed_provider_ids}")
+
+    return results_payload
 
 
 # --- Live Validation Cross-Check (--validate-offline-sim) ---
@@ -932,16 +988,16 @@ def generate_stage2_plots(results: Dict[str, Any], out_dir: Path) -> List[Path]:
                 continue
             # Apply prod_055 simulation
             sim_items = [simulate_threshold(it, 0.55) for it in ans_items]
-            answered = [it for it, s in zip(ans_items, sim_items) if not s["notFound"]]
+            answered = [s for s in sim_items if not s["notFound"]]
 
             if m == "answer_rate":
                 val = len(answered) / len(ans_items)
             elif m == "kw_recall":
-                val = sum(1 for it, s in zip(ans_items, sim_items) if not s["notFound"] and it.get("kw_hit")) / len(ans_items)
+                val = sum(1 for s in sim_items if s.get("kw_hit")) / len(ans_items)
             elif m == "citation_validity":
-                val = sum(1 for it in answered if it.get("citation_validity")) / len(answered) if answered else 0.0
+                val = sum(1 for s in answered if s.get("citation_validity")) / len(answered) if answered else 0.0
             elif m == "citation_precision":
-                val = np.mean([it.get("citation_precision", 0.0) for it in answered]) if answered else 0.0
+                val = np.mean([s.get("citation_precision", 0.0) for s in answered]) if answered else 0.0
             row.append(val)
         data_matrix.append(row)
 
@@ -1155,23 +1211,23 @@ def run_stage2_report(args: Any) -> Dict[str, Path]:
                     frr_low = fr_low_sim / len(ans_items) if ans_items else 0.0
                     frr_mod = fr_model / len(ans_items) if ans_items else 0.0
 
-                    answered_items = [it for it, s in zip(ans_items, sim_ans) if not s["notFound"]]
+                    answered_items = [s for s in sim_ans if not s["notFound"]]
                     ans_rate = len(answered_items) / len(ans_items) if ans_items else 0.0
 
-                    # Generation metrics on answered
-                    kw_rec = sum(1 for it in answered_items if it.get("kw_hit")) / len(ans_items) if ans_items else 0.0
+                    # Generation metrics across cohort (non-vacuous denominators invariant)
+                    kw_rec = sum(1 for s in sim_ans if s.get("kw_hit")) / len(ans_items) if ans_items else 0.0
 
-                    num_items = [it for it in answered_items if it.get("num_hit") is not None]
-                    num_rec = sum(1 for it in num_items if it.get("num_hit") is True) / len(num_items) if num_items else None
+                    num_items = [s for s in sim_ans if s.get("num_hit") is not None]
+                    num_rec = sum(1 for s in num_items if s.get("num_hit") is True) / len(num_items) if num_items else None
 
-                    unit_items = [it for it in answered_items if it.get("unit_hit_strict") is not None]
-                    unit_rec_s = sum(1 for it in unit_items if it.get("unit_hit_strict") is True) / len(unit_items) if unit_items else None
-                    unit_rec_p = sum(1 for it in unit_items if it.get("unit_hit_proximity_10") is True) / len(unit_items) if unit_items else None
+                    unit_items = [s for s in sim_ans if s.get("unit_hit_strict") is not None]
+                    unit_rec_s = sum(1 for s in unit_items if s.get("unit_hit_strict") is True) / len(unit_items) if unit_items else None
+                    unit_rec_p = sum(1 for s in unit_items if s.get("unit_hit_proximity_10") is True) / len(unit_items) if unit_items else None
 
-                    cit_val = sum(1 for it in answered_items if it.get("citation_validity")) / len(answered_items) if answered_items else 0.0
-                    cit_hit = sum(1 for it in answered_items if it.get("citation_page_hit")) / len(answered_items) if answered_items else 0.0
-                    cit_prec = np.mean([it.get("citation_precision", 0.0) for it in answered_items]) if answered_items else 0.0
-                    cit_rec = np.mean([it.get("citation_recall", 0.0) for it in answered_items]) if answered_items else 0.0
+                    cit_val = sum(1 for s in answered_items if s.get("citation_validity")) / len(answered_items) if answered_items else 0.0
+                    cit_hit = sum(1 for s in answered_items if s.get("citation_page_hit")) / len(answered_items) if answered_items else 0.0
+                    cit_prec = np.mean([s.get("citation_precision", 0.0) for s in answered_items]) if answered_items else 0.0
+                    cit_rec = np.mean([s.get("citation_recall", 0.0) for s in answered_items]) if answered_items else 0.0
 
                     writer.writerow([
                         arm_k, op_name, c_name, len(c_items), round(ans_rate, 4),

@@ -1022,3 +1022,216 @@ def test_stage2_official_run_guard_git_dirty(tmp_path, monkeypatch):
         run_stage2_eval(args_strict, {"collections": {}, "arms": {}}, token="tok")
 
 
+def test_stage2_dev_retrieve_retry_and_failed_provider(tmp_path, monkeypatch):
+    """Verifies dev_retrieve retries transient failures and marks persistent failures as failed_provider without fake NoContext."""
+    import argparse
+    from stage2 import run_stage2_eval
+    from run_eval import DocSearchClient
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True)
+    manifest_file = cache_dir / "collection_manifest.json"
+    manifest_data = {
+        "eval-regime-a-ocr-off": {"id": "col1", "name": "eval-regime-a-ocr-off", "ocr_mode": "Off"}
+    }
+    manifest_file.write_text(json.dumps(manifest_data), encoding="utf-8")
+
+    # 2 questions: q001 tests transient retry recovery, q002 tests persistent failure (4 attempts)
+    q_file = tmp_path / "questions.json"
+    qs = [
+        {"id": "q001", "question": "پرسش 1؟", "type": "factual", "source_file": "doc.pdf", "source_pages": [1]},
+        {"id": "q002", "question": "پرسش 2؟", "type": "factual", "source_file": "doc.pdf", "source_pages": [2]},
+    ]
+    q_file.write_text(json.dumps(qs), encoding="utf-8")
+    out_dir = tmp_path / "out"
+
+    config = {
+        "collections": {"regime_a_ocr_off": {"id_name": "eval-regime-a-ocr-off"}},
+        "arms": {
+            "arm1_vector_ocr_off": {
+                "name": "arm1",
+                "collection_ref": "regime_a_ocr_off",
+                "use_hybrid": False,
+            }
+        },
+    }
+
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+
+    class MockResp:
+        def __init__(self, status_code, json_data, headers=None):
+            self.status_code = status_code
+            self._json = json_data
+            self.headers = headers or {}
+            self.text = json.dumps(json_data)
+        def json(self):
+            return self._json
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.RequestException(f"HTTP {self.status_code}")
+
+    monkeypatch.setattr(requests, "get", lambda url, timeout=None: MockResp(200, {"status": "Healthy"}))
+    monkeypatch.setattr(DocSearchClient, "get_collections", lambda self: [{"name": "eval-regime-a-ocr-off", "id": "col1"}])
+
+    retrieve_call_counts = {"q001": 0, "q002": 0}
+
+    def mock_dev_retrieve(self, question, cols, top_k=6, use_hybrid=True):
+        if "1" in question:
+            retrieve_call_counts["q001"] += 1
+            if retrieve_call_counts["q001"] == 1:
+                raise requests.RequestException("Cold-start Ollama timeout on q001")
+            return {
+                "bestVectorScore": 0.85,
+                "hasFtsHit": True,
+                "elapsedMs": 50.0,
+                "chunks": [{"chunkId": "c1", "fileName": "doc.pdf", "pageStart": 1, "pageEnd": 1}],
+            }
+        else:
+            retrieve_call_counts["q002"] += 1
+            raise requests.RequestException("Persistent timeout on q002")
+
+    monkeypatch.setattr(DocSearchClient, "dev_retrieve", mock_dev_retrieve)
+
+    # Mock /ask for q001
+    def mock_post(url, json=None, headers=None, timeout=None):
+        return MockResp(200, {
+            "answer": "پاسخ معتبر [1]",
+            "notFound": False,
+            "degraded": False,
+            "sources": [{"fileName": "doc.pdf", "page": 1, "extra": "ignored"}],
+        })
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    args = argparse.Namespace(
+        base_url="http://mock:5000",
+        cache_dir=cache_dir,
+        questions=q_file,
+        chat_model="mock-model",
+        temperature=0.0,
+        top_k=6,
+        arms="arm1_vector_ocr_off",
+        smoke=False,
+        out=out_dir,
+        sleep=0.0,
+        allow_dirty=True,
+        no_cache=False,
+    )
+
+    phase_data = run_stage2_eval(args, config, token="mock-token")
+    manifest_out = phase_data["manifest"]
+
+    # 1. Verify q001 succeeded on 2nd attempt (transient retry succeeded)
+    assert retrieve_call_counts["q001"] == 2
+
+    # 2. Verify q002 exhausted all 4 attempts (persistent retry failed)
+    assert retrieve_call_counts["q002"] == 4
+
+    # 3. Verify q002 was marked failed_provider and NOT recorded as a fake NoContext
+    assert manifest_out["failed_provider_count"] == 1
+    assert "q002" in manifest_out["failed_provider_ids"]
+
+    # 4. Verify checkpoint contains only q001 with compact sources
+    checkpoint_file = out_dir / "checkpoints" / "arm1_vector_ocr_off.jsonl"
+    assert checkpoint_file.exists()
+    records = [json.loads(line) for line in checkpoint_file.read_text(encoding="utf-8").strip().split("\n")]
+    assert len(records) == 1
+    assert records[0]["id"] == "q001"
+    assert records[0]["sources"] == [{"fileName": "doc.pdf", "page": 1}]
+    assert records[0]["notFound"] is False
+
+
+def test_stage2_refused_question_preserves_non_vacuous_denominators():
+    """Verifies evaluate_generation_metrics and simulate_threshold preserve non-vacuous denominators (N_num=7, N_unit=10) on refused questions."""
+    expected_with_num_and_unit = "حداکثر سقف مجاز 20 واحد و 15 درصد است."
+    expected_without_num = "دانشگاه تهران مسئول اجرای آیین‌نامه است."
+
+    # Part 1: evaluate_generation_metrics on refused answer (notFound=True)
+    m_refused_num = evaluate_generation_metrics(
+        answer="متاسفانه پاسخ در اسناد یافت نشد.",
+        not_found=True,
+        expected_answer=expected_with_num_and_unit,
+        answer_keywords=["20", "واحد"],
+        sources=[],
+        gold_file="doc.pdf",
+        gold_pages=[1],
+    )
+    # Questions with numbers/units MUST return False when refused (counted as recall misses, NOT dropped from denominator)
+    assert m_refused_num["kw_hit"] is False
+    assert m_refused_num["num_hit"] is False
+    assert m_refused_num["unit_hit_strict"] is False
+    assert m_refused_num["unit_hit_proximity_10"] is False
+    assert m_refused_num["citation_validity"] is False
+
+    # Questions without numbers/units MUST return None
+    m_refused_no_num = evaluate_generation_metrics(
+        answer="متاسفانه پاسخ در اسناد یافت نشد.",
+        not_found=True,
+        expected_answer=expected_without_num,
+        answer_keywords=["دانشگاه"],
+        sources=[],
+        gold_file="doc.pdf",
+        gold_pages=[1],
+    )
+    assert m_refused_no_num["num_hit"] is None
+    assert m_refused_no_num["unit_hit_strict"] is None
+    assert m_refused_no_num["unit_hit_proximity_10"] is None
+
+    # Part 2: simulate_threshold on previously answered question that becomes LowSimilarity
+    item_answered_with_num = {
+        "id": "q001",
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.42,
+        "hasFtsHit": False,
+        "notFound": False,
+        "answer": "پاسخ 20 واحد است [1]",
+        "sources": [{"fileName": "doc.pdf", "page": 1}],
+        "num_hit": True,
+        "unit_hit_strict": True,
+        "unit_hit_proximity_10": True,
+        "kw_hit": True,
+        "citation_validity": True,
+    }
+
+    # Under ungated (tau=0.0): remains answered
+    sim_ungated = simulate_threshold(item_answered_with_num, tau=0.0)
+    assert sim_ungated["notFound"] is False
+    assert sim_ungated["num_hit"] is True
+    assert sim_ungated["unit_hit_strict"] is True
+
+    # Under prod_055 (tau=0.55): gated by LowSimilarity (0.42 < 0.55)
+    sim_055 = simulate_threshold(item_answered_with_num, tau=0.55)
+    assert sim_055["notFound"] is True
+    assert sim_055["no_answer_reason"] == "LowSimilarity"
+    assert sim_055["num_hit"] is False  # Converted to False (NOT None), keeping denominator invariant!
+    assert sim_055["unit_hit_strict"] is False
+    assert sim_055["unit_hit_proximity_10"] is False
+    assert sim_055["kw_hit"] is False
+
+    # Part 3: Denominator invariance across thresholds
+    item_no_num = {
+        "id": "q002",
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.42,
+        "hasFtsHit": False,
+        "notFound": False,
+        "answer": "دانشگاه تهران [1]",
+        "sources": [{"fileName": "doc.pdf", "page": 1}],
+        "num_hit": None,
+        "unit_hit_strict": None,
+        "unit_hit_proximity_10": None,
+        "kw_hit": True,
+        "citation_validity": True,
+    }
+    cohort = [item_answered_with_num, item_no_num]
+
+    sim_cohort_ungated = [simulate_threshold(it, 0.0) for it in cohort]
+    sim_cohort_055 = [simulate_threshold(it, 0.55) for it in cohort]
+
+    denom_ungated = sum(1 for it in sim_cohort_ungated if it["num_hit"] is not None)
+    denom_055 = sum(1 for it in sim_cohort_055 if it["num_hit"] is not None)
+    assert denom_ungated == 1
+    assert denom_055 == 1  # Denominator invariant: 1 question with numbers in both!
+
+
+

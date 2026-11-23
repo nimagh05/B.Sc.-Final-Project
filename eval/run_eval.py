@@ -611,7 +611,7 @@ class DocSearchClient:
                 "topK": top_k,
                 "useHybrid": use_hybrid,
             },
-            timeout=30.0,
+            timeout=90.0,
         )
         resp.raise_for_status()
         return resp.json()
