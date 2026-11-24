@@ -195,12 +195,36 @@ Merge Phase A and Phase B into unified Stage 2 results, generate summary CSV, re
 
 ---
 
-## 3. Automated CI-Safe Test Suite
+## 3. Automated CI-Safe Test Suite & Documentation Verification
 
-Fast unit tests (< 7 seconds, zero Docker, zero Ollama, zero real PDFs) verifying hit rules, twin mapping, plateau calibration, bootstrap guards, pure OCR timing calculations, and collection manifest persistence:
+### 3.1 Unit Test Suite
+Fast unit tests (zero Docker, zero Ollama, zero real PDFs) verifying hit rules, twin mapping, plateau calibration, bootstrap guards, pure OCR timing calculations, report generation, and auditor guards:
 ```powershell
 .venv\Scripts\pytest eval/tests/ -v
 ```
+
+### 3.2 Documentation Number & Hygiene Auditor (`audit_docs_numbers.py`)
+`eval/audit_docs_numbers.py` runs a local row-scoped consistency and hygiene check (156 checks covering table rows, provenance metadata, forbidden phrases, and relative figure links) on `docs/EVAL-RESULTS.md`:
+- **Local Consistency Check:** When raw evaluation data is present in `eval/results/`, run:
+  ```powershell
+  .venv\Scripts\python eval/audit_docs_numbers.py
+  ```
+  This performs row-by-row cell verification across all key markdown tables (Section 1.1 provenance, Table 3.1 Stage 1 MRR, Section 5.1 FRR/FAR partitions, Table 5.5 ROC-AUC, Table 8.1 / 8.6 CMap extraction audits, Table 9.3 question-type breakdown, Table 9.4 citations, and Table 9.6 latency profiles).
+- **CI Safety:** In CI workflows where `eval/results/` is git-ignored, `pytest eval/tests/` verifies the auditor's row-scoped mismatch detection, forbidden string rules, and relative URL hygiene using synthetic fixtures without requiring large benchmark artifacts.
+
+### 3.3 Reproducibility Archive Restoration
+To unpack and verify the official evaluation artifacts from GitHub:
+1. Download `t19-eval-data.zip` from Release tag `t19b-stage2-data` (Git SHA `e7f4924554bc733979a72ddc6c7ff998a47d64ca`, SHA-256 `e8d7e4fc92c6e7e2f3965be9ad1f0e3e325ab030f9d31bd2db667df6209f2b95`).
+2. Extract the archive folders into `eval/results/` and move `collection_manifest.json` into `eval/cache/`:
+   ```powershell
+   Expand-Archive -Path t19-eval-data.zip -DestinationPath eval/results/ -Force
+   New-Item -ItemType Directory -Force -Path eval/cache | Out-Null
+   Move-Item -Force eval/results/collection_manifest.json eval/cache/collection_manifest.json
+   ```
+3. Run the automated audit to confirm 100% alignment:
+   ```powershell
+   .venv\Scripts\python eval/audit_docs_numbers.py
+   ```
 
 ---
 

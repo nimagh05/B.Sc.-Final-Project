@@ -1473,6 +1473,54 @@ def test_audit_docs_numbers_catches_file_url_and_forbidden_strings(tmp_path):
     assert "forbidden_string_Gemini_2.5" in failed_names3
 
 
+def test_audit_docs_numbers_assert_row_catches_swapped_table_rows(tmp_path):
+    """Verifies that assert_row detects when numbers are swapped between two valid table rows."""
+    from audit_docs_numbers import DocAuditor
+
+    # Construct a synthetic table with swapped values:
+    # Normally Overall should be 0.7424 and Held-out should be 0.6250.
+    # Here, we swap them: Overall has 0.6250 and Held-out has 0.7424.
+    swapped_table_md = tmp_path / "swapped_table.md"
+    swapped_table_md.write_text(
+        """# Evaluation Summary
+| Partition | Cosine ROC-AUC | 95% CI |
+|---|---|---|
+| **Overall** ($N=112$) | **0.6250** | [0.459, 0.791] |
+| **Held-out** ($N=52$) | **0.7424** | [0.649, 0.836] |
+""",
+        encoding="utf-8",
+    )
+
+    auditor = DocAuditor(swapped_table_md)
+    # Check Overall expecting its true ground truth (0.7424)
+    auditor.assert_row("roc_auc_overall", "**Overall**", "0.7424", "[0.649, 0.836]")
+    # Check Held-out expecting its true ground truth (0.6250)
+    auditor.assert_row("roc_auc_heldout", "**Held-out**", "0.6250", "[0.459, 0.791]")
+
+    failed_names = [f[0] for f in auditor.failures]
+    assert "roc_auc_overall" in failed_names
+    assert "roc_auc_heldout" in failed_names
+    assert len(auditor.failures) == 2
+
+    # Now verify that when rows have correct numbers, assert_row passes cleanly
+    correct_table_md = tmp_path / "correct_table.md"
+    correct_table_md.write_text(
+        """# Evaluation Summary
+| Partition | Cosine ROC-AUC | 95% CI |
+|---|---|---|
+| **Overall** ($N=112$) | **0.7424** | [0.649, 0.836] |
+| **Held-out** ($N=52$) | **0.6250** | [0.459, 0.791] |
+""",
+        encoding="utf-8",
+    )
+    auditor_correct = DocAuditor(correct_table_md)
+    auditor_correct.assert_row("roc_auc_overall", "**Overall**", "0.7424", "[0.649, 0.836]")
+    auditor_correct.assert_row("roc_auc_heldout", "**Held-out**", "0.6250", "[0.459, 0.791]")
+    assert len(auditor_correct.failures) == 0
+    assert len(auditor_correct.passes) == 2
+
+
+
 
 
 
