@@ -55,7 +55,13 @@ class DocAuditor:
         self.passes: List[str] = []
         self.failures: List[Tuple[str, str]] = []
 
-        # Load reference artifacts
+        # Lazy-loaded by run_all_audits() so CI unit tests run without git-ignored eval/results/
+        self.s1_results = None
+        self.s2_results = None
+        self.s2_summary_csv = ""
+        self.questions = []
+
+    def _load_artifacts(self):
         self.s1_results = json.loads((REPO_ROOT / "eval/results/t19a_stage1/results.json").read_text(encoding="utf-8"))
         self.s2_results = json.loads((REPO_ROOT / "eval/results/t19b_stage2/results.json").read_text(encoding="utf-8"))
         self.s2_summary_csv = (REPO_ROOT / "eval/results/t19b_stage2/summary.csv").read_text(encoding="utf-8")
@@ -84,6 +90,7 @@ class DocAuditor:
         )
 
     def run_all_audits(self) -> bool:
+        self._load_artifacts()
         print("\n========================================================")
         print(f"  Auditing {self.doc_path.name} against ground-truth data")
         print("========================================================")
@@ -303,7 +310,7 @@ class DocAuditor:
             for r in rows:
                 qid = r["id"]
                 q = questions_by_id[qid]
-                if q.get("not_in_docs", False):
+                if q.get("type") == "not-in-docs":
                     continue
                 qtype = q.get("type", "unknown")
                 if qtype not in counts_by_type:
