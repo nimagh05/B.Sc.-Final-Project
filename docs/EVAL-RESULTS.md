@@ -39,10 +39,10 @@ All experiments were executed on locked, audited test benches with fixed model c
 1. **Dataset Structure:** `eval/questions.json` (`eval-dataset-v2.2`) contains **138 unique questions across 14 Regime A PDFs**. The collection is split at the document level:
    - **`tuned` partition:** 74 questions across 11 documents (`aein-91.pdf`, `bedoon-factor.pdf`, `bein-almelali.pdf`, `bge-m3-paper.pdf`, `dastyar-amoozeshi.pdf`, `dastyar-pazhuheshi.pdf`, `hamayesh.pdf`, `kod-akhlaghi.pdf`, `rag-lewis-2020.pdf`, `shoraha-pazhuheshi.pdf`, `ziro-guide.pdf`). This partition is subdivided into `dev` ($N=25$: 18 answerable, 7 not-in-docs) and `test` ($N=49$: 42 answerable, 7 not-in-docs).
    - **`heldout` partition:** 64 questions across **3 PDFs**: `forsat-motaleati.pdf`, `shiveh-karamoozi.pdf`, and `tarh-dakheli.pdf` (52 answerable, 12 not-in-docs). Note that `aein-91.pdf` belongs to `tuned`, not `heldout`.
-   - **Regime B:** 8 questions reusing the `bein-almelali.pdf` test items evaluated against the scanned twin document `bein-almelali-scan.pdf`.
+   - **Regime B:** 8 questions reusing 8 `bein-almelali.pdf` questions (3 dev, 5 test) evaluated against the scanned twin document `bein-almelali-scan.pdf`.
    - **Total Evaluations:** $138 \times 3 \text{ (Regime A)} + 8 \times 2 \text{ (Regime B)} = 430$ evaluations.
 2. **Strict Data Leakage Prevention:** Calibration of similarity thresholds was strictly restricted to the in-sample `tuned|dev` partition ($N=25$). Any attempt to calculate thresholds on `heldout` or `test` partitions is rejected at runtime by automated programmatic assertion guards (`ANTI-LEAKAGE VIOLATION`).
-3. **Exploratory Scope of Document-Cluster Bounds ($G=3$):** Because the held-out collection contains only $G=3$ documents (`forsat-motaleati.pdf`, `shiveh-karamoozi.pdf`, `tarh-dakheli.pdf`), asymptotic normal convergence of cluster-robust standard errors does not hold (which typically requires $G \ge 30$). Question-level Wilson confidence intervals treat observations as independent, ignoring document-level correlation, and are therefore narrower than true cluster-adjusted bounds. Paired non-parametric tests (paired Wilcoxon signed-rank and exact McNemar tests) serve as the primary inferential standard.
+3. **Exploratory Scope of Document-Cluster Bounds ($G=3$):** Because the held-out collection contains only $G=3$ documents (`forsat-motaleati.pdf`, `shiveh-karamoozi.pdf`, `tarh-dakheli.pdf`), asymptotic normal convergence of cluster-robust standard errors does not hold (which typically requires $G \ge 30$). Question-level Wilson confidence intervals treat observations as independent, ignoring document-level correlation, and are therefore narrower than true cluster-adjusted bounds. Paired non-parametric procedures (Paired Bootstrap 95% CIs and exact McNemar tests) serve as the primary inferential standard.
 4. **Deterministic Offline Cache & Checkpoints:** Every LLM call in Stage 2 is uniquely keyed by:
    $$\text{CacheKey} = \text{SHA256}(\text{normalized\_query} \parallel \text{ordered\_chunk\_ids} \parallel \text{top\_k} \parallel \text{model} \parallel \text{temp} \parallel \text{prompt\_sha256})$$
    Retrieved chunk IDs are strictly preserved in rank order (never sorted alphabetically). Degraded responses are never cached.
@@ -56,8 +56,8 @@ To preserve scientific integrity and avoid selective reporting, all experimental
 
 | Endpoint / Analysis | Target Cohort | Stage | Status | ADR Reference | Primary Metric / Test |
 |---|---|---|---|---|---|
-| **Primary Endpoint 1** | `heldout` answerable ($N=52$) | Stage 1 | Pre-Registered | ADR 0010 §7.1 | $\Delta\text{MRR}$ (Arm 2 Hybrid vs. Arm 1 Vector), Paired Wilcoxon |
-| **Primary Endpoint 2** | `heldout-CMap` ($N=27$) | Stage 1 | Pre-Registered | ADR 0010 §7.1 | $\Delta\text{MRR}$ (Arm 3 Full System vs. Arm 2 OCR-Off), Paired Wilcoxon |
+| **Primary Endpoint 1** | `heldout` answerable ($N=52$) | Stage 1 | Pre-Registered | ADR 0010 §7.1 | $\Delta\text{MRR}$ (Arm 2 Hybrid vs. Arm 1 Vector), Paired Bootstrap 95% CI |
+| **Primary Endpoint 2** | `heldout-CMap` ($N=27$) | Stage 1 | Pre-Registered | ADR 0010 §7.1 | $\Delta\text{MRR}$ (Arm 3 Full System vs. Arm 2 OCR-Off), Paired Bootstrap 95% CI |
 | **Primary Endpoint 2.1** | `heldout` answerable ($N=52$) | Stage 2 | Pre-Registered | ADR 0011 §5.1 | False Rejection Rate ($\text{FRR}$) across operating points (`prod_055` vs. `calibrated_tau`), 95% Wilson CI |
 | **Primary Endpoint 2.2** | `heldout` not-in-docs ($N=12$) | Stage 2 | Pre-Registered | ADR 0011 §5.1 | False Acceptance Rate ($\text{FAR}$) across operating points (`prod_055` vs. `calibrated_tau`), 95% Wilson CI |
 | **Secondary Endpoint (Granular Extraction)** | `heldout-CMap` ($N=27$) | Stage 2 | Pre-Registered | ADR 0011 §5.2 | Multi-digit Number Recall & Unit Phrase Recall under `ungated`, Descriptive & McNemar |
@@ -194,11 +194,19 @@ Stage 2 evaluated end-to-end question answering across three operating points:
 
 #### Overall Not-in-Docs (NID) False Acceptance Rate Summary ($N=26$)
 
-| Arm | NID Evaluated | False Acceptances | FAR (%) | 95% Wilson Score CI | Error Attribution |
+False Acceptance Rate (FAR) is invariant across operating points: Arm 1 and Arm 3 achieved **0.0%** (0/26, 95% Wilson CI: [0.0%, 12.9%]), while Arm 2 achieved **3.8%** (1/26, 95% Wilson CI: [0.7%, 18.9%]; sole template-based false acceptance on `q043` in dev). The table below details the refusal attribution (`LowSimilarity` vs. `ModelRefusal`) across operating points:
+
+| Arm | Operating Point | NID Evaluated | False Acceptances | FAR (%) [95% CI] | Refusal Attribution (LowSim / ModRef) |
 |---|---|---|---|---|---|
-| **Arm 1 (Vector-Only)** | 26 | 0 | **0.0%** | [0.0%, 12.9%] | Zero false acceptances across all thresholds |
-| **Arm 2 (Hybrid, OCR-Off)** | 26 | 1 | **3.8%** | [0.7%, 18.9%] | Single template-based false acceptance on `q043` in dev |
-| **Arm 3 (Full System)** | 26 | 0 | **0.0%** | [0.0%, 12.9%] | Zero false acceptances across all thresholds |
+| **Arm 1 (Vector-Only)** | `ungated` | 26 | 0 | **0.0%** [0.0%, 12.9%] | 0 LowSim / 26 ModRef |
+| **Arm 1 (Vector-Only)** | `prod_055` | 26 | 0 | **0.0%** [0.0%, 12.9%] | 4 LowSim / 22 ModRef |
+| **Arm 1 (Vector-Only)** | `calibrated_tau` ($\tau^*=0.70$) | 26 | 0 | **0.0%** [0.0%, 12.9%] | 25 LowSim / 1 ModRef |
+| **Arm 2 (Hybrid, OCR-Off)** | `ungated` | 26 | 1 | **3.8%** [0.7%, 18.9%] | 0 LowSim / 25 ModRef (1 FA on `q043`) |
+| **Arm 2 (Hybrid, OCR-Off)** | `prod_055` | 26 | 1 | **3.8%** [0.7%, 18.9%] | 3 LowSim / 22 ModRef (1 FA on `q043`) |
+| **Arm 2 (Hybrid, OCR-Off)** | `calibrated_tau` ($\tau^*=0.75$) | 26 | 1 | **3.8%** [0.7%, 18.9%] | 13 LowSim / 12 ModRef (1 FA on `q043`) |
+| **Arm 3 (Full System)** | `ungated` | 26 | 0 | **0.0%** [0.0%, 12.9%] | 0 LowSim / 26 ModRef |
+| **Arm 3 (Full System)** | `prod_055` | 26 | 0 | **0.0%** [0.0%, 12.9%] | 2 LowSim / 24 ModRef |
+| **Arm 3 (Full System)** | `calibrated_tau` ($\tau^*=0.75$) | 26 | 0 | **0.0%** [0.0%, 12.9%] | 12 LowSim / 14 ModRef |
 
 ### 5.2 Floor Limitation on Endpoint 2.2
 
@@ -236,7 +244,7 @@ Across all not-in-docs queries ($N=26$ overall: 7 in dev, 7 in test, 12 in heldo
 - **Arm 2 (Hybrid):** 1 / 26 FAR (1 / 7 in `tuned|dev`)
 - **Arm 3 (Full System):** 0 / 26 FAR
 
-**Context of `q043`:** The query asks for the hourly compensation rate for student teaching assistants (TA) in Toman. In Arm 2, hybrid retrieval returned a related section from page 3 of `dastyar-amoozeshi.pdf` regarding doctoral assistant duties with `bestVectorScore = 0.5793` and `hasFtsHit = true`. Because `hasFtsHit = true`, this query also bypasses `tau = 0.75` in the hybrid gate. The model stated that the exact monetary amount was not specified in the document (a soft refusal), while citing the practical-course remuneration clause confirmed present on page 3.
+**Context of `q043`:** The query asks for a base lecturer's (`مربی پایه`) hourly teaching rate in Toman. In Arm 2, hybrid retrieval returned a related section from page 3 of `dastyar-amoozeshi.pdf` specifying the maximum practical-course remuneration for doctoral teaching assistants (equated to a base-level-1 lecturer's rate) with `bestVectorScore = 0.5793` and `hasFtsHit = true`. Because `hasFtsHit = true`, this query also bypasses `tau = 0.75` in the hybrid gate. The model stated that the exact monetary amount was not specified in the document (a soft refusal), while citing the practical-course remuneration clause confirmed present on page 3.
 
 ---
 
@@ -251,7 +259,7 @@ Under production gating ($\tau = 0.55$), comparing Arm 1 (Vector) and Arm 2 (Hyb
 - **Held-out Keyword Recall ($N=52$):** Discordant pairs: $A_{\text{only}} = 2, B_{\text{only}} = 3$, exact McNemar **$p = 1.000$**.
 - **Arm 1 vs. Arm 3 on Held-out ($N=52$):** Exact McNemar **$p = 1.000$** for both answer rate and keyword recall.
 
-End-to-end differences between Hybrid and Vector-Only are not statistically distinguishable on this benchmark. Hybrid search is retained as the default per ADR 0005 because it introduces no observed degradation while supporting keyword lookups.
+End-to-end differences between Hybrid and Vector-Only are not statistically distinguishable on this benchmark. Keyword and article-key support is retained as the architectural design rationale per ADR 0005 (rather than an empirically demonstrated end-to-end advantage on this benchmark), introducing no observed degradation.
 
 ### 6.2 FTS-Bypass Counterfactual Analysis (Post-Hoc)
 
@@ -260,7 +268,7 @@ In the hybrid gate, a query passes to generation if $\text{score} \ge \tau \lor 
 - **Without FTS Bypass (Pure Cosine Counterfactual):** Held-out LowSimilarity FRR = **98.1%** (51/52).
 - Across the overall collection, LowSimilarity FRR rises from 30.4% to 94.6% (Arm 2) / 93.8% (Arm 3).
 
-This counterfactual demonstrates that the difference in FRR between Arm 1 (76.9%) and Arms 2–3 (40.4%) at $\tau = 0.75$ is driven by the FTS bypass rule rather than higher cosine similarity.
+This counterfactual demonstrates that the difference in FRR between Arm 1 (76.9% at $\tau^* = 0.70$) and Arms 2–3 (40.4% at $\tau^* = 0.75$) is driven by the FTS bypass rule rather than higher cosine similarity.
 
 ---
 
@@ -297,6 +305,7 @@ The pre-registered secondary endpoint (ADR 0011 §5.2) evaluates granular extrac
 A manual audit of the 7 numeric questions on `heldout-CMap` revealed that in Arm 2 (OCR Off), the model answered 5 of 7 questions and got **0 of 7 correct**:
 - In all 5 answered cases (**`q079`, `q080`, `q081`, `q096`, `q099`**), Arm 2 output confirmed corrupted numbers derived from broken ToUnicode mappings, presenting them without qualification.
 - Outside the $N=7$ subset, single-digit corruptions occurred in Arm 2 on `q097` and `q102`.
+- **Spelled-Out-Number Metric Blind Spot:** Persian numbers written as words fall outside the digit-regex denominator ($N_{\text{num}}=7$), as seen in `q082` and `q094`, where textual descriptions or spelled-out quantities bypassed numeric regex extraction.
 - Arm 3 (Selective OCR) reduced these errors: it recovered `q079`, `q096`, and `q099` fully; on `q080`, it recovered the grant cap while slipping on a percentage digit (20% vs. 30%); on `q081`, it abstained on an unreadable ceiling figure; and on `q087` and `q101`, it experienced model refusal.
 - Formatting note: on `q079`, the output formatted the unit as `/-` which failed strict string matching despite recovering the exact numbers.
 
@@ -312,7 +321,7 @@ Evaluating Persian spelled-out number words:
 - In Arm 3, naive matching flagged `q103` as a hit; however, manual review determined this was a false positive (Arm 3 stated "one or two" articles instead of JCR Q1/Q2 requirements).
 - Audited Arm 3 recall remains **2 / 10** (strict) and **3 / 10** (proximity).
 
-### 8.5 Contextual Comparison Across Cohorts
+### 8.5 Contextual Comparison Across Cohorts (ungated operating point)
 
 | Cohort | Number Recall (Arm 2 vs. 3) | Unit Strict (Arm 2 vs. 3) | Unit Prox (Arm 2 vs. 3) | Keyword Recall (Arm 2 vs. 3) |
 |---|---|---|---|---|
@@ -346,13 +355,13 @@ Of 17 answered items in Arm 3 that missed keyword recall:
 ### 9.3 Question-Type Breakdown at `prod_055`
 
 | Question Type | Count | Arm 1 Ans | Arm 1 KW | Arm 2 Ans | Arm 2 KW | Arm 3 Ans | Arm 3 KW |
-|---|---|---|---|---|---|---|---|
-| `numeric` | 22 | 90.9% (20/22) | 77.3% (17/22) | 90.9% (20/22) | 68.2% (15/22) | 86.4% (19/22) | 81.8% (18/22) |
-| `legal-reference` | 23 | 91.3% (21/23) | 78.3% (18/23) | 91.3% (21/23) | 82.6% (19/23) | 91.3% (21/23) | 73.9% (17/23) |
-| `paraphrase` | 22 | 86.4% (19/22) | 72.7% (16/22) | 90.9% (20/22) | 77.3% (17/22) | 86.4% (19/22) | 68.2% (15/22) |
-| `multi-chunk` | 18 | 88.9% (16/18) | 77.8% (14/18) | 88.9% (16/18) | 72.2% (13/18) | 88.9% (16/18) | 72.2% (13/18) |
-| `factual` | 15 | 86.7% (13/15) | 86.7% (13/15) | 86.7% (13/15) | 86.7% (13/15) | 80.0% (12/15) | 80.0% (12/15) |
-| `english` | 12 | 83.3% (10/12) | 41.7% (5/12) | 83.3% (10/12) | 41.7% (5/12) | 83.3% (10/12) | 50.0% (6/12) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `numeric` | 22 | 100.0% (22/22) | 81.8% (18/22) | 100.0% (22/22) | 77.3% (17/22) | 95.5% (21/22) | 90.9% (20/22) |
+| `legal-reference` | 23 | 82.6% (19/23) | 65.2% (15/23) | 82.6% (19/23) | 69.6% (16/23) | 78.3% (18/23) | 65.2% (15/23) |
+| `paraphrase` | 22 | 86.4% (19/22) | 81.8% (18/22) | 81.8% (18/22) | 72.7% (16/22) | 77.3% (17/22) | 68.2% (15/22) |
+| `multi-chunk` | 18 | 83.3% (15/18) | 72.2% (13/18) | 88.9% (16/18) | 72.2% (13/18) | 88.9% (16/18) | 61.1% (11/18) |
+| `factual` | 15 | 93.3% (14/15) | 93.3% (14/15) | 100.0% (15/15) | 100.0% (15/15) | 100.0% (15/15) | 93.3% (14/15) |
+| `english` *(KW invalid; answered in Persian)* | 12 | 83.3% (10/12) | 41.7% (5/12) | 83.3% (10/12) | 41.7% (5/12) | 83.3% (10/12) | 41.7% (5/12) |
 
 ### 9.4 Citation Metrics at `prod_055`
 
@@ -404,7 +413,7 @@ During live execution:
 
 ### Figure 2: Abstention Trade-off Curves Across Development, Test, and Held-out Sets
 ![Figure 2: Threshold Trade-off Curves](figures/plot2_threshold_tradeoff_curves.png)  
-*Figure 2: Threshold sweep curves showing False Rejection Rate (FRR) and False Acceptance Rate (FAR) across $\tau \in [0.30, 0.80]$. Left: Tuned Dev ($N_{\text{ans}}=18, N_{\text{nid}}=7$). Center: Tuned Test ($N_{\text{ans}}=42, N_{\text{nid}}=7$). Right: Held-out ($N_{\text{ans}}=52, N_{\text{nid}}=12$). Reference lines indicate $\tau=0.55$ (dotted), Arm 1 $\tau^*=0.70$ (dash-dot), and Arms 2–3 $\tau^*=0.75$ (dashed). Notice the surge in held-out FRR at calibrated thresholds.*
+*Figure 2: Threshold sweep curves showing False Rejection Rate (FRR) and False Acceptance Rate (FAR) across $\tau \in [0.30, 0.80]$. Left: Tuned Dev ($N_{\text{ans}}=18, N_{\text{nid}}=7$). Center: Tuned Test ($N_{\text{ans}}=42, N_{\text{nid}}=7$). Right: Held-out ($N_{\text{ans}}=52, N_{\text{nid}}=12$). Reference lines indicate $\tau=0.55$ (dotted), Arm 1 $\tau^*=0.70$ (dash-dot), and Arms 2–3 $\tau^*=0.75$ (dashed). Arm 2 and Arm 3 FRR curves coincide on Tuned Dev (identical error counts across $\tau$). FAR = 0.0% curves reflect small NID counts ($N=7$ Dev/Test, $N=12$ Held-out; 95% Wilson upper bounds 35.4% and 24.2%). Notice the surge in held-out FRR at calibrated thresholds.*
 
 ---
 
@@ -418,5 +427,5 @@ During live execution:
 
 1. **Selective OCR Mitigates Number Hallucination:** In Persian PDFs with defective font encodings, standard text extraction yields corrupted numerals that lead to confident, incorrect numeric outputs (0/7 correct in Arm 2). Selective OCR restored number extraction to 3/7 on `heldout-CMap` without incurring full-corpus OCR overhead.
 2. **Rejection of In-Sample Threshold Calibration:** Raising vector similarity thresholds to $\tau^* = 0.70 / 0.75$ based on in-sample calibration severely increased false rejections (40.4%–76.9% on held-out) without improving out-of-sample precision. The conservative baseline ($\tau = 0.55$) paired with prompt-based refusal remains the recommended deployment strategy.
-3. **Retrieval Equivalence:** Dense vector retrieval and hybrid search achieved statistically indistinguishable end-to-end answer quality ($p = 1.000$). Hybrid search is supported as an operational default for its keyword matching capability and threshold fault-tolerance.
-4. **Interactive Viability & Hardening Opportunity:** DocSearch achieves an end-to-end median response time of ~2.4 seconds. Implementing upstream client-side retry in `RagService.cs` is recommended to address the ~3.8% transient degradation rate observed during live testing.
+3. **Retrieval Equivalence:** Dense vector retrieval and hybrid search achieved statistically indistinguishable end-to-end answer quality ($p = 1.000$). Keyword and article-key support is retained as the architectural design rationale per ADR 0005 (rather than an empirically demonstrated end-to-end advantage on this benchmark), introducing no observed degradation.
+4. **Interactive Viability & Hardening Opportunity:** DocSearch achieves an end-to-end median response time of 2.1–3.3 seconds across the three main arms (Arm 3 median 2.4 s; subject to external Gemini/VPN variance). Implementing upstream client-side retry in `RagService.cs` is recommended to address the ~3.8% transient degradation rate observed during live testing.

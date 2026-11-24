@@ -44,6 +44,7 @@ FORBIDDEN_STRINGS = [
     "close to chance",
     "near-domain",
     "eliminating dangerous",
+    "Paired Wilcoxon",
 ]
 
 
@@ -292,6 +293,47 @@ class DocAuditor:
         # 6 question types
         for t, cnt in [("numeric", "22"), ("factual", "15"), ("legal-reference", "23"), ("multi-chunk", "18"), ("paraphrase", "22"), ("english", "12")]:
             self.assert_contains(f"qtype_{t}_{cnt}", cnt)
+
+        # Programmatic cell-level verification of ALL 6 rows × 3 arms of Table 9.3 computed directly from results.json at prod_055
+        questions_by_id = {q["id"]: q for q in self.questions}
+        table_counts = {}
+        for arm_key in ["arm1_vector_ocr_off", "arm2_hybrid_ocr_off", "arm3_hybrid_ocr_defective"]:
+            rows = self.s2_results["arms"][arm_key]
+            counts_by_type = {}
+            for r in rows:
+                qid = r["id"]
+                q = questions_by_id[qid]
+                if q.get("not_in_docs", False):
+                    continue
+                qtype = q.get("type", "unknown")
+                if qtype not in counts_by_type:
+                    counts_by_type[qtype] = {"ans": 0, "kw": 0, "total": 0}
+                counts_by_type[qtype]["total"] += 1
+
+                score = r.get("bestVectorScore", 0.0)
+                has_fts = r.get("hasFtsHit", False)
+                is_hybrid = "hybrid" in arm_key
+                low_sim = (score < 0.55) if not is_hybrid else (score < 0.55 and not has_fts)
+                answered = (not low_sim) and (not r.get("notFound", False))
+                kw_hit = (not low_sim) and r.get("kw_hit", False)
+                if answered:
+                    counts_by_type[qtype]["ans"] += 1
+                if kw_hit:
+                    counts_by_type[qtype]["kw"] += 1
+            table_counts[arm_key] = counts_by_type
+
+        # Verify all 6 rows × 3 arms in Table 9.3 (ans and kw counts)
+        for t in ["numeric", "legal-reference", "paraphrase", "multi-chunk", "factual", "english"]:
+            c1 = table_counts["arm1_vector_ocr_off"][t]
+            c2 = table_counts["arm2_hybrid_ocr_off"][t]
+            c3 = table_counts["arm3_hybrid_ocr_defective"][t]
+            tot = c1["total"]
+            self.assert_regex(f"tbl93_{t}_a1_ans_{c1['ans']}_{tot}", rf"{c1['ans']}\s*/\s*{tot}")
+            self.assert_regex(f"tbl93_{t}_a1_kw_{c1['kw']}_{tot}", rf"{c1['kw']}\s*/\s*{tot}")
+            self.assert_regex(f"tbl93_{t}_a2_ans_{c2['ans']}_{tot}", rf"{c2['ans']}\s*/\s*{tot}")
+            self.assert_regex(f"tbl93_{t}_a2_kw_{c2['kw']}_{tot}", rf"{c2['kw']}\s*/\s*{tot}")
+            self.assert_regex(f"tbl93_{t}_a3_ans_{c3['ans']}_{tot}", rf"{c3['ans']}\s*/\s*{tot}")
+            self.assert_regex(f"tbl93_{t}_a3_kw_{c3['kw']}_{tot}", rf"{c3['kw']}\s*/\s*{tot}")
 
         # Citations denominators and rates
         self.assert_contains("cit_denom_99", "99")
