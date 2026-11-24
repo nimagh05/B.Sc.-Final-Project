@@ -23,12 +23,10 @@ import json
 import os
 import platform
 import subprocess
-import sys
 import time
-import unicodedata
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 import numpy as np
 import requests
@@ -114,6 +112,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ocr-mode", choices=["Off", "Defective"], default=None, help="Server OCR mode for --ingest-only")
     parser.add_argument("--eval-only", action="store_true", help="Run Stage 1 evaluation without ingesting")
     parser.add_argument("--stage1", action="store_true", default=True, help="Execute Stage 1 retrieval & calibration")
+    parser.add_argument("--stage2", action="store_true", help="Execute Stage 2 end-to-end evaluation")
+    parser.add_argument("--arms", default=None, help="Comma-separated arm keys to execute or validate")
+    parser.add_argument("--chat-model", default=None, help="Chat model name (must match API Ai:Chat:Model, e.g. gemini-2.5-flash)")
+    parser.add_argument("--temperature", type=float, default=0.0, help="Temperature setting (default: 0.0)")
+    parser.add_argument("--top-k", type=int, default=6, help="Top-K context chunks (default: 6)")
+    parser.add_argument("--stage1-results", type=Path, default=None, help="Path to Stage 1 results.json (for locked tau* cross-check)")
+    parser.add_argument("--validate-offline-sim", action="store_true", help="Run live cross-check of offline threshold simulation against API with MinSimilarity=0.55")
+    parser.add_argument("--stage2-phase-a", type=Path, default=None, help="Phase A results directory")
+    parser.add_argument("--stage2-phase-b", type=Path, default=None, help="Phase B results directory")
+    parser.add_argument("--phase-a-dir", type=Path, default=None, help="Phase A results directory (alias)")
+    parser.add_argument("--phase-b-dir", type=Path, default=None, help="Phase B results directory (alias)")
+    parser.add_argument("--stage2-report", action="store_true", help="Merge Phase A and Phase B results and generate Stage 2 summary, report, and plots")
+    parser.add_argument("--no-cache", action="store_true", help="Bypass LLM cache")
+    parser.add_argument("--allow-dirty", action="store_true", help="Allow running evaluation on a dirty git working tree")
     parser.add_argument("--reuse-collections", action="store_true", help="Reuse existing ready collections if present")
     parser.add_argument("--smoke", action="store_true", help="Run fast smoke test on 5 questions")
     parser.add_argument("--out", type=Path, default=None, help="Output directory for benchmark results")
@@ -597,7 +609,7 @@ class DocSearchClient:
                 "topK": top_k,
                 "useHybrid": use_hybrid,
             },
-            timeout=30.0,
+            timeout=90.0,
         )
         resp.raise_for_status()
         return resp.json()
@@ -744,9 +756,9 @@ def run_ingestion_phase(args: argparse.Namespace, config: Dict[str, Any], token:
 
     git_sha = get_git_sha()
 
-    print(f"\n========================================================")
+    print("\n========================================================")
     print(f"  DocSearch Ingestion Phase: OcrMode = {ocr_mode}")
-    print(f"========================================================")
+    print("========================================================")
 
     if ocr_mode == "Off":
         target_collections = ["regime_a_ocr_off", "regime_b_scan_off"]
@@ -949,10 +961,10 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
     out_dir = args.out or Path("eval/results") / f"stage1_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n========================================================")
-    print(f"  DocSearch Stage 1 Evaluation (Multi-Arm Benchmark)")
+    print("\n========================================================")
+    print("  DocSearch Stage 1 Evaluation (Multi-Arm Benchmark)")
     print(f"  Output directory: {out_dir}")
-    print(f"========================================================")
+    print("========================================================")
 
     k_list = config["global"]["top_k_list"]
     arms_data: Dict[str, List[Dict[str, Any]]] = {}
@@ -986,7 +998,7 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
                 has_fts = ret_resp.get("hasFtsHit", False)
                 elapsed_ms = ret_resp.get("elapsedMs", 0.0)
                 chunks = ret_resp.get("chunks", [])
-            except Exception as e:
+            except Exception:
                 # If collection is empty (e.g. regime_b_scan_off), treat as 0 retrieved
                 best_score = 0.0
                 has_fts = False
@@ -1026,7 +1038,7 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
 
     # 4. Per-Arm Plateau Threshold Calibration on (tuned, dev)
     calibrations: Dict[str, Dict[str, Any]] = {}
-    print(f"\n--- Running Per-Arm Plateau Calibration on (tuned, dev) ---")
+    print("\n--- Running Per-Arm Plateau Calibration on (tuned, dev) ---")
     for arm_key in ["arm1_vector_ocr_off", "arm2_hybrid_ocr_off", "arm3_hybrid_ocr_defective"]:
         dev_subset = [it for it in arms_data[arm_key] if it.get("docset") == "tuned" and it.get("split") == "dev"]
         if not args.smoke:
@@ -1091,7 +1103,7 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
     # 7. Generate Reports
     out_paths = generate_stage1_reports(results_dict, out_dir, smoke=args.smoke)
 
-    print(f"\n[OK] Stage 1 evaluation complete!")
+    print("\n[OK] Stage 1 evaluation complete!")
     print(f"  Results JSON: {results_json_path}")
     print(f"  Summary CSV:  {out_paths['summary_csv']}")
     if "regime_b_csv" in out_paths:
@@ -1114,7 +1126,7 @@ def generate_stage1_reports(
 
     # Compute summary_rows for Regime A cohorts strictly (excluding Regime B)
     summary_rows = []
-    print(f"\n--- Computing Stage 1 Metrics & Paired Bootstrap CIs ---")
+    print("\n--- Computing Stage 1 Metrics & Paired Bootstrap CIs ---")
     for c_name, c_filter in COHORTS_DEF:
         row = {"cohort": c_name}
         for arm_key in ["arm1_vector_ocr_off", "arm2_hybrid_ocr_off", "arm3_hybrid_ocr_defective"]:
@@ -1185,7 +1197,7 @@ def generate_stage1_reports(
         f.write("# DocSearch Stage 1 Evaluation Report (T19a)\n\n")
         f.write(f"- **Data generated at Git SHA:** `{data_git_sha}`\n")
         f.write(f"- **Report rendered at Git SHA:** `{current_git_sha}` (dirty: `{current_git_dirty}`)\n")
-        f.write(f"- **Dataset Tag:** `eval-dataset-v2.2`\n")
+        f.write("- **Dataset Tag:** `eval-dataset-v2.2`\n")
         f.write(f"- **Timestamp UTC:** {manifest.get('timestamp_utc', 'unknown')}\n\n")
 
         f.write("## 1. Pre-Registered Primary Endpoints\n\n")
@@ -1272,6 +1284,12 @@ def main() -> None:
         print(f"  Report MD:    {out_paths['report_md']}")
         return
 
+    # Offline Stage 2 report & plot generation (no API, Docker, or Ollama required)
+    if args.stage2_report:
+        from stage2 import run_stage2_report
+        run_stage2_report(args)
+        return
+
     # Standalone pure OCR benchmark on sidecar (no API login required)
     if args.benchmark_ocr:
         benchmark_pure_ocr(
@@ -1293,6 +1311,12 @@ def main() -> None:
 
     if args.ingest_only:
         run_ingestion_phase(args, config, token)
+    elif args.validate_offline_sim:
+        from stage2 import run_validate_offline_sim
+        run_validate_offline_sim(args, config, token)
+    elif args.stage2:
+        from stage2 import run_stage2_eval
+        run_stage2_eval(args, config, token)
     else:
         run_stage1_eval(args, config, token)
 

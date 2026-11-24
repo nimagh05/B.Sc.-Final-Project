@@ -266,8 +266,8 @@ def run_tuned_ablation(
     print("=== Tuned OCR Parameter Ablation (Anti-Leakage Guard: strictly NO heldout documents) ===")
     print("=" * 95)
     print(f"Target Tuned Documents (CMap): {sorted(TUNED_CMAP_PDFS)}")
-    print(f"Target Scan Twin Document:     bein-almelali-scan.pdf")
-    print(f"Clean Regression Document:     aein-91.pdf")
+    print("Target Scan Twin Document:     bein-almelali-scan.pdf")
+    print("Clean Regression Document:     aein-91.pdf")
     print("Heldout documents EXCLUDED per ADR 0008: tarh-dakheli.pdf, forsat-motaleati.pdf")
 
     tuned_cmap_qs = [q for q in answerable_qs if q.get("source_file") in TUNED_CMAP_PDFS]
@@ -408,7 +408,7 @@ def main() -> None:
     if SCAN_PDF_PATH.exists():
         pdf_files[SCAN_PDF_PATH.name] = SCAN_PDF_PATH
 
-    print(f"=== DocSearch Pre-Retrieval OCR Diagnostic & Evaluation ===")
+    print("=== DocSearch Pre-Retrieval OCR Diagnostic & Evaluation ===")
     print(f"Total PDFs found: {len(pdf_files)} (expected 15)")
     assert len(pdf_files) == 15, f"Expected 15 PDFs, found {len(pdf_files)}"
 

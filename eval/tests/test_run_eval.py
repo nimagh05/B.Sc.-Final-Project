@@ -4,10 +4,11 @@ Runs in < 2 seconds with zero network, zero Ollama, zero Docker, and zero real P
 """
 
 import json
-import os
 import sys
+import time
 from pathlib import Path
 import pytest
+import requests
 import yaml
 
 # Add eval directory to sys.path
@@ -20,13 +21,26 @@ from run_eval import (
     build_reproducibility_manifest,
     calibrate_min_similarity,
     document_cluster_paired_bootstrap_ci,
-    evaluate_retrieval_ranking,
     generate_stage1_reports,
     get_auth_token,
     is_chunk_hit,
     load_collection_manifest,
     paired_bootstrap_ci,
     save_collection_manifest,
+)
+from stage2 import (
+    append_checkpoint,
+    compute_cache_key,
+    document_cluster_paired_bootstrap_ci as stage2_cluster_bootstrap_ci,
+    evaluate_generation_metrics,
+    generate_stage2_plots,
+    get_from_cache,
+    load_checkpoint,
+    mcnemar_exact,
+    run_stage2_report,
+    save_to_cache,
+    simulate_threshold,
+    wilson_score_interval,
 )
 
 
@@ -531,3 +545,935 @@ def test_generate_stage1_reports_formatting_and_isolation(tmp_path):
     assert "scan_twin_ocr_off" in regime_b_csv_content
     assert "scan_twin_ocr_defective" in regime_b_csv_content
     assert "digital_reference_hybrid" in regime_b_csv_content
+
+
+# --- Stage 2 Unit Tests (T19b) ---
+
+def test_stage2_cache_key_formula_exact_order_and_prompt_sha():
+    chunks_order1 = ["chunk_a", "chunk_b"]
+    chunks_order2 = ["chunk_b", "chunk_a"]
+    sha = "abc123prompt"
+
+    key1 = compute_cache_key("q", chunks_order1, 6, "gemini-2.5-flash", 0.0, sha)
+    key2 = compute_cache_key("q", chunks_order2, 6, "gemini-2.5-flash", 0.0, sha)
+
+    # Order matters: must NOT sort chunk IDs
+    assert key1 != key2, "Cache key must preserve exact retrieved chunk ordering!"
+
+    # Changing top_k, model, temp, or prompt_sha changes key
+    key_topk = compute_cache_key("q", chunks_order1, 10, "gemini-2.5-flash", 0.0, sha)
+    key_model = compute_cache_key("q", chunks_order1, 6, "other-model", 0.0, sha)
+    key_temp = compute_cache_key("q", chunks_order1, 6, "gemini-2.5-flash", 0.5, sha)
+    key_sha = compute_cache_key("q", chunks_order1, 6, "gemini-2.5-flash", 0.0, "different_sha")
+
+    assert len({key1, key_topk, key_model, key_temp, key_sha}) == 5
+
+
+def test_stage2_cache_store_and_load(tmp_path):
+    cache_dir = tmp_path / "llm_cache"
+    key = "sample_key_123"
+
+    # Initially empty
+    assert get_from_cache(cache_dir, key) is None
+
+    # Save valid entry
+    data = {
+        "answer": "پاسخ معتبر [1]",
+        "notFound": False,
+        "degraded": False,
+        "sources": [{"index": 1, "fileName": "doc.pdf", "page": 2}],
+    }
+    save_to_cache(cache_dir, key, data)
+
+    cached = get_from_cache(cache_dir, key)
+    assert cached is not None
+    assert cached["is_cached"] is True
+    assert cached["answer"] == "پاسخ معتبر [1]"
+
+    # Degradation invariant: never cache degraded responses
+    degraded_key = "degraded_key"
+    save_to_cache(cache_dir, degraded_key, {"answer": None, "degraded": True})
+    assert get_from_cache(cache_dir, degraded_key) is None
+
+
+def test_stage2_checkpoint_jsonl_append_and_load(tmp_path):
+    checkpoint_file = tmp_path / "arm1.jsonl"
+
+    rec1 = {"id": "q001", "answer": "ans1", "degraded": False}
+    rec2 = {"id": "q002", "answer": "ans2", "degraded": False}
+    rec_deg = {"id": "q003", "answer": None, "degraded": True}
+
+    append_checkpoint(checkpoint_file, rec1)
+    append_checkpoint(checkpoint_file, rec2)
+    append_checkpoint(checkpoint_file, rec_deg)  # Must be ignored
+
+    records = load_checkpoint(checkpoint_file)
+    assert len(records) == 2
+    assert "q001" in records
+    assert "q002" in records
+    assert "q003" not in records
+
+
+def test_stage2_offline_threshold_simulation_exact_logic():
+    # Case 1: 0 chunks retrieved -> NoContext
+    item_zero_chunks = {
+        "retrieved_chunk_count": 0,
+        "bestVectorScore": 0.0,
+        "hasFtsHit": False,
+        "notFound": True,
+        "answer": "raw refusal",
+    }
+    sim_zc = simulate_threshold(item_zero_chunks, tau=0.55)
+    assert sim_zc["notFound"] is True
+    assert sim_zc["no_answer_reason"] == "NoContext"
+    assert sim_zc["gated"] is True
+
+    # Case 2: Low similarity and NO FTS hit -> LowSimilarity rejection
+    item_low_sim = {
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.50,
+        "hasFtsHit": False,
+        "notFound": False,
+        "answer": "some generated text",
+    }
+    sim_ls = simulate_threshold(item_low_sim, tau=0.55)
+    assert sim_ls["notFound"] is True
+    assert sim_ls["no_answer_reason"] == "LowSimilarity"
+    assert sim_ls["gated"] is True
+    assert sim_ls["sources"] == []
+
+    # Case 3: Low similarity with FTS rescue (hasFtsHit=True) -> passed to LLM
+    item_fts_rescue = {
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.50,
+        "hasFtsHit": True,
+        "notFound": False,
+        "answer": "answered text [1]",
+        "sources": [{"index": 1}],
+    }
+    sim_fts = simulate_threshold(item_fts_rescue, tau=0.55)
+    assert sim_fts["notFound"] is False
+    assert sim_fts["no_answer_reason"] == "None"
+    assert sim_fts["gated"] is False
+    assert len(sim_fts["sources"]) == 1
+
+    # Case 4: High similarity with LLM self-refusal -> ModelRefusal
+    item_model_refusal = {
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.75,
+        "hasFtsHit": True,
+        "notFound": True,
+        "answer": "در اسناد موجود پاسخی برای این پرسش پیدا نشد",
+    }
+    sim_mr = simulate_threshold(item_model_refusal, tau=0.55)
+    assert sim_mr["notFound"] is True
+    assert sim_mr["no_answer_reason"] == "ModelRefusal"
+    assert sim_mr["gated"] is False
+
+
+def test_stage2_non_vacuous_multidigit_and_unit_recall():
+    gold_keywords = ["20", "واحد"]
+    expected_with_num_and_unit = "حداکثر 20 واحد در سال مجاز است."
+    sources = [{"index": 1, "fileName": "doc.pdf", "page": 5}]
+
+    # Answer matches keywords, numbers, and units strictly
+    ans_strict = "مطابق آیین‌نامه، سقف مجاز 20 واحد در سال است [1]."
+    m_strict = evaluate_generation_metrics(
+        answer=ans_strict,
+        not_found=False,
+        expected_answer=expected_with_num_and_unit,
+        answer_keywords=gold_keywords,
+        sources=sources,
+        gold_file="doc.pdf",
+        gold_pages=[5],
+    )
+    assert m_strict["kw_hit"] is True
+    assert m_strict["num_hit"] is True
+    assert m_strict["unit_hit_strict"] is True
+    assert m_strict["unit_hit_proximity_10"] is True
+
+    # Answer has unit and number separated loosely (proximity <= 10) but not strict consecutive
+    ans_prox = "مطابق آیین‌نامه، 20 حداکثر واحد مجاز است [1]."
+    expected_unit = "20 واحد"
+    m_prox = evaluate_generation_metrics(
+        answer=ans_prox,
+        not_found=False,
+        expected_answer=expected_unit,
+        answer_keywords=["20"],
+        sources=sources,
+        gold_file="doc.pdf",
+        gold_pages=[5],
+    )
+    assert m_prox["num_hit"] is True
+    assert m_prox["unit_hit_strict"] is False
+    assert m_prox["unit_hit_proximity_10"] is True
+
+    # Non-vacuous check: question without multi-digit numbers or units returns None
+    expected_no_num = "دانشگاه تهران مسئول است."
+    m_no_num = evaluate_generation_metrics(
+        answer="دانشگاه تهران مسئول است [1].",
+        not_found=False,
+        expected_answer=expected_no_num,
+        answer_keywords=["دانشگاه"],
+        sources=sources,
+        gold_file="doc.pdf",
+        gold_pages=[1],
+    )
+    assert m_no_num["num_hit"] is None
+    assert m_no_num["unit_hit_strict"] is None
+    assert m_no_num["unit_hit_proximity_10"] is None
+
+
+def test_stage2_citation_metrics_four_types_and_twin_mapping():
+    sources = [
+        {"index": 1, "fileName": "bein-almelali-scan.pdf", "page": 2},
+        {"index": 2, "fileName": "other.pdf", "page": 10},
+    ]
+    twin_mapping = {"bein-almelali-scan.pdf": "bein-almelali.pdf"}
+
+    # Answer cites [1] (which hits gold page 2 via twin mapping) and [2] (which misses)
+    ans = "طبق ماده ۲ این بند الزامی است [1][2]."
+    m = evaluate_generation_metrics(
+        answer=ans,
+        not_found=False,
+        expected_answer="بند الزامی است",
+        answer_keywords=["ماده"],
+        sources=sources,
+        gold_file="bein-almelali.pdf",
+        gold_pages=[2, 3],
+        twin_mapping=twin_mapping,
+    )
+
+    assert m["citation_validity"] is True
+    assert m["citation_page_hit"] is True
+    assert m["cited_source_count"] == 2
+    assert m["valid_gold_hits_count"] == 1
+    assert m["citation_precision"] == 0.5  # 1 hit out of 2 cited
+    assert m["citation_recall"] == 0.5     # page 2 cited out of gold pages [2, 3]
+
+    # Answer without bracket citations has validity = False
+    ans_no_cit = "طبق ماده ۲ این بند الزامی است بدون مرجع."
+    m_no_cit = evaluate_generation_metrics(
+        answer=ans_no_cit,
+        not_found=False,
+        expected_answer="بند الزامی است",
+        answer_keywords=["ماده"],
+        sources=sources,
+        gold_file="bein-almelali.pdf",
+        gold_pages=[2],
+    )
+    assert m_no_cit["citation_validity"] is False
+    assert m_no_cit["citation_page_hit"] is False
+    assert m_no_cit["citation_precision"] == 0.0
+
+
+def test_stage2_cluster_bootstrap_g_guard():
+    # Case 1: G = 2 (heldout-CMap cohort) -> status 'N/A'
+    items_a_g2 = [
+        {"source_file": "d1.pdf", "kw_hit": 1.0},
+        {"source_file": "d2.pdf", "kw_hit": 0.0},
+    ]
+    items_b_g2 = [
+        {"source_file": "d1.pdf", "kw_hit": 1.0},
+        {"source_file": "d2.pdf", "kw_hit": 1.0},
+    ]
+    res_g2 = stage2_cluster_bootstrap_ci(items_a_g2, items_b_g2, metric_key="kw_hit", n_resamples=500, seed=42)
+    assert res_g2["status"] == "N/A (G < 5 clusters)"
+    assert res_g2["cluster_count"] == 2
+    assert res_g2["ci_low"] is None
+
+    # Case 2: G = 3 (heldout cohort) -> status 'Descriptive only'
+    items_a_g3 = [
+        {"source_file": "d1.pdf", "kw_hit": 1.0},
+        {"source_file": "d2.pdf", "kw_hit": 0.0},
+        {"source_file": "d3.pdf", "kw_hit": 0.0},
+    ]
+    items_b_g3 = [
+        {"source_file": "d1.pdf", "kw_hit": 1.0},
+        {"source_file": "d2.pdf", "kw_hit": 1.0},
+        {"source_file": "d3.pdf", "kw_hit": 1.0},
+    ]
+    res_g3 = stage2_cluster_bootstrap_ci(items_a_g3, items_b_g3, metric_key="kw_hit", n_resamples=500, seed=42)
+    assert res_g3["status"] == "Descriptive only (G < 5 clusters)"
+    assert res_g3["cluster_count"] == 3
+
+    # Case 3: G = 5 -> valid cluster bootstrap
+    items_a_g5 = [{"source_file": f"d{i}.pdf", "kw_hit": 0.2} for i in range(5)]
+    items_b_g5 = [{"source_file": f"d{i}.pdf", "kw_hit": 0.8} for i in range(5)]
+    res_g5 = stage2_cluster_bootstrap_ci(items_a_g5, items_b_g5, metric_key="kw_hit", n_resamples=500, seed=42)
+    assert res_g5["status"] == "valid"
+    assert res_g5["cluster_count"] == 5
+    assert res_g5["ci_low"] is not None
+    assert res_g5["ci_high"] is not None
+
+
+def test_stage2_wilson_and_mcnemar_statistical_routines():
+    # Wilson interval bounds check
+    w_zero = wilson_score_interval(0, 10)
+    assert w_zero[0] == 0.0
+    assert 0.20 <= w_zero[1] <= 0.35
+
+    w_full = wilson_score_interval(10, 10)
+    assert 0.65 <= w_full[0] <= 0.80
+    assert w_full[1] == 1.0
+
+    # McNemar's exact test
+    # Concordant / no discordance -> p = 1.0
+    assert mcnemar_exact(0, 0) == 1.0
+    assert mcnemar_exact(5, 5) == 1.0
+
+    # Significant discordance: 0 vs 10
+    p_val_disc = mcnemar_exact(0, 10)
+    assert p_val_disc < 0.05
+
+
+def test_stage2_headless_matplotlib_plots_generation(tmp_path):
+    dummy_item = {
+        "id": "q001",
+        "docset": "tuned",
+        "split": "test",
+        "type": "factual",
+        "source_file": "doc.pdf",
+        "bestVectorScore": 0.8,
+        "hasFtsHit": True,
+        "retrieved_chunk_count": 6,
+        "notFound": False,
+        "answer": "answer [1]",
+        "kw_hit": True,
+        "num_hit": True,
+        "unit_hit_strict": True,
+        "unit_hit_proximity_10": True,
+        "citation_validity": True,
+        "citation_page_hit": True,
+        "citation_precision": 1.0,
+        "citation_recall": 1.0,
+    }
+
+    dummy_results = {
+        "arms": {
+            "arm1_vector_ocr_off": [dummy_item],
+            "arm2_hybrid_ocr_off": [dummy_item],
+            "arm3_hybrid_ocr_defective": [dummy_item],
+            "regime_b_scan_off": [dummy_item],
+            "regime_b_scan_defective": [dummy_item],
+        }
+    }
+
+    plots = generate_stage2_plots(dummy_results, tmp_path)
+    assert len(plots) == 3
+
+    for p in plots:
+        assert p.exists()
+        assert p.stat().st_size > 1000, f"Plot file {p} must be non-empty image"
+
+
+def test_stage2_degraded_policy_retry_failed_provider_and_streak_halt(tmp_path, monkeypatch):
+    import argparse
+    from stage2 import run_stage2_eval
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True)
+    manifest_file = cache_dir / "collection_manifest.json"
+    manifest_data = {
+        "eval-regime-a-ocr-off": {"id": "col1", "name": "eval-regime-a-ocr-off", "ocr_mode": "Off"}
+    }
+    manifest_file.write_text(json.dumps(manifest_data), encoding="utf-8")
+
+    q_file = tmp_path / "questions.json"
+    qs = [{"id": f"q00{i}", "question": f"پرسش {i}؟", "type": "factual"} for i in range(1, 4)]
+    q_file.write_text(json.dumps(qs), encoding="utf-8")
+
+    out_dir = tmp_path / "out"
+
+    config = {
+        "collections": {"regime_a_ocr_off": {"id_name": "eval-regime-a-ocr-off"}},
+        "arms": {
+            "arm1_vector_ocr_off": {
+                "name": "arm1",
+                "collection_ref": "regime_a_ocr_off",
+                "use_hybrid": False,
+            }
+        },
+    }
+
+    # Monkeypatch time.sleep to avoid any latency
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+
+    # Monkeypatch requests.get for /health/live
+    class MockResp:
+        def __init__(self, status_code, json_data, headers=None):
+            self.status_code = status_code
+            self._json = json_data
+            self.headers = headers or {}
+            self.text = json.dumps(json_data)
+        def json(self):
+            return self._json
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.RequestException(f"HTTP {self.status_code}")
+
+    monkeypatch.setattr(requests, "get", lambda url, timeout=None: MockResp(200, {"status": "Healthy"}))
+
+    # Mock DocSearchClient methods
+    from run_eval import DocSearchClient
+    monkeypatch.setattr(DocSearchClient, "get_collections", lambda self: [{"name": "eval-regime-a-ocr-off", "id": "col1"}])
+    monkeypatch.setattr(DocSearchClient, "dev_retrieve", lambda self, q, cols, top_k=6, use_hybrid=True: {
+        "bestVectorScore": 0.8,
+        "hasFtsHit": True,
+        "elapsedMs": 10.0,
+        "chunks": [{"chunkId": "c1", "fileName": "doc.pdf", "pageStart": 1, "pageEnd": 1}],
+    })
+
+    # Mock requests.post to return degraded response
+    post_attempts = []
+    def mock_post(url, json=None, headers=None, timeout=None):
+        post_attempts.append(url)
+        return MockResp(200, {"degraded": True, "answer": None, "notFound": False})
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    args = argparse.Namespace(
+        base_url="http://mock:5000",
+        cache_dir=cache_dir,
+        questions=q_file,
+        chat_model="mock-model",
+        temperature=0.0,
+        top_k=6,
+        arms="arm1_vector_ocr_off",
+        smoke=False,
+        out=out_dir,
+        sleep=0.0,
+        allow_dirty=True,
+        no_cache=False,
+    )
+
+    # 3 consecutive provider failures must trigger SystemExit(1)
+    with pytest.raises(SystemExit):
+        run_stage2_eval(args, config, token="mock-token")
+
+    # 3 questions * 4 retries = 12 post attempts
+    assert len(post_attempts) == 12
+
+    # Verify no degraded entries were written to checkpoint or cache
+    checkpoint_file = out_dir / "checkpoints" / "arm1_vector_ocr_off.jsonl"
+    assert not checkpoint_file.exists() or checkpoint_file.stat().st_size == 0
+    llm_cache_dir = cache_dir / "llm_cache"
+    assert not llm_cache_dir.exists() or len(list(llm_cache_dir.glob("*.json"))) == 0
+
+
+def test_stage2_validate_offline_sim_mismatch_detection():
+    # Test gate comparison logic
+    # Case 1: Exact match on pre-LLM gate (both gated)
+    ungated_item_low = {
+        "id": "q001",
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.40,
+        "hasFtsHit": False,
+        "notFound": False,
+    }
+    sim_low = simulate_threshold(ungated_item_low, tau=0.55)
+    live_gen_ms = 0.0
+    live_not_found = True
+    is_live_pre_gated = (live_gen_ms == 0.0 and live_not_found)
+    is_sim_pre_gated = sim_low["gated"]
+    assert is_live_pre_gated == is_sim_pre_gated is True
+
+    # Case 2: Gate divergence (live executed LLM, but offline simulation had gated=True)
+    live_gen_ms_mismatch = 1500.0
+    live_not_found_mismatch = False
+    is_live_mismatch_gated = (live_gen_ms_mismatch == 0.0 and live_not_found_mismatch)
+    assert is_live_mismatch_gated != is_sim_pre_gated, "Should detect mismatch when live executes LLM on low score"
+
+
+def test_stage2_official_run_guard_git_dirty(tmp_path, monkeypatch):
+    import argparse
+    import subprocess
+    from stage2 import run_stage2_eval
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True)
+    (cache_dir / "collection_manifest.json").write_text(json.dumps({}), encoding="utf-8")
+    q_file = tmp_path / "q.json"
+    q_file.write_text("[]", encoding="utf-8")
+
+    # Case 1: git_dirty == True and allow_dirty == False -> aborts with SystemExit
+    monkeypatch.setattr(subprocess, "check_output", lambda cmd, **kwargs: "M eval/stage2.py\n")
+
+    args_strict = argparse.Namespace(
+        base_url="http://mock:5000",
+        cache_dir=cache_dir,
+        questions=q_file,
+        chat_model="model",
+        temperature=0.0,
+        top_k=6,
+        arms=None,
+        smoke=True,
+        out=tmp_path / "out",
+        sleep=0.0,
+        allow_dirty=False,
+        no_cache=False,
+    )
+
+    with pytest.raises(SystemExit):
+        run_stage2_eval(args_strict, {"collections": {}, "arms": {}}, token="tok")
+
+
+def test_stage2_dev_retrieve_retry_and_failed_provider(tmp_path, monkeypatch):
+    """Verifies dev_retrieve retries transient failures and marks persistent failures as failed_provider without fake NoContext."""
+    import argparse
+    from stage2 import run_stage2_eval
+    from run_eval import DocSearchClient
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir(parents=True)
+    manifest_file = cache_dir / "collection_manifest.json"
+    manifest_data = {
+        "eval-regime-a-ocr-off": {"id": "col1", "name": "eval-regime-a-ocr-off", "ocr_mode": "Off"}
+    }
+    manifest_file.write_text(json.dumps(manifest_data), encoding="utf-8")
+
+    # 2 questions: q001 tests transient retry recovery, q002 tests persistent failure (4 attempts)
+    q_file = tmp_path / "questions.json"
+    qs = [
+        {"id": "q001", "question": "پرسش 1؟", "type": "factual", "source_file": "doc.pdf", "source_pages": [1]},
+        {"id": "q002", "question": "پرسش 2؟", "type": "factual", "source_file": "doc.pdf", "source_pages": [2]},
+    ]
+    q_file.write_text(json.dumps(qs), encoding="utf-8")
+    out_dir = tmp_path / "out"
+
+    config = {
+        "collections": {"regime_a_ocr_off": {"id_name": "eval-regime-a-ocr-off"}},
+        "arms": {
+            "arm1_vector_ocr_off": {
+                "name": "arm1",
+                "collection_ref": "regime_a_ocr_off",
+                "use_hybrid": False,
+            }
+        },
+    }
+
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+
+    class MockResp:
+        def __init__(self, status_code, json_data, headers=None):
+            self.status_code = status_code
+            self._json = json_data
+            self.headers = headers or {}
+            self.text = json.dumps(json_data)
+        def json(self):
+            return self._json
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.RequestException(f"HTTP {self.status_code}")
+
+    monkeypatch.setattr(requests, "get", lambda url, timeout=None: MockResp(200, {"status": "Healthy"}))
+    monkeypatch.setattr(DocSearchClient, "get_collections", lambda self: [{"name": "eval-regime-a-ocr-off", "id": "col1"}])
+
+    retrieve_call_counts = {"q001": 0, "q002": 0}
+
+    def mock_dev_retrieve(self, question, cols, top_k=6, use_hybrid=True):
+        if "1" in question:
+            retrieve_call_counts["q001"] += 1
+            if retrieve_call_counts["q001"] == 1:
+                raise requests.RequestException("Cold-start Ollama timeout on q001")
+            return {
+                "bestVectorScore": 0.85,
+                "hasFtsHit": True,
+                "elapsedMs": 50.0,
+                "chunks": [{"chunkId": "c1", "fileName": "doc.pdf", "pageStart": 1, "pageEnd": 1}],
+            }
+        else:
+            retrieve_call_counts["q002"] += 1
+            raise requests.RequestException("Persistent timeout on q002")
+
+    monkeypatch.setattr(DocSearchClient, "dev_retrieve", mock_dev_retrieve)
+
+    # Mock /ask for q001
+    def mock_post(url, json=None, headers=None, timeout=None):
+        return MockResp(200, {
+            "answer": "پاسخ معتبر [1]",
+            "notFound": False,
+            "degraded": False,
+            "sources": [{"fileName": "doc.pdf", "page": 1, "extra": "ignored"}],
+        })
+
+    monkeypatch.setattr(requests, "post", mock_post)
+
+    args = argparse.Namespace(
+        base_url="http://mock:5000",
+        cache_dir=cache_dir,
+        questions=q_file,
+        chat_model="mock-model",
+        temperature=0.0,
+        top_k=6,
+        arms="arm1_vector_ocr_off",
+        smoke=False,
+        out=out_dir,
+        sleep=0.0,
+        allow_dirty=True,
+        no_cache=False,
+    )
+
+    phase_data = run_stage2_eval(args, config, token="mock-token")
+    manifest_out = phase_data["manifest"]
+
+    # 1. Verify q001 succeeded on 2nd attempt (transient retry succeeded)
+    assert retrieve_call_counts["q001"] == 2
+
+    # 2. Verify q002 exhausted all 4 attempts (persistent retry failed)
+    assert retrieve_call_counts["q002"] == 4
+
+    # 3. Verify q002 was marked failed_provider and NOT recorded as a fake NoContext
+    assert manifest_out["failed_provider_count"] == 1
+    assert "q002" in manifest_out["failed_provider_ids"]
+
+    # 4. Verify checkpoint contains only q001 with compact sources
+    checkpoint_file = out_dir / "checkpoints" / "arm1_vector_ocr_off.jsonl"
+    assert checkpoint_file.exists()
+    records = [json.loads(line) for line in checkpoint_file.read_text(encoding="utf-8").strip().split("\n")]
+    assert len(records) == 1
+    assert records[0]["id"] == "q001"
+    assert records[0]["sources"] == [{"fileName": "doc.pdf", "page": 1}]
+    assert records[0]["notFound"] is False
+
+
+def test_stage2_refused_question_preserves_non_vacuous_denominators():
+    """Verifies evaluate_generation_metrics and simulate_threshold preserve non-vacuous denominators (N_num=7, N_unit=10) on refused questions."""
+    expected_with_num_and_unit = "حداکثر سقف مجاز 20 واحد و 15 درصد است."
+    expected_without_num = "دانشگاه تهران مسئول اجرای آیین‌نامه است."
+
+    # Part 1: evaluate_generation_metrics on refused answer (notFound=True)
+    m_refused_num = evaluate_generation_metrics(
+        answer="متاسفانه پاسخ در اسناد یافت نشد.",
+        not_found=True,
+        expected_answer=expected_with_num_and_unit,
+        answer_keywords=["20", "واحد"],
+        sources=[],
+        gold_file="doc.pdf",
+        gold_pages=[1],
+    )
+    # Questions with numbers/units MUST return False when refused (counted as recall misses, NOT dropped from denominator)
+    assert m_refused_num["kw_hit"] is False
+    assert m_refused_num["num_hit"] is False
+    assert m_refused_num["unit_hit_strict"] is False
+    assert m_refused_num["unit_hit_proximity_10"] is False
+    assert m_refused_num["citation_validity"] is False
+
+    # Questions without numbers/units MUST return None
+    m_refused_no_num = evaluate_generation_metrics(
+        answer="متاسفانه پاسخ در اسناد یافت نشد.",
+        not_found=True,
+        expected_answer=expected_without_num,
+        answer_keywords=["دانشگاه"],
+        sources=[],
+        gold_file="doc.pdf",
+        gold_pages=[1],
+    )
+    assert m_refused_no_num["num_hit"] is None
+    assert m_refused_no_num["unit_hit_strict"] is None
+    assert m_refused_no_num["unit_hit_proximity_10"] is None
+
+    # Part 2: simulate_threshold on previously answered question that becomes LowSimilarity
+    item_answered_with_num = {
+        "id": "q001",
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.42,
+        "hasFtsHit": False,
+        "notFound": False,
+        "answer": "پاسخ 20 واحد است [1]",
+        "sources": [{"fileName": "doc.pdf", "page": 1}],
+        "num_hit": True,
+        "unit_hit_strict": True,
+        "unit_hit_proximity_10": True,
+        "kw_hit": True,
+        "citation_validity": True,
+    }
+
+    # Under ungated (tau=0.0): remains answered
+    sim_ungated = simulate_threshold(item_answered_with_num, tau=0.0)
+    assert sim_ungated["notFound"] is False
+    assert sim_ungated["num_hit"] is True
+    assert sim_ungated["unit_hit_strict"] is True
+
+    # Under prod_055 (tau=0.55): gated by LowSimilarity (0.42 < 0.55)
+    sim_055 = simulate_threshold(item_answered_with_num, tau=0.55)
+    assert sim_055["notFound"] is True
+    assert sim_055["no_answer_reason"] == "LowSimilarity"
+    assert sim_055["num_hit"] is False  # Converted to False (NOT None), keeping denominator invariant!
+    assert sim_055["unit_hit_strict"] is False
+    assert sim_055["unit_hit_proximity_10"] is False
+    assert sim_055["kw_hit"] is False
+
+    # Part 3: Denominator invariance across thresholds
+    item_no_num = {
+        "id": "q002",
+        "retrieved_chunk_count": 6,
+        "bestVectorScore": 0.42,
+        "hasFtsHit": False,
+        "notFound": False,
+        "answer": "دانشگاه تهران [1]",
+        "sources": [{"fileName": "doc.pdf", "page": 1}],
+        "num_hit": None,
+        "unit_hit_strict": None,
+        "unit_hit_proximity_10": None,
+        "kw_hit": True,
+        "citation_validity": True,
+    }
+    cohort = [item_answered_with_num, item_no_num]
+
+    sim_cohort_ungated = [simulate_threshold(it, 0.0) for it in cohort]
+    sim_cohort_055 = [simulate_threshold(it, 0.55) for it in cohort]
+
+    denom_ungated = sum(1 for it in sim_cohort_ungated if it["num_hit"] is not None)
+    denom_055 = sum(1 for it in sim_cohort_055 if it["num_hit"] is not None)
+    assert denom_ungated == 1
+    assert denom_055 == 1  # Denominator invariant: 1 question with numbers in both!
+
+
+def test_stage2_run_stage2_report_end_to_end(tmp_path):
+    """Verifies run_stage2_report end-to-end: merges Phase A & B, generates summary.csv, report.md with dual git SHAs, and all 3 plots."""
+    import argparse
+
+    phase_a_dir = tmp_path / "phase_a"
+    phase_a_dir.mkdir(parents=True)
+    phase_b_dir = tmp_path / "phase_b"
+    phase_b_dir.mkdir(parents=True)
+    out_dir = tmp_path / "out"
+
+    # Base item builder
+    def make_item(qid, arm, docset, split, qtype, src_file="aein-91.pdf", num_hit=None, unit_hit=None, score=0.85, not_found=False):
+        return {
+            "id": qid,
+            "arm": arm,
+            "docset": docset,
+            "split": split,
+            "type": qtype,
+            "source_file": src_file,
+            "source_pages": [1],
+            "bestVectorScore": score,
+            "hasFtsHit": True,
+            "retrieved_chunk_count": 6,
+            "notFound": not_found,
+            "answer": "پاسخ نمونه [1]" if not not_found else "«در اسناد موجود پاسخی برای این پرسش پیدا نشد.»",
+            "sources": [{"fileName": src_file, "page": 1}] if not not_found else [],
+            "kw_hit": not not_found,
+            "num_hit": num_hit,
+            "unit_hit_strict": unit_hit,
+            "unit_hit_proximity_10": unit_hit,
+            "citation_validity": not not_found,
+            "citation_page_hit": not not_found,
+            "citation_precision": 1.0 if not not_found else 0.0,
+            "citation_recall": 1.0 if not not_found else 0.0,
+            "total_ms": 1250.0,
+            "is_cached": False,
+        }
+
+    # 1. Phase A fixture (Arm 1 vector-only)
+    arm1_items = [
+        make_item("q001", "arm1_vector_ocr_off", "heldout", "test", "factual"),
+        make_item("q002", "arm1_vector_ocr_off", "heldout", "test", "not-in-docs", score=0.35, not_found=True),
+        make_item("q003", "arm1_vector_ocr_off", "tuned", "dev", "factual"),
+        make_item("q004", "arm1_vector_ocr_off", "tuned", "test", "factual"),
+    ]
+    phase_a_data = {
+        "manifest": {
+            "stage": "stage2_execution",
+            "git_sha": "git-sha-phase-a-1234",
+            "git_dirty": False,
+            "chat_model": "mock-chat-model",
+            "system_prompt_sha256": "systempromptsha256abcdef",
+            "total_queries": 4,
+            "total_cache_hits": 1,
+            "failed_provider_ids": [],
+        },
+        "arms": {
+            "arm1_vector_ocr_off": arm1_items,
+        },
+    }
+    (phase_a_dir / "phase_results.json").write_text(json.dumps(phase_a_data), encoding="utf-8")
+
+    # 2. Phase B fixture (Arms 2, 3, regime_b scan twins)
+    arm2_items = [
+        make_item("q001", "arm2_hybrid_ocr_off", "heldout", "test", "factual"),
+        make_item("q002", "arm2_hybrid_ocr_off", "heldout", "test", "not-in-docs", score=0.35, not_found=True),
+        make_item("q003", "arm2_hybrid_ocr_off", "tuned", "dev", "factual"),
+        make_item("q004", "arm2_hybrid_ocr_off", "tuned", "test", "factual"),
+        make_item("q010", "arm2_hybrid_ocr_off", "heldout", "test", "numeric", src_file="tarh-dakheli.pdf", num_hit=False, unit_hit=False),
+        make_item("q011", "arm2_hybrid_ocr_off", "heldout", "test", "numeric", src_file="forsat-motaleati.pdf", num_hit=False, unit_hit=False),
+    ]
+    arm3_items = [
+        make_item("q001", "arm3_hybrid_ocr_defective", "heldout", "test", "factual"),
+        make_item("q002", "arm3_hybrid_ocr_defective", "heldout", "test", "not-in-docs", score=0.35, not_found=True),
+        make_item("q003", "arm3_hybrid_ocr_defective", "tuned", "dev", "factual"),
+        make_item("q004", "arm3_hybrid_ocr_defective", "tuned", "test", "factual"),
+        make_item("q010", "arm3_hybrid_ocr_defective", "heldout", "test", "numeric", src_file="tarh-dakheli.pdf", num_hit=True, unit_hit=True),
+        make_item("q011", "arm3_hybrid_ocr_defective", "heldout", "test", "numeric", src_file="forsat-motaleati.pdf", num_hit=True, unit_hit=True),
+    ]
+    scan_off_items = [
+        make_item("q020", "regime_b_scan_off", "heldout", "test", "factual", not_found=True),
+    ]
+    scan_def_items = [
+        make_item("q020", "regime_b_scan_defective", "heldout", "test", "factual", not_found=False),
+    ]
+
+    phase_b_data = {
+        "manifest": {
+            "stage": "stage2_execution",
+            "git_sha": "git-sha-phase-b-5678",
+            "git_dirty": False,
+            "chat_model": "mock-chat-model",
+            "system_prompt_sha256": "systempromptsha256abcdef",
+            "total_queries": 14,
+            "total_cache_hits": 5,
+            "failed_provider_ids": [],
+        },
+        "arms": {
+            "arm2_hybrid_ocr_off": arm2_items,
+            "arm3_hybrid_ocr_defective": arm3_items,
+            "regime_b_scan_off": scan_off_items,
+            "regime_b_scan_defective": scan_def_items,
+        },
+    }
+    (phase_b_dir / "phase_results.json").write_text(json.dumps(phase_b_data), encoding="utf-8")
+
+    # 3. Stage 1 Calibrations fixture
+    stage1_file = tmp_path / "stage1_results.json"
+    stage1_data = {
+        "calibrations": {
+            "arm1_vector_ocr_off": 0.70,
+            "arm2_hybrid_ocr_off": 0.75,
+            "arm3_hybrid_ocr_defective": 0.75,
+        }
+    }
+    stage1_file.write_text(json.dumps(stage1_data), encoding="utf-8")
+
+    args = argparse.Namespace(
+        phase_a_dir=phase_a_dir,
+        stage2_phase_a=None,
+        phase_b_dir=phase_b_dir,
+        stage2_phase_b=None,
+        stage1_results=stage1_file,
+        out=out_dir,
+    )
+
+    out_paths = run_stage2_report(args)
+
+    # Verify return dictionary and file paths
+    assert out_paths["results_json"].exists()
+    assert out_paths["summary_csv"].exists()
+    assert out_paths["report_md"].exists()
+    assert len(out_paths["plots"]) == 3
+
+    # Verify all 3 plots exist on disk with non-zero bytes
+    for p in out_paths["plots"]:
+        assert p.exists()
+        assert p.stat().st_size > 0
+
+    # Verify results.json merged manifest
+    res_data = json.loads(out_paths["results_json"].read_text(encoding="utf-8"))
+    manifest = res_data["manifest"]
+    assert manifest["data_git_sha"] == "git-sha-phase-a-1234"
+    assert "report_git_sha" in manifest
+    assert manifest["chat_model"] == "mock-chat-model"
+    assert manifest["total_queries"] == 18
+    assert manifest["total_cache_hits"] == 6
+
+    # Verify summary.csv structure and data rows
+    csv_text = out_paths["summary_csv"].read_text(encoding="utf-8")
+    assert "arm,operating_point,cohort,q_count" in csv_text
+    assert "arm1_vector_ocr_off,prod_055,overall" in csv_text
+    assert "arm3_hybrid_ocr_defective,calibrated_tau,heldout_cmap" in csv_text
+
+    # Verify report.md header and sections
+    md_text = out_paths["report_md"].read_text(encoding="utf-8")
+    assert "- **Data generated at Git SHA:** `git-sha-phase-a-1234`" in md_text
+    assert "- **Report generated at Git SHA:**" in md_text
+    assert "## 1. Pre-Registered Primary Endpoints (Held-out Generalization)" in md_text
+    assert "## 2. Pre-Registered Secondary Endpoint: Granular Extraction on `heldout-CMap`" in md_text
+    assert "## 3. Citation Quality & Performance Across All Questions" in md_text
+
+
+def test_stage2_validate_offline_sim_zero_questions(tmp_path, monkeypatch):
+    """Verifies that run_validate_offline_sim raises SystemExit(2) and prints [FAIL] when zero questions match."""
+    import argparse
+    from stage2 import run_validate_offline_sim
+
+    class DummyClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def get_collections(self):
+            return []
+
+    monkeypatch.setattr("run_eval.DocSearchClient", DummyClient)
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    (cache_dir / "collection_manifest.json").write_text("{}", encoding="utf-8")
+
+    phase_a_dir = tmp_path / "phase_a"
+    phase_a_dir.mkdir()
+    phase_a_data = {
+        "manifest": {"stage": "stage2_execution"},
+        "arms": {
+            "arm1_vector_ocr_off": [{"id": "q001", "bestVectorScore": 0.7, "hasFtsHit": False}]
+        },
+    }
+    (phase_a_dir / "phase_results.json").write_text(json.dumps(phase_a_data), encoding="utf-8")
+
+    q_file = tmp_path / "questions.json"
+    q_file.write_text(json.dumps([{"id": "q001", "question": "dummy"}]), encoding="utf-8")
+
+    args = argparse.Namespace(
+        base_url="http://mock-api:5000",
+        cache_dir=cache_dir,
+        phase_a_dir=phase_a_dir,
+        stage2_phase_a=None,
+        phase_b_dir=None,
+        stage2_phase_b=None,
+        questions=q_file,
+        arms="nonexistent_arm_123",
+        top_k=6,
+    )
+
+    config = {"collections": {}, "arms": {}}
+
+    with pytest.raises(SystemExit) as exc_info:
+        run_validate_offline_sim(args, config, "dummy_token")
+
+    assert exc_info.value.code == 2
+
+
+def test_audit_docs_numbers_catches_file_url_and_forbidden_strings(tmp_path):
+    """Verifies that audit_docs_numbers.py fails on broken file:/// links and forbidden strings."""
+    from audit_docs_numbers import DocAuditor
+
+    # Case 1: file:/// url fails
+    bad_file_doc = tmp_path / "bad_file.md"
+    bad_file_doc.write_text("# Doc\n![Plot](file:///path/to/plot.png)\n", encoding="utf-8")
+    auditor1 = DocAuditor(bad_file_doc)
+    auditor1._audit_hygiene_and_forbidden_strings()
+    failed_names1 = [f[0] for f in auditor1.failures]
+    assert "hygiene_zero_file_urls" in failed_names1
+
+    # Case 2: forbidden fabricated string fails
+    bad_str_doc = tmp_path / "bad_str.md"
+    bad_str_doc.write_text("# Doc\nUses farsiparsed dictionary\n", encoding="utf-8")
+    auditor2 = DocAuditor(bad_str_doc)
+    auditor2._audit_hygiene_and_forbidden_strings()
+    failed_names2 = [f[0] for f in auditor2.failures]
+    assert "forbidden_string_farsiparsed" in failed_names2
+
+    # Case 3: another forbidden string: 'Gemini 2.5'
+    bad_str_doc3 = tmp_path / "bad_str3.md"
+    bad_str_doc3.write_text("# Doc\nTested with Gemini 2.5 Flash Lite\n", encoding="utf-8")
+    auditor3 = DocAuditor(bad_str_doc3)
+    auditor3._audit_hygiene_and_forbidden_strings()
+    failed_names3 = [f[0] for f in auditor3.failures]
+    assert "forbidden_string_Gemini_2.5" in failed_names3
+
+
+
+
+
+

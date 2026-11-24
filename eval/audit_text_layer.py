@@ -22,7 +22,6 @@ import hashlib
 import json
 import re
 import unicodedata
-from collections import Counter
 from pathlib import Path
 
 import pymupdf
