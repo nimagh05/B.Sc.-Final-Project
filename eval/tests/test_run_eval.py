@@ -4,7 +4,6 @@ Runs in < 2 seconds with zero network, zero Ollama, zero Docker, and zero real P
 """
 
 import json
-import os
 import sys
 import time
 from pathlib import Path
@@ -22,7 +21,6 @@ from run_eval import (
     build_reproducibility_manifest,
     calibrate_min_similarity,
     document_cluster_paired_bootstrap_ci,
-    evaluate_retrieval_ranking,
     generate_stage1_reports,
     get_auth_token,
     is_chunk_hit,
@@ -37,10 +35,8 @@ from stage2 import (
     evaluate_generation_metrics,
     generate_stage2_plots,
     get_from_cache,
-    get_system_prompt_sha256,
     load_checkpoint,
     mcnemar_exact,
-    normalize_text,
     run_stage2_report,
     save_to_cache,
     simulate_threshold,
@@ -873,7 +869,7 @@ def test_stage2_headless_matplotlib_plots_generation(tmp_path):
 
 def test_stage2_degraded_policy_retry_failed_provider_and_streak_halt(tmp_path, monkeypatch):
     import argparse
-    from stage2 import run_stage2_eval, save_to_cache, get_from_cache
+    from stage2 import run_stage2_eval
 
     cache_dir = tmp_path / "cache"
     cache_dir.mkdir(parents=True)
@@ -1237,7 +1233,6 @@ def test_stage2_refused_question_preserves_non_vacuous_denominators():
 def test_stage2_run_stage2_report_end_to_end(tmp_path):
     """Verifies run_stage2_report end-to-end: merges Phase A & B, generates summary.csv, report.md with dual git SHAs, and all 3 plots."""
     import argparse
-    from stage2 import run_stage2_report
 
     phase_a_dir = tmp_path / "phase_a"
     phase_a_dir.mkdir(parents=True)
@@ -1447,6 +1442,36 @@ def test_stage2_validate_offline_sim_zero_questions(tmp_path, monkeypatch):
         run_validate_offline_sim(args, config, "dummy_token")
 
     assert exc_info.value.code == 2
+
+
+def test_audit_docs_numbers_catches_file_url_and_forbidden_strings(tmp_path):
+    """Verifies that audit_docs_numbers.py fails on broken file:/// links and forbidden strings."""
+    from audit_docs_numbers import DocAuditor
+
+    # Case 1: file:/// url fails
+    bad_file_doc = tmp_path / "bad_file.md"
+    bad_file_doc.write_text("# Doc\n![Plot](file:///path/to/plot.png)\n", encoding="utf-8")
+    auditor1 = DocAuditor(bad_file_doc)
+    auditor1._audit_hygiene_and_forbidden_strings()
+    failed_names1 = [f[0] for f in auditor1.failures]
+    assert "hygiene_zero_file_urls" in failed_names1
+
+    # Case 2: forbidden fabricated string fails
+    bad_str_doc = tmp_path / "bad_str.md"
+    bad_str_doc.write_text("# Doc\nUses farsiparsed dictionary\n", encoding="utf-8")
+    auditor2 = DocAuditor(bad_str_doc)
+    auditor2._audit_hygiene_and_forbidden_strings()
+    failed_names2 = [f[0] for f in auditor2.failures]
+    assert "forbidden_string_farsiparsed" in failed_names2
+
+    # Case 3: another forbidden string: 'Gemini 2.5'
+    bad_str_doc3 = tmp_path / "bad_str3.md"
+    bad_str_doc3.write_text("# Doc\nTested with Gemini 2.5 Flash Lite\n", encoding="utf-8")
+    auditor3 = DocAuditor(bad_str_doc3)
+    auditor3._audit_hygiene_and_forbidden_strings()
+    failed_names3 = [f[0] for f in auditor3.failures]
+    assert "forbidden_string_Gemini_2.5" in failed_names3
+
 
 
 

@@ -23,12 +23,10 @@ import json
 import os
 import platform
 import subprocess
-import sys
 import time
-import unicodedata
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 import numpy as np
 import requests
@@ -758,9 +756,9 @@ def run_ingestion_phase(args: argparse.Namespace, config: Dict[str, Any], token:
 
     git_sha = get_git_sha()
 
-    print(f"\n========================================================")
+    print("\n========================================================")
     print(f"  DocSearch Ingestion Phase: OcrMode = {ocr_mode}")
-    print(f"========================================================")
+    print("========================================================")
 
     if ocr_mode == "Off":
         target_collections = ["regime_a_ocr_off", "regime_b_scan_off"]
@@ -963,10 +961,10 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
     out_dir = args.out or Path("eval/results") / f"stage1_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"\n========================================================")
-    print(f"  DocSearch Stage 1 Evaluation (Multi-Arm Benchmark)")
+    print("\n========================================================")
+    print("  DocSearch Stage 1 Evaluation (Multi-Arm Benchmark)")
     print(f"  Output directory: {out_dir}")
-    print(f"========================================================")
+    print("========================================================")
 
     k_list = config["global"]["top_k_list"]
     arms_data: Dict[str, List[Dict[str, Any]]] = {}
@@ -1000,7 +998,7 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
                 has_fts = ret_resp.get("hasFtsHit", False)
                 elapsed_ms = ret_resp.get("elapsedMs", 0.0)
                 chunks = ret_resp.get("chunks", [])
-            except Exception as e:
+            except Exception:
                 # If collection is empty (e.g. regime_b_scan_off), treat as 0 retrieved
                 best_score = 0.0
                 has_fts = False
@@ -1040,7 +1038,7 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
 
     # 4. Per-Arm Plateau Threshold Calibration on (tuned, dev)
     calibrations: Dict[str, Dict[str, Any]] = {}
-    print(f"\n--- Running Per-Arm Plateau Calibration on (tuned, dev) ---")
+    print("\n--- Running Per-Arm Plateau Calibration on (tuned, dev) ---")
     for arm_key in ["arm1_vector_ocr_off", "arm2_hybrid_ocr_off", "arm3_hybrid_ocr_defective"]:
         dev_subset = [it for it in arms_data[arm_key] if it.get("docset") == "tuned" and it.get("split") == "dev"]
         if not args.smoke:
@@ -1105,7 +1103,7 @@ def run_stage1_eval(args: argparse.Namespace, config: Dict[str, Any], token: str
     # 7. Generate Reports
     out_paths = generate_stage1_reports(results_dict, out_dir, smoke=args.smoke)
 
-    print(f"\n[OK] Stage 1 evaluation complete!")
+    print("\n[OK] Stage 1 evaluation complete!")
     print(f"  Results JSON: {results_json_path}")
     print(f"  Summary CSV:  {out_paths['summary_csv']}")
     if "regime_b_csv" in out_paths:
@@ -1128,7 +1126,7 @@ def generate_stage1_reports(
 
     # Compute summary_rows for Regime A cohorts strictly (excluding Regime B)
     summary_rows = []
-    print(f"\n--- Computing Stage 1 Metrics & Paired Bootstrap CIs ---")
+    print("\n--- Computing Stage 1 Metrics & Paired Bootstrap CIs ---")
     for c_name, c_filter in COHORTS_DEF:
         row = {"cohort": c_name}
         for arm_key in ["arm1_vector_ocr_off", "arm2_hybrid_ocr_off", "arm3_hybrid_ocr_defective"]:
@@ -1199,7 +1197,7 @@ def generate_stage1_reports(
         f.write("# DocSearch Stage 1 Evaluation Report (T19a)\n\n")
         f.write(f"- **Data generated at Git SHA:** `{data_git_sha}`\n")
         f.write(f"- **Report rendered at Git SHA:** `{current_git_sha}` (dirty: `{current_git_dirty}`)\n")
-        f.write(f"- **Dataset Tag:** `eval-dataset-v2.2`\n")
+        f.write("- **Dataset Tag:** `eval-dataset-v2.2`\n")
         f.write(f"- **Timestamp UTC:** {manifest.get('timestamp_utc', 'unknown')}\n\n")
 
         f.write("## 1. Pre-Registered Primary Endpoints\n\n")
