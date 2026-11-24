@@ -75,6 +75,13 @@ class DocAuditor:
             f"Snippet not found in document: {expected_snippet!r}",
         )
 
+    def assert_regex(self, name: str, pattern: str):
+        self.check(
+            name,
+            bool(re.search(pattern, self.doc_text)),
+            f"Pattern not found in document: {pattern!r}",
+        )
+
     def run_all_audits(self) -> bool:
         print("\n========================================================")
         print(f"  Auditing {self.doc_path.name} against ground-truth data")
@@ -187,30 +194,38 @@ class DocAuditor:
         self.assert_contains("s2_failed_providers_0", "0")
 
         # Live validation cross-check
-        self.assert_contains("s2_val_36_36_pre_llm", "36/36")
-        self.assert_contains("s2_val_18_18_vector", "18/18")
-        self.assert_contains("s2_val_17_18_post_llm", "17/18")
+        self.assert_regex("s2_val_36_36_pre_llm", r"36\s*/\s*36")
+        self.assert_regex("s2_val_18_18_vector", r"18\s*/\s*18")
+        self.assert_regex("s2_val_17_18_post_llm", r"17\s*/\s*18")
         self.assert_contains("s2_val_q015_variation", "q015")
 
     def _audit_primary_endpoints(self):
         # Held-out Answerable FRR (N=52)
-        self.assert_contains("pe21_a1_prod055_frr", "15.4% [8.0%, 27.5%]")
-        self.assert_contains("pe21_a1_calib_frr", "76.9% [63.9%, 86.3%]")
-        self.assert_contains("pe21_a2_prod055_frr", "11.5% [5.4%, 23.0%]")
-        self.assert_contains("pe21_a2_calib_frr", "40.4% [28.2%, 53.9%]")
-        self.assert_contains("pe21_a3_prod055_frr", "15.4% [8.0%, 27.5%]")
-        self.assert_contains("pe21_a3_calib_frr", "40.4% [28.2%, 53.9%]")
+        self.assert_regex("pe21_a1_prod055_frr", r"15\.4%.*?\[8\.0%,\s*27\.5%\]")
+        self.assert_regex("pe21_a1_calib_frr", r"76\.9%.*?\[63\.9%,\s*86\.3%\]")
+        self.assert_regex("pe21_a2_prod055_frr", r"11\.5%.*?\[5\.4%,\s*23\.0%\]")
+        self.assert_regex("pe21_a2_calib_frr", r"40\.4%.*?\[28\.2%,\s*53\.9%\]")
+        self.assert_regex("pe21_a3_prod055_frr", r"15\.4%.*?\[8\.0%,\s*27\.5%\]")
+        self.assert_regex("pe21_a3_calib_frr", r"40\.4%.*?\[28\.2%,\s*53\.9%\]")
 
         # Held-out NID FAR (N=12)
-        self.assert_contains("pe22_floor_limited_far", "0.0% [0.0%, 24.2%]")
+        self.assert_regex("pe22_floor_limited_far", r"0\.0%.*?\[0\.0%,\s*24\.2%\]")
         self.assert_contains("pe22_nid_count_12", "N=12")
 
         # In-sample dev and test
         self.assert_contains("pe_dev_n_ans_18", "18")
         self.assert_contains("pe_dev_n_nid_7", "7")
         self.assert_contains("pe_test_n_ans_42", "42")
-        self.assert_contains("pe_dev_a2_far_143", "14.3%")
+        self.assert_regex("pe_dev_a2_far_143", r"14\.3%")
         self.assert_contains("pe_sole_fa_q043", "q043")
+
+        # Full dev / test / overall NID breakdown tables
+        self.assert_regex("pe_dev_a1_prod055_frr", r"5\.6%.*?\[1\.0%,\s*25\.8%\]")
+        self.assert_regex("pe_dev_a1_calib_frr", r"61\.1%.*?\[38\.6%,\s*79\.7%\]")
+        self.assert_regex("pe_test_a1_prod055_frr", r"9\.5%.*?\[3\.8%,\s*22\.1%\]")
+        self.assert_regex("pe_test_a1_calib_frr", r"61\.9%.*?\[46\.8%,\s*75\.0%\]")
+        self.assert_regex("pe_overall_nid_a1_far", r"0\.0%.*?\[0\.0%,\s*12\.9%\]")
+        self.assert_regex("pe_overall_nid_a2_far", r"3\.8%.*?\[0\.7%,\s*18\.9%\]")
 
     def _audit_vector_roc_auc(self):
         # Overall
@@ -227,43 +242,43 @@ class DocAuditor:
 
     def _audit_hybrid_vs_vector_and_counterfactual(self):
         # McNemar p-values
-        self.assert_contains("mcnemar_overall_ans_p1000", "p=1.000")
-        self.assert_contains("mcnemar_heldout_ans_p06875", "p=0.6875")
+        self.assert_regex("mcnemar_overall_ans_p1000", r"p\s*=\s*1\.000")
+        self.assert_regex("mcnemar_heldout_ans_p06875", r"p\s*=\s*0\.6875")
 
         # FTS-bypass counterfactual
         self.assert_contains("fts_counterfactual_with_346", "34.6%")
         self.assert_contains("fts_counterfactual_without_981", "98.1%")
-        self.assert_contains("fts_counterfactual_count_51_52", "51/52")
+        self.assert_regex("fts_counterfactual_count_51_52", r"51\s*/\s*52")
 
     def _audit_null_experiment(self):
         # 8 non-OCR PDFs: 0/76 disagreements
-        self.assert_contains("null_exp_0_76_disagreements", "0/76")
-        self.assert_contains("null_exp_ans_69_76", "69/76")
-        self.assert_contains("null_exp_kw_61_76", "61/76")
-        self.assert_contains("null_exp_defect_false_0_83", "0/83")
-        self.assert_contains("null_exp_defect_false_kw_2_83", "2/83")
+        self.assert_regex("null_exp_0_76_disagreements", r"0\s*/\s*76")
+        self.assert_regex("null_exp_ans_69_76", r"69\s*/\s*76")
+        self.assert_regex("null_exp_kw_61_76", r"61\s*/\s*76")
+        self.assert_regex("null_exp_defect_false_0_83", r"0\s*/\s*83")
+        self.assert_regex("null_exp_defect_false_kw_2_83", r"2\s*/\s*83")
         self.assert_contains("null_exp_diff_q090", "q090")
         self.assert_contains("null_exp_diff_q094", "q094")
 
     def _audit_secondary_endpoint_heldout_cmap(self):
         # heldout-CMap cohort: 27 answerable, 0 NID
         self.assert_contains("secondary_endpoint_n27", "N=27")
-        self.assert_contains("sec_numbers_0_7_vs_3_7", "0/7")
-        self.assert_contains("sec_numbers_3_7", "3/7")
-        self.assert_contains("sec_numbers_p0250", "p=0.250")
-        self.assert_contains("sec_units_strict_1_10_vs_2_10", "1/10")
-        self.assert_contains("sec_units_strict_2_10", "2/10")
-        self.assert_contains("sec_units_strict_p1000", "p=1.000")
-        self.assert_contains("sec_units_prox_1_10_vs_3_10", "3/10")
-        self.assert_contains("sec_units_prox_p0625", "p=0.625")
+        self.assert_regex("sec_numbers_0_7_vs_3_7", r"0\s*/\s*7")
+        self.assert_regex("sec_numbers_3_7", r"3\s*/\s*7")
+        self.assert_regex("sec_numbers_p0250", r"p\s*=\s*0\.250")
+        self.assert_regex("sec_units_strict_1_10_vs_2_10", r"1\s*/\s*10")
+        self.assert_regex("sec_units_strict_2_10", r"2\s*/\s*10")
+        self.assert_regex("sec_units_strict_p1000", r"p\s*=\s*1\.000")
+        self.assert_regex("sec_units_prox_1_10_vs_3_10", r"3\s*/\s*10")
+        self.assert_regex("sec_units_prox_p0625", r"p\s*=\s*0\.625")
 
         # Confident wrong numbers
         for q in ["q079", "q080", "q081", "q096", "q099"]:
             self.assert_contains(f"sec_wrong_num_{q}", q)
 
         # Per-doc CMap breakdown
-        self.assert_contains("sec_forsat_num_0_3_vs_2_3", "2/3")
-        self.assert_contains("sec_tarh_num_0_4_vs_1_4", "1/4")
+        self.assert_regex("sec_forsat_num_0_3_vs_2_3", r"2\s*/\s*3")
+        self.assert_regex("sec_tarh_num_0_4_vs_1_4", r"1\s*/\s*4")
 
     def _audit_frr_decomposition(self):
         # Arm 1 refused = 13 (LowSim=1, RetMiss=3, Defect=True=6, Defect=False=3)
@@ -296,9 +311,9 @@ class DocAuditor:
         self.assert_contains("cit_rec_a3_686", "68.6%")
 
     def _audit_regime_b_case_study(self):
-        self.assert_contains("regb_scan_off_0_8", "0/8")
-        self.assert_contains("regb_scan_def_6_8", "6/8")
-        self.assert_contains("regb_digital_ref_8_8", "8/8")
+        self.assert_regex("regb_scan_off_0_8", r"0\s*/\s*8")
+        self.assert_regex("regb_scan_def_6_8", r"6\s*/\s*8")
+        self.assert_regex("regb_digital_ref_8_8", r"8\s*/\s*8")
         self.assert_contains("regb_scan_def_750", "75.0%")
 
     def _audit_latencies(self):
@@ -317,8 +332,8 @@ class DocAuditor:
         self.assert_contains("lat_regb_tot", "1746.4")
 
     def _audit_production_reliability(self):
-        self.assert_contains("rel_degraded_16_417", "16 / 417")
-        self.assert_contains("rel_recovered_16_16", "16 / 16")
+        self.assert_regex("rel_degraded_16_417", r"16\s*/\s*417")
+        self.assert_regex("rel_recovered_16_16", r"16\s*/\s*16")
 
 
 def main():
