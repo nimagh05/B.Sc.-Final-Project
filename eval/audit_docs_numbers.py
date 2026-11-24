@@ -2,7 +2,8 @@
 """audit_docs_numbers.py — Reproducible verification script for docs/EVAL-RESULTS.md.
 
 Programmatically computes ground-truth numbers from JSON/CSV evaluation artifacts and
-asserts exact presence and anti-fabrication / strict-hygiene rules in docs/EVAL-RESULTS.md.
+asserts exact presence, row-scoped table consistency, and anti-fabrication / strict-hygiene
+rules in docs/EVAL-RESULTS.md.
 
 Usage:
     python eval/audit_docs_numbers.py [--doc docs/EVAL-RESULTS.md]
@@ -45,6 +46,8 @@ FORBIDDEN_STRINGS = [
     "near-domain",
     "eliminating dangerous",
     "Paired Wilcoxon",
+    "greedy decoding",
+    "introducing no observed degradation",
 ]
 
 
@@ -88,6 +91,25 @@ class DocAuditor:
             bool(re.search(pattern, self.doc_text)),
             f"Pattern not found in document: {pattern!r}",
         )
+
+    def assert_row(self, name: str, row_key: str, *expected_cells: str):
+        """Locates markdown table line(s) matching row_key and asserts all expected_cells appear on that row."""
+        matching_rows = [
+            line for line in self.doc_text.splitlines()
+            if row_key in line and line.strip().startswith("|")
+        ]
+        if not matching_rows:
+            self.check(name, False, f"Table row with key {row_key!r} not found in document")
+            return
+
+        for row in matching_rows:
+            if all(cell in row for cell in expected_cells):
+                self.check(name, True, "")
+                return
+
+        best_row = max(matching_rows, key=lambda r: sum(1 for c in expected_cells if c in r))
+        missing = [c for c in expected_cells if c not in best_row]
+        self.check(name, False, f"Row with key {row_key!r} missing cells {missing!r}. Found row: {best_row.strip()!r}")
 
     def run_all_audits(self) -> bool:
         self._load_artifacts()
@@ -133,7 +155,6 @@ class DocAuditor:
 
         # 3. Forbidden strings check
         for s in FORBIDDEN_STRINGS:
-            # Case-insensitive search
             pattern = re.compile(re.escape(s), re.IGNORECASE)
             self.check(
                 f"forbidden_string_{s.replace(' ', '_')}",
@@ -150,28 +171,29 @@ class DocAuditor:
         )
 
     def _audit_dataset_structure(self):
-        # 138 unique questions in questions.json across 14 PDFs
         unique_q_count = len(self.questions)
         self.check("dataset_unique_questions_138", unique_q_count == 138, f"Expected 138 questions, found {unique_q_count}")
-        self.assert_contains("doc_mentions_138_questions", "138")
-        self.assert_contains("doc_mentions_14_pdfs", "14")
-        self.assert_contains("doc_mentions_74_tuned", "74")
-        self.assert_contains("doc_mentions_64_heldout", "64")
-        self.assert_contains("doc_mentions_heldout_3_pdfs", "3 PDFs")
-        self.assert_contains("doc_mentions_shiveh_karamoozi", "shiveh-karamoozi.pdf")
+        self.assert_contains("doc_mentions_138_questions", "138 unique questions across 14 Regime A PDFs")
+        self.assert_contains("doc_mentions_74_tuned", "74 questions across 11 documents")
+        self.assert_contains("doc_mentions_64_heldout", "64 questions across **3 PDFs**")
+        self.assert_contains("doc_mentions_heldout_3_pdfs", "forsat-motaleati.pdf`, `shiveh-karamoozi.pdf`, and `tarh-dakheli.pdf")
+        self.assert_contains("doc_mentions_anti_leakage", "ANTI-LEAKAGE VIOLATION")
+        self.assert_contains("doc_mentions_bootstrap_resamples", "B = 10,000")
 
     def _audit_stage1_metrics(self):
-        # Stage 1 Git SHA and MRR
         s1_manifest = self.s1_results["manifest"]
-        self.assert_contains("s1_data_git_sha", s1_manifest["git_sha"])
-        self.assert_contains("s1_overall_mrr_a1_08500", "0.8500")
-        self.assert_contains("s1_overall_mrr_a2_07837", "0.7837")
-        self.assert_contains("s1_overall_mrr_a3_07822", "0.7822")
-        self.assert_contains("s1_overall_delta_2vs1", "-0.0663")
-        self.assert_contains("s1_heldout_mrr_a1_08638", "0.8638")
-        self.assert_contains("s1_heldout_mrr_a2_07919", "0.7919")
-        self.assert_contains("s1_heldout_mrr_a3_07903", "0.7903")
-        self.assert_contains("s1_heldout_delta_2vs1", "-0.0719")
+        # Section 1.1 provenance
+        self.assert_row("s1_data_git_sha_row", "Data Generation Git SHA", s1_manifest["git_sha"])
+        self.assert_row("s1_working_tree_row", "Git Working Tree Status", "pre-schema / unrecorded", "dirty: True")
+        self.assert_row("s1_run_status_row", "Run Status", "pre-schema / unrecorded")
+
+        # Table 3.1 Primary Endpoints 1 & 2 Outcomes (Row-Scoped)
+        self.assert_row("s1_tbl31_overall", "**Overall** ($N=112$)", "0.8500", "0.7837", "0.7822", "-0.0663", "-0.0014")
+        self.assert_row("s1_tbl31_pe1_heldout", "Primary Endpoint 1 (`heldout_all`, $N=52$)", "0.8638", "0.7919", "0.7903", "-0.0719", "-0.0016")
+        self.assert_row("s1_tbl31_pe2_cmap", "Primary Endpoint 2 (`heldout-CMap`, $N=27$)", "0.8951", "0.7883", "0.7852", "-0.1068", "-0.0031")
+        self.assert_row("s1_tbl31_heldout_test", "`heldout_test` ($N=39$)", "0.8739", "0.7986", "0.7952", "-0.0754", "-0.0034")
+        self.assert_row("s1_tbl31_tuned_test", "`tuned_test` ($N=42$)", "0.8340", "0.7409", "0.7504", "-0.0931", "+0.0095")
+        self.assert_row("s1_tbl31_tuned_dev", "`tuned_dev` ($N=18$)", "0.8472", "0.8598", "0.8333", "+0.0126", "-0.0265")
 
         # CMap heterogeneity
         self.assert_contains("s1_forsat_delta_pos_01153", "+0.1153")
@@ -181,9 +203,6 @@ class DocAuditor:
         self.assert_contains("s1_pure_ocr_overall_4131", "4.131")
         self.assert_contains("s1_pure_ocr_regime_a_3608", "3.608")
         self.assert_contains("s1_pure_ocr_regime_b_6026", "6.026")
-        self.assert_contains("s1_ocr_pages_37", "37")
-        self.assert_contains("s1_ocr_pages_29", "29")
-        self.assert_contains("s1_ocr_pages_8", "8")
 
         # Stage 1 Regime B retrieval
         self.assert_contains("s1_regb_scan_off_0000", "0.000")
@@ -193,115 +212,125 @@ class DocAuditor:
 
     def _audit_stage2_provenance_and_validation(self):
         s2_manifest = self.s2_results["manifest"]
-        self.assert_contains("s2_data_git_sha", s2_manifest["data_git_sha"])
-        self.assert_contains("s2_chat_model", "gemini-3.5-flash-lite")
-        self.assert_contains("s2_temperature_00", "0.0")
-        self.assert_contains("s2_top_k_6", "6")
-        self.assert_contains("s2_prompt_sha256", "3d7c8fe28584d70e188198b9cc72f740f813b70fd6b910f82ff363e01fe8265f")
-        self.assert_contains("s2_cache_hit_rate_12", "1.2%")
-        self.assert_contains("s2_failed_providers_0", "0")
+        # Section 1.1 provenance
+        self.assert_row("s2_data_git_sha_row", "Data Generation Git SHA", s2_manifest["data_git_sha"])
+        self.assert_row("s2_working_tree_row", "Git Working Tree Status", "Clean on data generation", "git_dirty: false")
+        self.assert_row("s2_run_status_row", "Run Status", "official")
+        self.assert_row("reproducibility_archive_row", "Reproducibility Archive", "t19b-stage2-data", "e8d7e4fc92c6e7e2f3965be9ad1f0e3e325ab030f9d31bd2db667df6209f2b95")
+        self.assert_row("temperature_row", "Generation Temperature", "0.0", "non-deterministic across sessions as shown by `q015`")
+        self.assert_row("top_k_row", "Retrieved Context Top-K", "Top-K = 6")
+        self.assert_row("prompt_sha_row", "System Prompt SHA-256", "3d7c8fe28584d70e188198b9cc72f740f813b70fd6b910f82ff363e01fe8265f")
+        self.assert_row("cache_hit_rate_row", "Cache Hit Rate (Stage 2)", "1.2%")
+        self.assert_row("failed_providers_row", "Failed Provider Count", "0", "16 transient first-attempt failures recovered on retry")
+
+        # Section 2 ADR reference updates
+        self.assert_row("adr_ref_pe1", "Primary Endpoint 1", "ADR 0010 §3 & §5")
+        self.assert_row("adr_ref_pe2", "Primary Endpoint 2", "ADR 0010 §3 & §5")
+        self.assert_row("adr_ref_regb", "Regime B Scanned Twin Benchmark", "ADR 0010 §2.2 & ADR 0011 §2.2")
+        self.assert_row("adr_ref_ocr_lat", "Pure OCR Extractor Latency", "ADR 0009 §5")
+        self.assert_row("adr_ref_cit", "Citation Precision & Page-Hit Audit", "ADR 0011 §7")
+        self.assert_row("adr_ref_sec86", "54-Judgment Manual Correctness Audit", "Section 8.6 of this report")
 
         # Live validation cross-check
-        self.assert_regex("s2_val_36_36_pre_llm", r"36\s*/\s*36")
+        self.assert_row("live_verification_agreement_row", "Live Verification Agreement", "36/36 (100%) pre-LLM gate agreement at $\\tau = 0.55$")
         self.assert_regex("s2_val_18_18_vector", r"18\s*/\s*18")
         self.assert_regex("s2_val_17_18_post_llm", r"17\s*/\s*18")
         self.assert_contains("s2_val_q015_variation", "q015")
 
     def _audit_primary_endpoints(self):
-        # Held-out Answerable FRR (N=52)
-        self.assert_regex("pe21_a1_prod055_frr", r"15\.4%.*?\[8\.0%,\s*27\.5%\]")
-        self.assert_regex("pe21_a1_calib_frr", r"76\.9%.*?\[63\.9%,\s*86\.3%\]")
-        self.assert_regex("pe21_a2_prod055_frr", r"11\.5%.*?\[5\.4%,\s*23\.0%\]")
-        self.assert_regex("pe21_a2_calib_frr", r"40\.4%.*?\[28\.2%,\s*53\.9%\]")
-        self.assert_regex("pe21_a3_prod055_frr", r"15\.4%.*?\[8\.0%,\s*27\.5%\]")
-        self.assert_regex("pe21_a3_calib_frr", r"40\.4%.*?\[28\.2%,\s*53\.9%\]")
+        # Section 5.1: Held-out Generalization Partition (N=64: 52 Answerable, 12 NID)
+        self.assert_row("pe21_heldout_a1_ungated", "Arm 1 (Vector)", "ungated", "13.5%", "[6.7%, 25.3%]", "0.0%", "13.5%", "0.0%", "[0.0%, 24.2%]")
+        self.assert_row("pe21_heldout_a1_prod055", "Arm 1 (Vector)", "prod_055", "15.4%", "[8.0%, 27.5%]", "1.9%", "13.5%", "0.0%", "[0.0%, 24.2%]")
+        self.assert_row("pe21_heldout_a1_calib", "Arm 1 (Vector)", "calibrated_tau", "76.9%", "[63.9%, 86.3%]", "73.1%", "3.8%", "0.0%", "[0.0%, 24.2%]")
+        self.assert_row("pe21_heldout_a2_ungated", "Arm 2 (Hybrid)", "ungated", "9.6%", "[4.2%, 20.6%]", "0.0%", "9.6%", "0.0%", "[0.0%, 24.2%]")
+        self.assert_row("pe21_heldout_a2_prod055", "Arm 2 (Hybrid)", "prod_055", "11.5%", "[5.4%, 23.0%]", "1.9%", "9.6%", "0.0%", "[0.0%, 24.2%]")
+        self.assert_row("pe21_heldout_a2_calib", "Arm 2 (Hybrid)", "calibrated_tau", "40.4%", "[28.2%, 53.9%]", "34.6%", "5.8%", "0.0%", "[0.0%, 24.2%]")
+        self.assert_row("pe21_heldout_a3_ungated", "Arm 3 (Full System)", "ungated", "13.5%", "[6.7%, 25.3%]", "0.0%", "13.5%", "0.0%", "[0.0%, 24.2%]")
+        self.assert_row("pe21_heldout_a3_prod055", "Arm 3 (Full System)", "prod_055", "15.4%", "[8.0%, 27.5%]", "3.8%", "11.5%", "0.0%", "[0.0%, 24.2%]")
+        self.assert_row("pe21_heldout_a3_calib", "Arm 3 (Full System)", "calibrated_tau", "40.4%", "[28.2%, 53.9%]", "34.6%", "5.8%", "0.0%", "[0.0%, 24.2%]")
 
-        # Held-out NID FAR (N=12)
-        self.assert_regex("pe22_floor_limited_far", r"0\.0%.*?\[0\.0%,\s*24\.2%\]")
-        self.assert_contains("pe22_nid_count_12", "N=12")
+        # Section 5.1: Tuned Dev Partition (In-Sample Calibration, N=25: 18 Ans, 7 NID)
+        self.assert_row("pe_dev_a1_ungated", "Arm 1 (Vector)", "ungated", "5.6%", "[1.0%, 25.8%]", "0.0%", "5.6%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_dev_a1_prod055", "Arm 1 (Vector)", "prod_055", "5.6%", "[1.0%, 25.8%]", "0.0%", "5.6%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_dev_a1_calib", "Arm 1 (Vector)", "calibrated_tau", "61.1%", "[38.6%, 79.7%]", "61.1%", "0.0%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_dev_a2_ungated", "Arm 2 (Hybrid)", "ungated", "11.1%", "[3.1%, 32.8%]", "0.0%", "11.1%", "14.3%", "[2.6%, 51.3%]")
+        self.assert_row("pe_dev_a2_prod055", "Arm 2 (Hybrid)", "prod_055", "11.1%", "[3.1%, 32.8%]", "0.0%", "11.1%", "14.3%", "[2.6%, 51.3%]")
+        self.assert_row("pe_dev_a2_calib", "Arm 2 (Hybrid)", "calibrated_tau", "33.3%", "[16.3%, 56.3%]", "22.2%", "11.1%", "14.3%", "[2.6%, 51.3%]")
+        self.assert_row("pe_dev_a3_ungated", "Arm 3 (Full System)", "ungated", "11.1%", "[3.1%, 32.8%]", "0.0%", "11.1%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_dev_a3_prod055", "Arm 3 (Full System)", "prod_055", "11.1%", "[3.1%, 32.8%]", "0.0%", "11.1%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_dev_a3_calib", "Arm 3 (Full System)", "calibrated_tau", "33.3%", "[16.3%, 56.3%]", "22.2%", "11.1%", "0.0%", "[0.0%, 35.4%]")
 
-        # In-sample dev and test
-        self.assert_contains("pe_dev_n_ans_18", "18")
-        self.assert_contains("pe_dev_n_nid_7", "7")
-        self.assert_contains("pe_test_n_ans_42", "42")
-        self.assert_regex("pe_dev_a2_far_143", r"14\.3%")
-        self.assert_contains("pe_sole_fa_q043", "q043")
+        # Section 5.1: Tuned Test Partition (N=49: 42 Ans, 7 NID)
+        self.assert_row("pe_test_a1_ungated", "Arm 1 (Vector)", "ungated", "9.5%", "[3.8%, 22.1%]", "0.0%", "9.5%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_test_a1_prod055", "Arm 1 (Vector)", "prod_055", "9.5%", "[3.8%, 22.1%]", "0.0%", "9.5%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_test_a1_calib", "Arm 1 (Vector)", "calibrated_tau", "61.9%", "[46.8%, 75.0%]", "61.9%", "0.0%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_test_a2_ungated", "Arm 2 (Hybrid)", "ungated", "9.5%", "[3.8%, 22.1%]", "0.0%", "9.5%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_test_a2_prod055", "Arm 2 (Hybrid)", "prod_055", "9.5%", "[3.8%, 22.1%]", "0.0%", "9.5%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_test_a2_calib", "Arm 2 (Hybrid)", "calibrated_tau", "33.3%", "[21.0%, 48.5%]", "28.6%", "4.8%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_test_a3_ungated", "Arm 3 (Full System)", "ungated", "11.9%", "[5.2%, 25.0%]", "0.0%", "11.9%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_test_a3_prod055", "Arm 3 (Full System)", "prod_055", "11.9%", "[5.2%, 25.0%]", "0.0%", "11.9%", "0.0%", "[0.0%, 35.4%]")
+        self.assert_row("pe_test_a3_calib", "Arm 3 (Full System)", "calibrated_tau", "35.7%", "[23.0%, 50.8%]", "28.6%", "7.1%", "0.0%", "[0.0%, 35.4%]")
 
-        # Full dev / test / overall NID breakdown tables
-        self.assert_regex("pe_dev_a1_prod055_frr", r"5\.6%.*?\[1\.0%,\s*25\.8%\]")
-        self.assert_regex("pe_dev_a1_calib_frr", r"61\.1%.*?\[38\.6%,\s*79\.7%\]")
-        self.assert_regex("pe_test_a1_prod055_frr", r"9\.5%.*?\[3\.8%,\s*22\.1%\]")
-        self.assert_regex("pe_test_a1_calib_frr", r"61\.9%.*?\[46\.8%,\s*75\.0%\]")
-        self.assert_regex("pe_overall_nid_a1_far", r"0\.0%.*?\[0\.0%,\s*12\.9%\]")
-        self.assert_regex("pe_overall_nid_a2_far", r"3\.8%.*?\[0\.7%,\s*18\.9%\]")
+        # Section 5.1: Overall NID Table (N=26)
+        self.assert_row("pe_nid_a1_ungated", "Arm 1 (Vector-Only)", "ungated", "26", "0", "0.0%", "[0.0%, 12.9%]", "0 LowSim / 26 ModRef")
+        self.assert_row("pe_nid_a1_prod055", "Arm 1 (Vector-Only)", "prod_055", "26", "0", "0.0%", "[0.0%, 12.9%]", "4 LowSim / 22 ModRef")
+        self.assert_row("pe_nid_a1_calib", "Arm 1 (Vector-Only)", "calibrated_tau", "26", "0", "0.0%", "[0.0%, 12.9%]", "25 LowSim / 1 ModRef")
+        self.assert_row("pe_nid_a2_ungated", "Arm 2 (Hybrid, OCR-Off)", "ungated", "26", "1", "3.8%", "[0.7%, 18.9%]", "0 LowSim / 25 ModRef (1 FA on `q043`)")
+        self.assert_row("pe_nid_a2_prod055", "Arm 2 (Hybrid, OCR-Off)", "prod_055", "26", "1", "3.8%", "[0.7%, 18.9%]", "3 LowSim / 22 ModRef (1 FA on `q043`)")
+        self.assert_row("pe_nid_a2_calib", "Arm 2 (Hybrid, OCR-Off)", "calibrated_tau", "26", "1", "3.8%", "[0.7%, 18.9%]", "13 LowSim / 12 ModRef (1 FA on `q043`)")
+        self.assert_row("pe_nid_a3_ungated", "Arm 3 (Full System)", "ungated", "26", "0", "0.0%", "[0.0%, 12.9%]", "0 LowSim / 26 ModRef")
+        self.assert_row("pe_nid_a3_prod055", "Arm 3 (Full System)", "prod_055", "26", "0", "0.0%", "[0.0%, 12.9%]", "2 LowSim / 24 ModRef")
+        self.assert_row("pe_nid_a3_calib", "Arm 3 (Full System)", "calibrated_tau", "26", "0", "0.0%", "[0.0%, 12.9%]", "12 LowSim / 14 ModRef")
 
     def _audit_vector_roc_auc(self):
-        # Overall
-        self.assert_contains("roc_auc_overall_a1_07424", "0.7424")
-        self.assert_contains("roc_auc_overall_a1_ci", "[0.649, 0.836]")
-        self.assert_contains("roc_auc_overall_a3_07208", "0.7208")
-        self.assert_contains("roc_auc_overall_a3_ci", "[0.623, 0.818]")
-
-        # Held-out
-        self.assert_contains("roc_auc_heldout_a1_06250", "0.6250")
-        self.assert_contains("roc_auc_heldout_a1_ci", "[0.459, 0.791]")
-        self.assert_contains("roc_auc_heldout_a3_05641", "0.5641")
-        self.assert_contains("roc_auc_heldout_a3_ci", "[0.388, 0.740]")
+        # Table 5.5: Vector-Component ROC-AUC Analysis
+        self.assert_row("roc_auc_overall_row", "Overall", "0.7424", "[0.649, 0.836]", "[0.640, 0.837]", "0.7208", "[0.623, 0.818]", "[0.612, 0.821]")
+        self.assert_row("roc_auc_heldout_row", "Held-out", "0.6250", "[0.459, 0.791]", "[0.449, 0.787]", "0.5641", "[0.388, 0.740]", "[0.375, 0.745]")
 
     def _audit_hybrid_vs_vector_and_counterfactual(self):
-        # McNemar p-values
-        self.assert_regex("mcnemar_overall_ans_p1000", r"p\s*=\s*1\.000")
-        self.assert_regex("mcnemar_heldout_ans_p06875", r"p\s*=\s*0\.6875")
+        # Section 6.1 McNemar p-values
+        self.assert_contains("mcnemar_overall_ans_p1000", "exact McNemar **$p = 1.000$**")
+        self.assert_contains("mcnemar_heldout_ans_p06875", "exact McNemar **$p = 0.6875$**")
 
-        # FTS-bypass counterfactual
-        self.assert_contains("fts_counterfactual_with_346", "34.6%")
-        self.assert_contains("fts_counterfactual_without_981", "98.1%")
-        self.assert_regex("fts_counterfactual_count_51_52", r"51\s*/\s*52")
+        # Section 6.2 FTS-bypass counterfactual
+        self.assert_contains("fts_counterfactual_with_346", "Held-out LowSimilarity FRR = **34.6%** (18/52)")
+        self.assert_contains("fts_counterfactual_without_981", "Held-out LowSimilarity FRR = **98.1%** (51/52)")
 
     def _audit_null_experiment(self):
-        # 8 non-OCR PDFs: 0/76 disagreements
-        self.assert_regex("null_exp_0_76_disagreements", r"0\s*/\s*76")
-        self.assert_regex("null_exp_ans_69_76", r"69\s*/\s*76")
-        self.assert_regex("null_exp_kw_61_76", r"61\s*/\s*76")
-        self.assert_regex("null_exp_defect_false_0_83", r"0\s*/\s*83")
-        self.assert_regex("null_exp_defect_false_kw_2_83", r"2\s*/\s*83")
-        self.assert_contains("null_exp_diff_q090", "q090")
-        self.assert_contains("null_exp_diff_q094", "q094")
+        # Section 7: Baseline Noise Floor
+        self.assert_contains("null_exp_0_76_disagreements", "Answer Status Disagreements:** **0 / 76**")
+        self.assert_contains("null_exp_ans_69_76", "both configurations answered 69/76")
+        self.assert_contains("null_exp_kw_61_76", "both configurations achieved 61/76 keyword hits")
+        self.assert_contains("null_exp_defect_false_0_83", "Answer status disagreements: **0 / 83**")
+        self.assert_contains("null_exp_defect_false_kw_2_83", "Keyword hit disagreements: **2 / 83**")
+        self.assert_contains("null_exp_diff_q090_q094", "`q090` and `q094`")
 
     def _audit_secondary_endpoint_heldout_cmap(self):
-        # heldout-CMap cohort: 27 answerable, 0 NID
-        self.assert_contains("secondary_endpoint_n27", "N=27")
-        self.assert_regex("sec_numbers_0_7_vs_3_7", r"0\s*/\s*7")
-        self.assert_regex("sec_numbers_3_7", r"3\s*/\s*7")
-        self.assert_regex("sec_numbers_p0250", r"p\s*=\s*0\.250")
-        self.assert_regex("sec_units_strict_1_10_vs_2_10", r"1\s*/\s*10")
-        self.assert_regex("sec_units_strict_2_10", r"2\s*/\s*10")
-        self.assert_regex("sec_units_strict_p1000", r"p\s*=\s*1\.000")
-        self.assert_regex("sec_units_prox_1_10_vs_3_10", r"3\s*/\s*10")
-        self.assert_regex("sec_units_prox_p0625", r"p\s*=\s*0\.625")
+        # Table 8.1 Secondary Endpoint Metrics (Row-Scoped)
+        self.assert_row("sec_tbl81_numbers", "Multi-digit Numbers ($N=7$)", "0 / 7 (0.0%)", "3 / 7 (42.9%)", "+42.9 pp", "p = 0.250")
+        self.assert_row("sec_tbl81_unit_strict", "Unit Phrases Strict ($N=10$)", "1 / 10 (10.0%)", "2 / 10 (20.0%)", "+10.0 pp", "p = 1.000")
+        self.assert_row("sec_tbl81_unit_prox", "Unit Phrases Proximity", "1 / 10 (10.0%)", "3 / 10 (30.0%)", "+20.0 pp", "p = 0.625")
 
-        # Confident wrong numbers
-        for q in ["q079", "q080", "q081", "q096", "q099"]:
-            self.assert_contains(f"sec_wrong_num_{q}", q)
+        # Table 8.6 54-Judgment Manual Correctness Audit on heldout-CMap (Row-Scoped)
+        self.assert_row("sec_tbl86_correct", "Correct", "16 / 27 (59.3%)", "15 / 27 (55.6%)", "-3.7 pp")
+        self.assert_row("sec_tbl86_partial", "Partial (no error)", "1 / 27 (3.7%)", "3 / 27 (11.1%)", "+7.4 pp")
+        self.assert_row("sec_tbl86_wrong", "Wrong (factual/numeric error)", "7 / 27 (25.9%)", "4 / 27 (14.8%)", "-11.1 pp", "p = 0.508")
+        self.assert_row("sec_tbl86_refused", "Refused", "3 / 27 (11.1%)", "5 / 27 (18.5%)", "+7.4 pp")
+        self.assert_row("sec_tbl86_cmap_subset", "CMap Digit-Corruption Subset", "7 / 27 (25.9%)", "1 / 27 (3.7%)", "-22.2 pp")
 
-        # Per-doc CMap breakdown
-        self.assert_regex("sec_forsat_num_0_3_vs_2_3", r"2\s*/\s*3")
-        self.assert_regex("sec_tarh_num_0_4_vs_1_4", r"1\s*/\s*4")
+        # Table 8.5 Contextual Comparison Across Cohorts (Row-Scoped)
+        self.assert_row("sec_tbl85_heldout_cmap", "`heldout-CMap` ($N=27, G=2$)", "0/7 (0.0%) vs. 3/7 (42.9%)", "1/10 (10.0%) vs. 2/10 (20.0%)", "1/10 (10.0%) vs. 3/10 (30.0%)", "16/27 (59.3%) vs. 15/27 (55.6%)")
+        self.assert_row("sec_tbl85_primary_cmap", "`primary_cmap` ($N=36, G=6$)", "0/10 (0.0%) vs. 4/10 (40.0%)", "1/14 (7.1%) vs. 3/14 (21.4%)", "1/14 (7.1%) vs. 4/14 (28.6%)", "22/36 (61.1%) vs. 20/36 (55.6%)")
+        self.assert_row("sec_tbl85_overall", "`overall` ($N=112$)", "25/41 (61.0%) vs. 30/41 (73.2%)", "17/36 (47.2%) vs. 17/36 (47.2%)", "19/36 (52.8%) vs. 22/36 (61.1%)", "83/112 (74.1%) vs. 81/112 (72.3%)")
 
     def _audit_frr_decomposition(self):
-        # Arm 1 refused = 13 (LowSim=1, RetMiss=3, Defect=True=6, Defect=False=3)
-        self.assert_contains("decomp_a1_tot_13", "Tot=13")
-        self.assert_contains("decomp_a2_tot_12", "Tot=12")
-        self.assert_contains("decomp_a3_tot_15", "Tot=15")
-        for q in ["q015", "q034", "q056", "q058", "q078", "q088", "q100", "q101"]:
-            self.assert_contains(f"decomp_q_{q}", q)
+        # Section 9.1: Answerable FRR Decomposition at prod_055
+        self.assert_contains("decomp_a1_tot_13", "Arm 1 ($Tot=13$):** `LowSimilarity = 1` (`q078`), `RetMiss = 3` (`q015, q034, q056`), `Gold-in-top-6 (defect=True) = 6` (`q039, q082, q083, q087, q100, q101`), `Gold-in-top-6 (defect=False) = 3` (`q058, q073, q098`)")
+        self.assert_contains("decomp_a2_tot_12", "Arm 2 ($Tot=12$):** `LowSimilarity = 1` (`q078`), `RetMiss = 6` (`q028, q034, q039, q056, q074, q125`), `Gold-in-top-6 (defect=True) = 3` (`q087, q100, q101`), `Gold-in-top-6 (defect=False) = 2` (`q024, q058`)")
+        self.assert_contains("decomp_a3_tot_15", "Arm 3 ($Tot=15$):** `LowSimilarity = 2` (`q078, q088`), `RetMiss = 5` (`q034, q039, q056, q074, q125`), `Gold-in-top-6 (defect=True) = 6` (`q014, q022, q087, q100, q101, q102`), `Gold-in-top-6 (defect=False) = 2` (`q024, q058`)")
 
     def _audit_question_types_and_citations(self):
-        # 6 question types
-        for t, cnt in [("numeric", "22"), ("factual", "15"), ("legal-reference", "23"), ("multi-chunk", "18"), ("paraphrase", "22"), ("english", "12")]:
-            self.assert_contains(f"qtype_{t}_{cnt}", cnt)
-
-        # Programmatic cell-level verification of ALL 6 rows × 3 arms of Table 9.3 computed directly from results.json at prod_055
+        # Programmatic cell-level and row-scoped verification of ALL 6 rows × 3 arms of Table 9.3 computed directly from results.json at prod_055
         questions_by_id = {q["id"]: q for q in self.questions}
         table_counts = {}
         for arm_key in ["arm1_vector_ocr_off", "arm2_hybrid_ocr_off", "arm3_hybrid_ocr_defective"]:
@@ -329,60 +358,48 @@ class DocAuditor:
                     counts_by_type[qtype]["kw"] += 1
             table_counts[arm_key] = counts_by_type
 
-        # Verify all 6 rows × 3 arms in Table 9.3 (ans and kw counts)
+        # Verify all 6 rows of Table 9.3 with assert_row
         for t in ["numeric", "legal-reference", "paraphrase", "multi-chunk", "factual", "english"]:
             c1 = table_counts["arm1_vector_ocr_off"][t]
             c2 = table_counts["arm2_hybrid_ocr_off"][t]
             c3 = table_counts["arm3_hybrid_ocr_defective"][t]
             tot = c1["total"]
-            self.assert_regex(f"tbl93_{t}_a1_ans_{c1['ans']}_{tot}", rf"{c1['ans']}\s*/\s*{tot}")
-            self.assert_regex(f"tbl93_{t}_a1_kw_{c1['kw']}_{tot}", rf"{c1['kw']}\s*/\s*{tot}")
-            self.assert_regex(f"tbl93_{t}_a2_ans_{c2['ans']}_{tot}", rf"{c2['ans']}\s*/\s*{tot}")
-            self.assert_regex(f"tbl93_{t}_a2_kw_{c2['kw']}_{tot}", rf"{c2['kw']}\s*/\s*{tot}")
-            self.assert_regex(f"tbl93_{t}_a3_ans_{c3['ans']}_{tot}", rf"{c3['ans']}\s*/\s*{tot}")
-            self.assert_regex(f"tbl93_{t}_a3_kw_{c3['kw']}_{tot}", rf"{c3['kw']}\s*/\s*{tot}")
+            self.assert_row(
+                f"tbl93_{t}_row",
+                f"`{t}`",
+                str(tot),
+                f"{c1['ans']}/{tot}",
+                f"{c1['kw']}/{tot}",
+                f"{c2['ans']}/{tot}",
+                f"{c2['kw']}/{tot}",
+                f"{c3['ans']}/{tot}",
+                f"{c3['kw']}/{tot}",
+            )
 
-        # Citations denominators and rates
-        self.assert_contains("cit_denom_99", "99")
-        self.assert_contains("cit_denom_100", "100")
-        self.assert_contains("cit_denom_97", "97")
-        self.assert_contains("cit_val_a1_838", "83.8%")
-        self.assert_contains("cit_val_a2_830", "83.0%")
-        self.assert_contains("cit_val_a3_856", "85.6%")
-        self.assert_contains("cit_page_a1_717", "71.7%")
-        self.assert_contains("cit_page_a2_730", "73.0%")
-        self.assert_contains("cit_page_a3_742", "74.2%")
-        self.assert_contains("cit_prec_a1_673", "67.3%")
-        self.assert_contains("cit_prec_a2_691", "69.1%")
-        self.assert_contains("cit_prec_a3_719", "71.9%")
-        self.assert_contains("cit_rec_a1_677", "67.7%")
-        self.assert_contains("cit_rec_a2_675", "67.5%")
-        self.assert_contains("cit_rec_a3_686", "68.6%")
+        # Table 9.4 Citation Metrics at prod_055 (Row-Scoped)
+        self.assert_row("cit_tbl94_val", "Citation Validity Rate", "83.8% (83/99)", "83.0% (83/100)", "85.6% (83/97)")
+        self.assert_row("cit_tbl94_page", "Citation Page-Hit Rate", "71.7% (71/99)", "73.0% (73/100)", "74.2% (72/97)")
+        self.assert_row("cit_tbl94_prec", "Citation Precision (Mean)", "67.3%", "69.1%", "71.9%")
+        self.assert_row("cit_tbl94_rec", "Citation Recall (Mean)", "67.7%", "67.5%", "68.6%")
 
     def _audit_regime_b_case_study(self):
-        self.assert_regex("regb_scan_off_0_8", r"0\s*/\s*8")
-        self.assert_regex("regb_scan_def_6_8", r"6\s*/\s*8")
-        self.assert_regex("regb_digital_ref_8_8", r"8\s*/\s*8")
-        self.assert_contains("regb_scan_def_750", "75.0%")
+        # Section 9.5 Regime B Case Study
+        self.assert_contains("regb_scan_off_0_8", "**0 / 8 (0.0%) answered**")
+        self.assert_contains("regb_scan_def_6_8", "**6 / 8 (75.0%) answered**")
+        self.assert_contains("regb_digital_ref_8_8", "**8 / 8 (100.0%) answered**")
 
     def _audit_latencies(self):
-        # Arm 1: Ret 193.5 / 360.9, Gen 1738.5 / 10495.8, Tot 2111.6 / 11713.7
-        self.assert_contains("lat_a1_ret", "193.5")
-        self.assert_contains("lat_a1_gen", "1738.5")
-        self.assert_contains("lat_a1_tot", "2111.6")
-        self.assert_contains("lat_a2_ret", "209.0")
-        self.assert_contains("lat_a2_gen", "2917.0")
-        self.assert_contains("lat_a2_tot", "3258.1")
-        self.assert_contains("lat_a3_ret", "204.0")
-        self.assert_contains("lat_a3_gen", "2058.0")
-        self.assert_contains("lat_a3_tot", "2426.7")
-        self.assert_contains("lat_regb_ret", "203.0")
-        self.assert_contains("lat_regb_gen", "1459.5")
-        self.assert_contains("lat_regb_tot", "1746.4")
+        # Table 9.6 Live System Latency Profile (Row-Scoped)
+        self.assert_row("lat_tbl96_a1", "Arm 1 (Vector-Only)", "193.5 ms / 360.9 ms", "1738.5 ms / 10495.8 ms", "2111.6 ms / 11713.7 ms")
+        self.assert_row("lat_tbl96_a2", "Arm 2 (Hybrid)", "209.0 ms / 341.4 ms", "2917.0 ms / 20959.8 ms", "3258.1 ms / 21305.2 ms")
+        self.assert_row("lat_tbl96_a3", "Arm 3 (Full System)", "204.0 ms / 274.4 ms", "2058.0 ms / 16643.5 ms", "2426.7 ms / 16895.9 ms")
+        self.assert_row("lat_tbl96_regb", "Regime B Defective", "203.0 ms / 327.9 ms", "1459.5 ms / 3828.9 ms", "1746.4 ms / 4199.8 ms")
 
     def _audit_production_reliability(self):
-        self.assert_regex("rel_degraded_16_417", r"16\s*/\s*417")
-        self.assert_regex("rel_recovered_16_16", r"16\s*/\s*16")
+        # Section 9.7 Reliability and Recovery
+        self.assert_contains("rel_degraded_16_417", "**16 / 417 initial requests**")
+        self.assert_contains("rel_recovered_16_16", "**16 / 16 recovery**")
+        self.assert_contains("rel_unclassified_15", "the remaining 15 first-attempt degraded responses are unclassified (not broken down by HTTP 429/5xx/timeout in saved logs)")
 
 
 def main():

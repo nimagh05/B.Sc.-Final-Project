@@ -19,14 +19,15 @@ All experiments were executed on locked, audited test benches with fixed model c
 |---|---|---|
 | **Data Generation Git SHA** | `b3c9c12552e27349773fc63784f9e98cb61ff4e4` | `e7f4924554bc733979a72ddc6c7ff998a47d64ca` |
 | **Report Rendering Git SHA** | `b3c9c12552e27349773fc63784f9e98cb61ff4e4` (rendered report marked `dirty: True` in Stage 1 artifact) | `506aa58708dde16154aa358bf6ce2455a834bbed` |
-| **Git Working Tree Status** | Clean on data generation; rendered on working tree | Clean on data generation (`git_dirty: false`) & report (`git_dirty: false`) |
-| **Run Status** | `official` | `official` |
+| **Git Working Tree Status** | pre-schema / unrecorded; report rendered with `dirty: True` | Clean on data generation (`git_dirty: false`) & report (`git_dirty: false`) |
+| **Run Status** | pre-schema / unrecorded | `official` |
+| **Reproducibility Archive** | Git tag `t19b-stage2-data` (`e7f4924554bc733979a72ddc6c7ff998a47d64ca`), GitHub Release asset `t19-eval-data.zip` (18 files, 975,651 bytes), SHA-256: `e8d7e4fc92c6e7e2f3965be9ad1f0e3e325ab030f9d31bd2db667df6209f2b95` | Git tag `t19b-stage2-data` (`e7f4924554bc733979a72ddc6c7ff998a47d64ca`), GitHub Release asset `t19-eval-data.zip` (18 files, 975,651 bytes), SHA-256: `e8d7e4fc92c6e7e2f3965be9ad1f0e3e325ab030f9d31bd2db667df6209f2b95` |
 | **Dataset Tag** | `eval-dataset-v2.2` | `eval-dataset-v2.2` |
 | **Questions SHA-256 (LF)** | `71d8573ce418c278a921638cdb9005acb48aa332bc7dae45a90d63bd213da62d` | `71d8573ce418c278a921638cdb9005acb48aa332bc7dae45a90d63bd213da62d` |
 | **Embedding Model** | `BAAI/bge-m3` via Ollama (1024 dims, dense cosine) | `BAAI/bge-m3` via Ollama (1024 dims, dense cosine) |
 | **Embedding Model Digest** | `7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab` | `7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab` |
 | **Chat Generation Model** | N/A (retrieval only) | `gemini-3.5-flash-lite` |
-| **Generation Temperature** | N/A | `0.0` (greedy decoding vs. production `0.1`) |
+| **Generation Temperature** | N/A | `0.0` (minimum temperature; non-deterministic across sessions as shown by `q015`, vs. production `0.1`) |
 | **Retrieved Context Top-K** | Top-10 evaluated ($k \in \{1, 3, 5, 10\}$) | $Top-K = 6$ (fixed per `Rag:TopK`) |
 | **System Prompt Version** | N/A | `src/DocSearch.Application/Prompts/system.v1.txt` |
 | **System Prompt SHA-256** | N/A | `3d7c8fe28584d70e188198b9cc72f740f813b70fd6b910f82ff363e01fe8265f` |
@@ -42,7 +43,7 @@ All experiments were executed on locked, audited test benches with fixed model c
    - **Regime B:** 8 questions reusing 8 `bein-almelali.pdf` questions (3 dev, 5 test) evaluated against the scanned twin document `bein-almelali-scan.pdf`.
    - **Total Evaluations:** $138 \times 3 \text{ (Regime A)} + 8 \times 2 \text{ (Regime B)} = 430$ evaluations.
 2. **Strict Data Leakage Prevention:** Calibration of similarity thresholds was strictly restricted to the in-sample `tuned|dev` partition ($N=25$). Any attempt to calculate thresholds on `heldout` or `test` partitions is rejected at runtime by automated programmatic assertion guards (`ANTI-LEAKAGE VIOLATION`).
-3. **Exploratory Scope of Document-Cluster Bounds ($G=3$):** Because the held-out collection contains only $G=3$ documents (`forsat-motaleati.pdf`, `shiveh-karamoozi.pdf`, `tarh-dakheli.pdf`), asymptotic normal convergence of cluster-robust standard errors does not hold (which typically requires $G \ge 30$). Question-level Wilson confidence intervals treat observations as independent, ignoring document-level correlation, and are therefore narrower than true cluster-adjusted bounds. Paired non-parametric procedures (Paired Bootstrap 95% CIs and exact McNemar tests) serve as the primary inferential standard.
+3. **Exploratory Scope of Document-Cluster Bounds ($G=3$):** Because the held-out collection contains only $G=3$ documents (`forsat-motaleati.pdf`, `shiveh-karamoozi.pdf`, `tarh-dakheli.pdf`), asymptotic normal convergence of cluster-robust standard errors does not hold (which typically requires $G \ge 30$). Question-level Wilson confidence intervals treat observations as independent, ignoring document-level correlation, and are therefore narrower than true cluster-adjusted bounds. Paired non-parametric procedures (Paired Bootstrap 95% CIs with $B = 10,000$ resamples at seed 42 per ADR 0010 §5, and exact McNemar tests) serve as the primary inferential standard.
 4. **Deterministic Offline Cache & Checkpoints:** Every LLM call in Stage 2 is uniquely keyed by:
    $$\text{CacheKey} = \text{SHA256}(\text{normalized\_query} \parallel \text{ordered\_chunk\_ids} \parallel \text{top\_k} \parallel \text{model} \parallel \text{temp} \parallel \text{prompt\_sha256})$$
    Retrieved chunk IDs are strictly preserved in rank order (never sorted alphabetically). Degraded responses are never cached.
@@ -56,19 +57,20 @@ To preserve scientific integrity and avoid selective reporting, all experimental
 
 | Endpoint / Analysis | Target Cohort | Stage | Status | ADR Reference | Primary Metric / Test |
 |---|---|---|---|---|---|
-| **Primary Endpoint 1** | `heldout` answerable ($N=52$) | Stage 1 | Pre-Registered | ADR 0010 §7.1 | $\Delta\text{MRR}$ (Arm 2 Hybrid vs. Arm 1 Vector), Paired Bootstrap 95% CI |
-| **Primary Endpoint 2** | `heldout-CMap` ($N=27$) | Stage 1 | Pre-Registered | ADR 0010 §7.1 | $\Delta\text{MRR}$ (Arm 3 Full System vs. Arm 2 OCR-Off), Paired Bootstrap 95% CI |
+| **Primary Endpoint 1** | `heldout` answerable ($N=52$) | Stage 1 | Pre-Registered | ADR 0010 §3 & §5 | $\Delta\text{MRR}$ (Arm 2 Hybrid vs. Arm 1 Vector), Paired Bootstrap 95% CI |
+| **Primary Endpoint 2** | `heldout-CMap` ($N=27$) | Stage 1 | Pre-Registered | ADR 0010 §3 & §5 | $\Delta\text{MRR}$ (Arm 3 Full System vs. Arm 2 OCR-Off), Paired Bootstrap 95% CI |
 | **Primary Endpoint 2.1** | `heldout` answerable ($N=52$) | Stage 2 | Pre-Registered | ADR 0011 §5.1 | False Rejection Rate ($\text{FRR}$) across operating points (`prod_055` vs. `calibrated_tau`), 95% Wilson CI |
 | **Primary Endpoint 2.2** | `heldout` not-in-docs ($N=12$) | Stage 2 | Pre-Registered | ADR 0011 §5.1 | False Acceptance Rate ($\text{FAR}$) across operating points (`prod_055` vs. `calibrated_tau`), 95% Wilson CI |
 | **Secondary Endpoint (Granular Extraction)** | `heldout-CMap` ($N=27$) | Stage 2 | Pre-Registered | ADR 0011 §5.2 | Multi-digit Number Recall & Unit Phrase Recall under `ungated`, Descriptive & McNemar |
-| **Regime B Scanned Twin Benchmark** | `bein-almelali-scan.pdf` ($N=8$) | Stages 1 & 2 | Pre-Registered | ADR 0009 §4, ADR 0010 §7.2 | MRR & Answer Rate across OCR modes vs. Digital Reference |
-| **Pure OCR Extractor Latency** | 37 sample pages | Stage 1 | Pre-Registered | ADR 0009 §4 | Wall-clock seconds per page across CMap & Scanned documents |
+| **Regime B Scanned Twin Benchmark** | `bein-almelali-scan.pdf` ($N=8$) | Stages 1 & 2 | Pre-Registered | ADR 0010 §2.2 & ADR 0011 §2.2 | MRR & Answer Rate across OCR modes vs. Digital Reference |
+| **Pure OCR Extractor Latency** | 37 sample pages | Stage 1 | Pre-Registered | ADR 0009 §5 | Wall-clock seconds per page across CMap & Scanned documents |
 | **Vector-Component ROC-AUC** | Overall ($N=138$) & Heldout ($N=64$) | Stage 2 | Post-Hoc / Diagnostic | Section 5 of this report | ROC-AUC of `bestVectorScore` with Hanley-McNeil & bootstrap CIs |
 | **FTS-Bypass Counterfactual Analysis** | `heldout` answerable ($N=52$) | Stage 2 | Post-Hoc / Diagnostic | Section 6 of this report | $\text{FRR}_{\text{LowSimilarity}}$ with vs. without Full-Text Search rescue |
 | **Untouched Document Noise Floor** | Clean subset ($N=76$) | Stage 2 | Post-Hoc / Diagnostic | Section 7 of this report | Paired answer identity between Arm 2 and Arm 3 under identical context |
+| **54-Judgment Manual Correctness Audit** | `heldout-CMap` ($N=27 \times 2$ arms, `ungated`) | Stage 2 | Post-Hoc / Diagnostic | Section 8.6 of this report | 4-label rubric (Correct, Partial, Wrong, Refused), Descriptive & McNemar |
 | **Answerable FRR Decomposition** | Overall answerable ($N=112$) | Stage 2 | Post-Hoc / Diagnostic | Section 9 of this report | Rejection attribution (`LowSimilarity` vs. `RetMiss` vs. `Gold-in-top-6`) |
 | **Persian Number-Word Sensitivity** | `heldout-CMap` ($N=27$) | Stage 2 | Post-Hoc / Diagnostic | Section 8 of this report | Impact of spelled-out Persian numbers on unit extraction |
-| **Citation Precision & Page-Hit Audit** | Answered queries ($N=97\text{--}100$) | Stage 2 | Pre-Registered | ADR 0011 §5.3 | Citation Validity, Page-Hit Rate, Precision, and Recall |
+| **Citation Precision & Page-Hit Audit** | Answered queries ($N=97\text{--}100$) | Stage 2 | Pre-Registered | ADR 0011 §7 | Citation Validity, Page-Hit Rate, Precision, and Recall |
 
 ---
 
@@ -259,7 +261,7 @@ Under production gating ($\tau = 0.55$), comparing Arm 1 (Vector) and Arm 2 (Hyb
 - **Held-out Keyword Recall ($N=52$):** Discordant pairs: $A_{\text{only}} = 2, B_{\text{only}} = 3$, exact McNemar **$p = 1.000$**.
 - **Arm 1 vs. Arm 3 on Held-out ($N=52$):** Exact McNemar **$p = 1.000$** for both answer rate and keyword recall.
 
-End-to-end differences between Hybrid and Vector-Only are not statistically distinguishable on this benchmark. Keyword and article-key support is retained as the architectural design rationale per ADR 0005 (rather than an empirically demonstrated end-to-end advantage on this benchmark), introducing no observed degradation.
+Hybrid search with equal RRF weights (1.0/1.0) showed a statistically significant Stage 1 ranking drop (overall ΔMRR = -0.0663 [-0.1214, -0.0124]; heldout-CMap ΔMRR = -0.1068 [-0.2148, -0.0093]), yet produced no statistically distinguishable end-to-end degradation (p = 1.000) because the LLM reads all top-6 chunks. Keyword and article-key support is retained as the architectural design rationale per ADR 0005.
 
 ### 6.2 FTS-Bypass Counterfactual Analysis (Post-Hoc)
 
@@ -329,6 +331,33 @@ Evaluating Persian spelled-out number words:
 | `primary_cmap` ($N=36, G=6$) | 0/10 (0.0%) vs. 4/10 (40.0%) | 1/14 (7.1%) vs. 3/14 (21.4%) | 1/14 (7.1%) vs. 4/14 (28.6%) | 22/36 (61.1%) vs. 20/36 (55.6%) |
 | `overall` ($N=112$) | 25/41 (61.0%) vs. 30/41 (73.2%) | 17/36 (47.2%) vs. 17/36 (47.2%) | 19/36 (52.8%) vs. 22/36 (61.1%) | 83/112 (74.1%) vs. 81/112 (72.3%) |
 
+### 8.6 54-Judgment Manual Correctness Audit on `heldout-CMap` (Post-Hoc)
+
+To assess factual truthfulness beyond regex string matching, a manual judgment audit was conducted across all 27 answerable questions on `heldout-CMap` under `ungated` execution for Arm 2 and Arm 3 ($N = 27 \times 2 = 54$ judgments). Responses were classified under a mutually exclusive 4-label rubric:
+1. **Correct:** The generated response is completely accurate and answers the query according to ground-truth document facts.
+2. **Partial (no error):** The response provides accurate partial information (e.g. covers partial eligibility clauses) without asserting factual or numeric errors.
+3. **Wrong (factual/numeric error):** The response asserts factually incorrect information or corrupted numerals.
+4. **Refused:** The model explicitly refused to answer (e.g. stating that the document does not contain the answer).
+
+| Category | Arm 2 (OCR Off) | Arm 3 (Selective OCR) | Delta (pp) | Notes / Error Attribution |
+|---|---|---|---|---|
+| **Correct** | **16 / 27 (59.3%)** | **15 / 27 (55.6%)** | **-3.7 pp** | Arm 2: 11/15 `tarh`, 5/12 `forsat`; Arm 3: 9/15 `tarh`, 6/12 `forsat` |
+| **Partial (no error)** | **1 / 27 (3.7%)** | **3 / 27 (11.1%)** | **+7.4 pp** | Arm 2: `q098`; Arm 3: `q081, q094, q098` |
+| **Wrong (factual/numeric error)** | **7 / 27 (25.9%)** | **4 / 27 (14.8%)** | **-11.1 pp** | Paired discordant 6 vs 3, exact McNemar $p = 0.508$ (descriptive only) |
+| **Refused** | **3 / 27 (11.1%)** | **5 / 27 (18.5%)** | **+7.4 pp** | Arm 2: `q087, q100, q101`; Arm 3: `q087, q088, q100, q101, q102` |
+| **CMap Digit-Corruption Subset** | **7 / 27 (25.9%)** | **1 / 27 (3.7%)** | **-22.2 pp** | Arm 2: 7/7 corrupted numerals (`q079, q080, q081, q096, q097, q099, q102`); Arm 3: 1 slip (`q080` 20% vs 30%) |
+
+#### Qualitative Error Attribution
+- **Arm 2 Font Corruption Failures:** In Arm 2 (OCR Off), all 7 wrong responses (`q079, q080, q081, q096, q097, q099, q102`) were caused directly by broken CMap/ToUnicode mappings in the ingested text. In every case, the model presented corrupted numbers (e.g. inverted digits or mismatched ASCII values) with high confidence.
+- **Arm 3 Selective OCR Recovery:** Selective OCR eliminated 6 of the 7 corrupted numeral errors:
+  - `q079`, `q096`, `q097`, and `q099` (4 items) were converted from wrong numbers in Arm 2 into fully correct answers in Arm 3.
+  - On `q080`, the monetary ceiling (`350,000,000` Rials) was recovered correctly, with an OCR/generation slip on the accompanying percentage (`20%` vs. `30%`).
+  - On `q081`, Arm 3 provided a partial answer (correct 2-year window and `10,000,000`-Rial personnel cap) while transparently noting the total ceiling was illegible.
+  - On `q102`, Arm 3 refused rather than asserting a corrupted deadline digit (`8` vs. `9` months in Arm 2).
+- **Non-Digit Errors & Regressions in Arm 3:** The remaining 3 wrong answers in Arm 3 (`q082, q090, q103`) were non-digit errors: `q082` (`tarh-dakheli.pdf`) stated "two" instead of "three" maximum grants during Assistant Professor rank (spelled-out numeral error); `q090` attributed profit-share approval to the "University President" instead of the "University Board of Directors" (`هیأت رئیسه`); and `q103` stated "one or two ISI articles" instead of "a joint project or 2 JCR Q1/Q2 articles". Arm 3 also added 1 refusal (`q088`) and 1 partial omission (`q094`, omitting the domestic sabbatical cap).
+- **Minor Artifacts & `kw_hit` Caveat:** In Arm 2, `q082` appended a stray refusal sentence after stating the correct facts and `q089` had a corrupted clause reference while stating the correct 2-year rule; in Arm 3, `q083` contained a minor OCR token artifact without altering meaning. Crucially, while `kw_hit` can produce false positives on numeric questions (observed on `tuned` CMap items `q014` and `q022`), on `heldout-CMap` itself the Arm 3 vs. Arm 2 contrast reflects a genuine trade-off between eliminating 6/7 CMap digit corruptions and introducing non-digit OCR/retrieval errors.
+- **Statistical Assessment:** Paired comparison yields 6 questions wrong only in Arm 2 vs. 3 wrong only in Arm 3 (exact two-sided McNemar $p = 0.508$). Consequently, while the reduction in numeral hallucination is prominent (7 down to 1), overall correctness differences remain descriptive on this sample size.
+
 ---
 
 ## 9. Error Analysis, Question Types, Citations, Latency & Reliability
@@ -397,7 +426,7 @@ Retrieval median latency is ~200 ms across all configurations. Total latency is 
 ### 9.7 Production Reliability: Degraded Mode Rate
 
 During live execution:
-- **16 / 417 initial requests** (~3.8%; 7 in Phase A, 9 in Phase B, excluding cache hits and short-circuited `NoContext` queries) returned `degraded=true` on attempt 1. One instance was confirmed in API logs as a 60-second HTTP client timeout on `q037`; the remaining 15 were transient provider errors.
+- **16 / 417 initial requests** (~3.8%; 7 in Phase A, 9 in Phase B, excluding cache hits and short-circuited `NoContext` queries) returned `degraded=true` on attempt 1. One instance was confirmed in API logs as a 60-second HTTP client timeout on `q037`; the remaining 15 first-attempt degraded responses are unclassified (not broken down by HTTP 429/5xx/timeout in saved logs).
 - In all 16 cases, automated retry in the evaluation harness recovered successfully on attempt 2 (**16 / 16 recovery**).
 - This finding highlights a production robustness gap: `RagService.cs` lacks client-side retry with backoff, directly exposing users to transient upstream timeouts in ~3.8% of requests.
 
@@ -425,7 +454,12 @@ During live execution:
 
 ## 11. Conclusions
 
-1. **Selective OCR Mitigates Number Hallucination:** In Persian PDFs with defective font encodings, standard text extraction yields corrupted numerals that lead to confident, incorrect numeric outputs (0/7 correct in Arm 2). Selective OCR restored number extraction to 3/7 on `heldout-CMap` without incurring full-corpus OCR overhead.
-2. **Rejection of In-Sample Threshold Calibration:** Raising vector similarity thresholds to $\tau^* = 0.70 / 0.75$ based on in-sample calibration severely increased false rejections (40.4%–76.9% on held-out) without improving out-of-sample precision. The conservative baseline ($\tau = 0.55$) paired with prompt-based refusal remains the recommended deployment strategy.
-3. **Retrieval Equivalence:** Dense vector retrieval and hybrid search achieved statistically indistinguishable end-to-end answer quality ($p = 1.000$). Keyword and article-key support is retained as the architectural design rationale per ADR 0005 (rather than an empirically demonstrated end-to-end advantage on this benchmark), introducing no observed degradation.
+1. **Selective OCR Associated with Fewer Corrupted-Number Errors (Descriptive):** In Persian PDFs with defective font encodings, standard text extraction yielded confident corrupted numerals (0/7 multi-digit numbers and 7/27 total corrupted-digit answers in Arm 2). On `heldout-CMap`, selective OCR improved multi-digit number recall to 3/7 ($N=7$, McNemar $p=0.250$) and reduced corrupted-digit answers to 1/27, but introduced 3 non-digit errors (`q082, q090, q103`) and 2 additional refusals (`q088, q102`), leaving overall manual `Correct` rates similar (15/27 vs. 16/27; `Wrong` 4/27 vs. 7/27, $p=0.508$, descriptive only).
+2. **Rejection of In-Sample Threshold Calibration:** Raising vector similarity thresholds to $\tau^* = 0.70 / 0.75$ based on in-sample calibration severely increased false rejections (40.4%–76.9% on held-out) without improving out-of-sample precision. The conservative baseline ($\tau = 0.55$) paired with prompt-based refusal is retained as the default configuration for operational cost/latency protection, though unvalidated against ungated on FAR on this benchmark.
+3. **Hybrid Search Retrieval & Generation Disconnect:** Hybrid search with equal RRF weights (1.0/1.0) showed a statistically significant Stage 1 ranking drop (overall ΔMRR = -0.0663 [-0.1214, -0.0124]; heldout-CMap ΔMRR = -0.1068 [-0.2148, -0.0093]), yet produced no statistically distinguishable end-to-end degradation (p = 1.000) because the LLM reads all top-6 chunks. Keyword and article-key support is retained as the architectural design rationale per ADR 0005.
 4. **Interactive Viability & Hardening Opportunity:** DocSearch achieves an end-to-end median response time of 2.1–3.3 seconds across the three main arms (Arm 3 median 2.4 s; subject to external Gemini/VPN variance). Implementing upstream client-side retry in `RagService.cs` is recommended to address the ~3.8% transient degradation rate observed during live testing.
+
+### 11.1 Future Work
+
+1. **Configurable RRF Fusion Weights (ADR 0012):** Currently, Reciprocal Rank Fusion uses fixed equal weights ($w_{\text{vec}} = 1.0, w_{\text{fts}} = 1.0, k = 60$). Parameterizing weights via configuration (`Rag:RrfVectorWeight`, `Rag:RrfFtsWeight`) and re-tuning to favor dense vector ranking ($w_{\text{vec}} \approx 0.7, w_{\text{fts}} \approx 0.3$) warrants retrieval-only Stage 1 re-evaluation to test whether dense-weighted fusion mitigates the Stage 1 ranking drop while preserving FTS keyword matching for explicit regulation codes and article numbers.
+2. **Client-Side HTTP Resilience for LLM Calls:** Upstream Gemini API calls via OpenAI-compatible endpoints experienced a ~3.8% transient failure rate on initial attempts during live benchmarking (recovering on second attempt). Incorporating a standard resilience pipeline (`Microsoft.Extensions.Http.Resilience` or Polly with exponential backoff and jitter) directly into `RagService.cs` will prevent user-facing degraded responses.
