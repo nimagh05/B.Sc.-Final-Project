@@ -121,8 +121,6 @@ Running only `db` and `extractor` in Docker while running the API and Vite dev s
 # Terminal 1 — DB + Extractor sidecar + API
 docker compose up -d db extractor
 . .\scripts\load-env.ps1
-# If host.docker.internal is not resolving outside Docker, point Ollama to loopback:
-$env:Ai__Embedding__Endpoint = "http://127.0.0.1:11434"
 dotnet ef database update --project src/DocSearch.Infrastructure --startup-project src/DocSearch.Api
 dotnet run --project src/DocSearch.Api
 
@@ -132,7 +130,7 @@ npm ci
 npm run dev
 ```
 
-*(For Python sidecar local dev without Docker `extractor`, `docker compose up -d db` alone is enough if you run `uvicorn app.main:app` from `tools/extractor`.)*
+*(A single `.env` works for both Option A and Option B: `.env.example` sets host loopback addresses `127.0.0.1` for Postgres, Extractor, and Ollama during `dotnet run`, while `docker-compose.yml` automatically maps `Host=db`, `http://extractor:8000`, and `${DOCKER_EMBEDDING_ENDPOINT:-http://host.docker.internal:11434}` inside containers. For Python sidecar local dev without Docker `extractor`, `docker compose up -d db` alone is enough if you run `uvicorn app.main:app` from `tools/extractor`.)*
 
 ---
 
@@ -179,7 +177,7 @@ Settings follow ASP.NET Core configuration hierarchy (`appsettings.json`, enviro
 |---|---|---|
 | `Ai:Embedding:Provider` | `Ollama` | `Ollama` \| `OpenAICompatible` \| `Fake` |
 | `Ai:Embedding:Model` | `bge-m3` | Stored per chunk; triggers reindex check when swapped (ADR 0007) |
-| `Ai:Embedding:Endpoint` | `http://127.0.0.1:11434` | In Docker Compose defaults to `http://host.docker.internal:11434` |
+| `Ai:Embedding:Endpoint` | `http://127.0.0.1:11434` | Host `dotnet run` endpoint; Docker Compose sets `${DOCKER_EMBEDDING_ENDPOINT:-http://host.docker.internal:11434}` |
 | `Ai:Embedding:ApiKey` | `null` | Used only when `Provider=OpenAICompatible` |
 | `Ai:Embedding:Dimensions` | `1024` | Must match `vector(1024)` schema (`EmbeddingConstants.VectorDimensions`) |
 | `Ai:Embedding:QueryPrefix` / `PassagePrefix` | `""` / `""` | Empty for `bge-m3`; set `"query: "` / `"passage: "` for E5 models |

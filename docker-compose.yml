@@ -54,7 +54,7 @@ services:
       Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:-http://localhost:5173}
       Ai__Embedding__Provider: ${Ai__Embedding__Provider:-Ollama}
       Ai__Embedding__Model: ${Ai__Embedding__Model:-bge-m3}
-      Ai__Embedding__Endpoint: ${Ai__Embedding__Endpoint:-http://host.docker.internal:11434}
+      Ai__Embedding__Endpoint: ${DOCKER_EMBEDDING_ENDPOINT:-http://host.docker.internal:11434}
       Ai__Chat__Provider: ${Ai__Chat__Provider:-OpenAICompatible}
       Ai__Chat__Endpoint: ${Ai__Chat__Endpoint:-}
       Ai__Chat__Model: ${Ai__Chat__Model:-}
