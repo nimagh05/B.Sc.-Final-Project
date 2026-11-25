@@ -210,6 +210,7 @@ export const conversationsApi = {
   delete(conversationId: string, signal?: AbortSignal): Promise<void> {
     return apiRequest<void>(`/api/v1/conversations/${encodeURIComponent(conversationId)}`, {
       method: 'DELETE',
+      signal,
     });
   },
 };

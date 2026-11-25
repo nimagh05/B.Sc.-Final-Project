@@ -420,7 +420,7 @@ export function ChatPage() {
                         </div>
                       )}
 
-                      {msg.content && (
+                      {!msg.notFound && msg.content && (
                         <CitationText
                           text={msg.content}
                           sources={msg.sources}

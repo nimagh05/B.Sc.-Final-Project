@@ -254,7 +254,8 @@ describe('ChatPage and RTL hygiene', () => {
     await user.type(textbox, 'پرسش خارج از اسناد');
     await user.click(sendBtn);
     expect(await screen.findByText(fa.chat.notFoundTitle)).toBeInTheDocument();
-    expect(screen.getByText('«در اسناد موجود پاسخی برای این پرسش پیدا نشد.»')).toBeInTheDocument();
+    expect(screen.getByText(fa.chat.notFoundDescription)).toBeInTheDocument();
+    expect(screen.queryByText('«در اسناد موجود پاسخی برای این پرسش پیدا نشد.»')).not.toBeInTheDocument();
 
     // 3) 429 Retry-After
     await user.type(textbox, 'پرسش سوم با محدودیت نرخ');

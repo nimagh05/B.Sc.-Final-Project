@@ -7,6 +7,7 @@
 html {
   font-size: 16px;
   scroll-padding-top: calc(var(--header-height) + var(--space-4));
+  overflow-x: clip;
 }
 
 body {
@@ -17,6 +18,7 @@ body {
   font-size: var(--text-base);
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
+  overflow-x: clip;
 }
 
 button,
@@ -323,6 +325,11 @@ bdi,
 .input[aria-invalid='true'],
 .textarea[aria-invalid='true'] {
   border-color: var(--color-danger-solid);
+}
+
+input[type='password']::placeholder {
+  direction: rtl;
+  text-align: right;
 }
 
 .textarea {

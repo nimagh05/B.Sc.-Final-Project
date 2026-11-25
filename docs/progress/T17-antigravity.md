@@ -3,7 +3,7 @@
 **Task:** T17 — Web UI (React + Vite + TypeScript, RTL Persian)  
 **Branch:** `feature/T17-web-ui`  
 **Date:** 2026-11-25  
-**Status:** Completed (Automated checks green; awaiting manual E2E verification and push approval)
+**Status:** Completed (Automated checks and live E2E browser verification complete; ready for PR/push review)
 
 ---
 
@@ -37,10 +37,14 @@
 
 ---
 
-## 2. What Is Not Done / Left for Later
+## 2. Live E2E Browser Verification & Remaining Follow-Ups
 
-- **Manual live-API browser E2E check:** Backend live stack (PostgreSQL + Extractor + Ollama/Fake + API) was not started in this session; manual browser walkthrough remains to be verified by the human before merging.
+- **Live E2E Browser Verification (`http://localhost:5173` against `http://localhost:5000`, Tests 1–6):**
+  - **0** browser console errors, **0** external CDN requests, and **0** unexpected `4xx`/`5xx` server responses.
+  - Verified `<html lang="fa" dir="rtl">`, self-hosted `Vazirmatn-*.woff2` (`200`), `401` invalid-login handling without false session expiry, registration (`201`) + login (`200`) + reload persistence, collection creation, invalid PDF (`400`), valid Persian PDF (`202`) auto-polling `Uploaded` → `Processing` → `Ready`, duplicate PDF (`409`), document details (`pageCount: 1`, `chunkCount: 1`), authenticated PDF `Blob` download/open (`200`), `/chat?collectionId=...` pre-selection, `notFound` neutral banner, conversation reload/delete (`204`), `1280×720` & `390×844` responsive layouts, keyboard `Tab` focus rings, and Logout.
+  - Post-E2E polish applied: right-aligned RTL placeholder on `input[type="password"]`, removed duplicate canned refusal paragraph below the `notFound` banner, forwarded `signal` in `conversationsApi.delete`, and added `overflow-x: clip` on `html, body` for mobile subpixel overflow. (Confirmed `web/src/i18n/fa.ts` already used `ندارد`, with zero first-person typos.)
 - **`web/Dockerfile`:** Deferred to **Task T20** (`Packaging & documentation`) per `docs/TASKS.md`.
+- **Recommended Next Task:** **T20 — Packaging & documentation** (or optional **T18 — Embeddable widget**; **T19** is already merged on `main`).
 
 ---
 
