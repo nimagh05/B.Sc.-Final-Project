@@ -9,6 +9,7 @@ import type {
 import { CitationText } from '../components/CitationText';
 import { DegradedBanner } from '../components/DegradedBanner';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { FolderIcon, PlusIcon, SendIcon, SparklesIcon, TrashIcon } from '../components/Icons';
 import { Layout } from '../components/Layout';
 import { SourceCard } from '../components/SourceCard';
 import { fa } from '../i18n/fa';
@@ -276,8 +277,9 @@ export function ChatPage() {
         <aside className="chat-sidebar" aria-label={fa.chat.collectionsHeading}>
           <section className="card">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBlockEnd: '10px' }}>
-              <h2 className="section-heading" style={{ margin: 0, fontSize: '1rem' }}>
-                {fa.chat.collectionsHeading}
+              <h2 className="section-heading collection-meta-item" style={{ margin: 0, fontSize: '1rem' }}>
+                <FolderIcon />
+                <span>{fa.chat.collectionsHeading}</span>
               </h2>
             </div>
 
@@ -346,7 +348,8 @@ export function ChatPage() {
                 className="btn btn-secondary btn-sm"
                 onClick={handleNewConversation}
               >
-                {fa.chat.newConversation}
+                <PlusIcon />
+                <span>{fa.chat.newConversation}</span>
               </button>
             </div>
 
@@ -370,7 +373,7 @@ export function ChatPage() {
                       aria-label={`${fa.chat.deleteConversation}: ${conv.title ?? ''}`}
                       onClick={() => void handleDeleteConversation(conv.id)}
                     >
-                      ×
+                      <TrashIcon />
                     </button>
                   </li>
                 ))}
@@ -400,7 +403,8 @@ export function ChatPage() {
                   className={`card message-card ${msg.role === 'user' ? 'message-card-user' : ''}`}
                 >
                   <span className="message-role">
-                    {msg.role === 'user' ? fa.chat.userLabel : fa.chat.assistantLabel}
+                    {msg.role === 'assistant' && <SparklesIcon />}
+                    <span>{msg.role === 'user' ? fa.chat.userLabel : fa.chat.assistantLabel}</span>
                   </span>
 
                   {msg.role === 'user' ? (
@@ -463,6 +467,21 @@ export function ChatPage() {
                 </article>
               ))
             )}
+
+            {isAsking && (
+              <article className="card message-card" role="status" aria-live="polite">
+                <span className="message-role">
+                  <SparklesIcon />
+                  <span>{fa.chat.assistantLabel}</span>
+                </span>
+                <div className="thinking-dots" aria-hidden="true">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <span className="sr-only">{fa.chat.sendingButton}</span>
+              </article>
+            )}
           </div>
 
           <form className="card form-stack" onSubmit={handleFormSubmit} noValidate>
@@ -504,7 +523,8 @@ export function ChatPage() {
                 className="btn btn-primary"
                 disabled={isAsking || collections.length === 0}
               >
-                {isAsking ? fa.chat.sendingButton : fa.chat.sendButton}
+                <SendIcon />
+                <span>{isAsking ? fa.chat.sendingButton : fa.chat.sendButton}</span>
               </button>
             </div>
           </form>

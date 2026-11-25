@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { fa } from '../i18n/fa';
+import { UploadIcon } from './Icons';
 
 interface FileDropProps {
   onFileSelected: (file: File) => void;
@@ -95,6 +96,9 @@ export function FileDrop({
           onChange={handleInputChange}
         />
 
+        <div className="file-drop-icon" aria-hidden="true">
+          <UploadIcon />
+        </div>
         <p className="file-drop-title">{fa.collectionDetail.dropTitle}</p>
         <p className="file-drop-subtitle">{fa.collectionDetail.dropSubtitle}</p>
 
@@ -104,7 +108,8 @@ export function FileDrop({
           disabled={disabled || isUploading}
           onClick={() => inputRef.current?.click()}
         >
-          {fa.collectionDetail.selectFileButton}
+          <UploadIcon />
+          <span>{fa.collectionDetail.selectFileButton}</span>
         </button>
 
         {isUploading && (

@@ -12,6 +12,7 @@ import type {
 } from '../api/types';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { FileDrop } from '../components/FileDrop';
+import { ChatIcon, FileTextIcon, TrashIcon } from '../components/Icons';
 import { Layout } from '../components/Layout';
 import { RoleBadge, StatusBadge } from '../components/StatusBadge';
 import { fa } from '../i18n/fa';
@@ -445,8 +446,18 @@ export function CollectionDetailPage() {
         )}
 
         {isLoading ? (
-          <div className="card" role="status" aria-live="polite">
-            <p>{fa.common.loading}</p>
+          <div className="detail-stack" role="status" aria-live="polite" aria-label={fa.common.loading}>
+            <span className="sr-only">{fa.common.loading}</span>
+            <div className="card skeleton-card" aria-hidden="true" style={{ minBlockSize: '110px' }}>
+              <div className="skeleton-line skeleton-line-lg" />
+              <div className="skeleton-line skeleton-line-sm" />
+            </div>
+            <div className="card skeleton-card" aria-hidden="true" style={{ minBlockSize: '190px' }}>
+              <div className="skeleton-line skeleton-line-md" />
+              <div className="skeleton-line" />
+              <div className="skeleton-line" />
+              <div className="skeleton-line skeleton-line-sm" />
+            </div>
           </div>
         ) : (
           collection && (
@@ -472,7 +483,8 @@ export function CollectionDetailPage() {
                       to={`/chat?collectionId=${encodeURIComponent(collection.id)}`}
                       className="btn btn-primary"
                     >
-                      {fa.collectionDetail.askAction}
+                      <ChatIcon />
+                      <span>{fa.collectionDetail.askAction}</span>
                     </Link>
 
                     {canEdit && (
@@ -492,7 +504,10 @@ export function CollectionDetailPage() {
                         disabled={isDeletingCollection}
                         onClick={() => void handleDeleteCollection()}
                       >
-                        {isDeletingCollection ? fa.common.deleting : fa.collections.deleteCollection}
+                        <TrashIcon />
+                        <span>
+                          {isDeletingCollection ? fa.common.deleting : fa.collections.deleteCollection}
+                        </span>
                       </button>
                     )}
                   </div>
@@ -687,9 +702,12 @@ export function CollectionDetailPage() {
                                         disabled={downloadingDocId === doc.id}
                                         onClick={() => void handleDownloadPdf(doc, 'download')}
                                       >
-                                        {downloadingDocId === doc.id
-                                          ? fa.collectionDetail.openingPdf
-                                          : fa.collectionDetail.downloadPdf}
+                                        <FileTextIcon />
+                                        <span>
+                                          {downloadingDocId === doc.id
+                                            ? fa.collectionDetail.openingPdf
+                                            : fa.collectionDetail.downloadPdf}
+                                        </span>
                                       </button>
 
                                       {canEdit && doc.status !== 'Processing' && (
@@ -712,9 +730,12 @@ export function CollectionDetailPage() {
                                           disabled={deletingDocId === doc.id}
                                           onClick={() => void handleDeleteDocument(doc)}
                                         >
-                                          {deletingDocId === doc.id
-                                            ? fa.common.deleting
-                                            : fa.collectionDetail.deleteDocument}
+                                          <TrashIcon />
+                                          <span>
+                                            {deletingDocId === doc.id
+                                              ? fa.common.deleting
+                                              : fa.collectionDetail.deleteDocument}
+                                          </span>
                                         </button>
                                       )}
                                     </div>
@@ -726,7 +747,7 @@ export function CollectionDetailPage() {
                                       {isLoadingDetail ? (
                                         <span>{fa.collectionDetail.detailFields.loading}</span>
                                       ) : detail ? (
-                                        <div className="doc-detail-panel">
+                                        <div className="doc-detail-panel panel-reveal">
                                           <div>
                                             <strong>{fa.collectionDetail.detailFields.chunks}</strong>{' '}
                                             <bdi dir="ltr">{detail.chunkCount}</bdi>

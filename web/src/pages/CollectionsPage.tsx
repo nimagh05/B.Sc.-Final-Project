@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { collectionsApi } from '../api/endpoints';
 import type { CollectionDto } from '../api/types';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { ChatIcon, FileTextIcon, FolderIcon, PlusIcon } from '../components/Icons';
 import { Layout } from '../components/Layout';
 import { RoleBadge } from '../components/StatusBadge';
 import { fa } from '../i18n/fa';
@@ -22,9 +23,11 @@ export function CollectionsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [createApiError, setCreateApiError] = useState<unknown>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [filterText, setFilterText] = useState('');
 
   const nameId = useId();
   const descId = useId();
+  const filterId = useId();
 
   const loadCollections = useCallback(async (targetPage: number, signal?: AbortSignal) => {
     setIsLoading(true);
@@ -79,6 +82,14 @@ export function CollectionsPage() {
   };
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const normalizedFilter = filterText.trim().toLowerCase();
+  const visibleItems = normalizedFilter
+    ? items.filter(
+        (c) =>
+          c.name.toLowerCase().includes(normalizedFilter) ||
+          (c.description && c.description.toLowerCase().includes(normalizedFilter)),
+      )
+    : items;
 
   return (
     <Layout>
@@ -96,12 +107,13 @@ export function CollectionsPage() {
             setCreateApiError(null);
           }}
         >
-          {showCreate ? fa.common.cancel : fa.collections.newCollection}
+          {!showCreate && <PlusIcon />}
+          <span>{showCreate ? fa.common.cancel : fa.collections.newCollection}</span>
         </button>
       </div>
 
       {showCreate && (
-        <section className="card" style={{ marginBlockEnd: '24px' }} aria-label={fa.collections.newCollection}>
+        <section className="card panel-reveal" style={{ marginBlockEnd: '24px' }} aria-label={fa.collections.newCollection}>
           <h2 className="section-heading">{fa.collections.newCollection}</h2>
           <form className="form-stack" onSubmit={handleCreate} noValidate>
             {createApiError !== null && <ErrorAlert error={createApiError} />}
@@ -158,57 +170,92 @@ export function CollectionsPage() {
       )}
 
       {isLoading ? (
-        <div className="card" role="status" aria-live="polite">
-          <p>{fa.common.loading}</p>
+        <div className="collections-grid" role="status" aria-live="polite" aria-label={fa.common.loading}>
+          <span className="sr-only">{fa.common.loading}</span>
+          {[0, 1, 2].map((idx) => (
+            <div key={idx} className="card skeleton-card" aria-hidden="true">
+              <div className="skeleton-line skeleton-line-lg" />
+              <div className="skeleton-line skeleton-line-md" />
+              <div className="skeleton-line skeleton-line-sm" style={{ marginBlockStart: 'auto' }} />
+            </div>
+          ))}
         </div>
       ) : items.length === 0 && loadError === null ? (
         <div className="card empty-state">
           <h2 className="empty-state-title">{fa.collections.emptyTitle}</h2>
           <p>{fa.collections.emptyDescription}</p>
           <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            {fa.collections.newCollection}
+            <PlusIcon />
+            <span>{fa.collections.newCollection}</span>
           </button>
         </div>
       ) : (
         <>
-          <div className="collections-grid">
-            {items.map((collection) => (
-              <article key={collection.id} className="card collection-card">
-                <div>
-                  <div className="collection-card-head">
-                    <h2 className="collection-card-title">
-                      <bdi>{collection.name}</bdi>
-                    </h2>
-                    <RoleBadge role={collection.role} />
-                  </div>
-                  {collection.description && (
-                    <p className="collection-card-desc" dir="auto">
-                      {collection.description}
-                    </p>
-                  )}
-                </div>
-
-                <div className="collection-card-meta">
-                  <span>{fa.collections.documentCount(collection.documentCount)}</span>
-                  <span>
-                    <bdi dir="ltr">{new Date(collection.createdAt).toLocaleDateString('fa-IR')}</bdi>
-                  </span>
-                </div>
-
-                <div className="collection-card-actions">
-                  <Link to={`/collections/${collection.id}`} className="btn btn-primary btn-sm">
-                    {fa.collections.openCollection}
-                  </Link>
-                  <Link
-                    to={`/chat?collectionId=${encodeURIComponent(collection.id)}`}
-                    className="btn btn-secondary btn-sm"
-                  >
-                    {fa.collections.askInCollection}
-                  </Link>
-                </div>
-              </article>
-            ))}
+          <div className="collections-toolbar">
+            <label className="sr-only" htmlFor={filterId}>
+              {fa.collections.filterLabel}
+            </label>
+            <input
+              id={filterId}
+              type="search"
+              className="input"
+              placeholder={fa.collections.filterPlaceholder}
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+            />
           </div>
+
+          {visibleItems.length === 0 ? (
+            <div className="card empty-state">
+              <p>{fa.collections.filterEmpty}</p>
+            </div>
+          ) : (
+            <div className="collections-grid">
+              {visibleItems.map((collection) => (
+                <article key={collection.id} className="card collection-card">
+                  <div>
+                    <div className="collection-card-head">
+                      <h2 className="collection-card-title">
+                        <bdi>{collection.name}</bdi>
+                      </h2>
+                      <RoleBadge role={collection.role} />
+                    </div>
+                    {collection.description && (
+                      <p className="collection-card-desc">
+                        <bdi>{collection.description}</bdi>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="collection-card-footer">
+                    <div className="collection-card-meta">
+                      <span className="collection-meta-item">
+                        <FileTextIcon />
+                        <span>{fa.collections.documentCount(collection.documentCount)}</span>
+                      </span>
+                      <span>
+                        <bdi dir="ltr">{new Date(collection.createdAt).toLocaleDateString('fa-IR')}</bdi>
+                      </span>
+                    </div>
+
+                    <div className="collection-card-actions">
+                      <Link to={`/collections/${collection.id}`} className="btn btn-primary btn-sm">
+                        <FolderIcon />
+                        <span>{fa.collections.openCollection}</span>
+                      </Link>
+                      <Link
+                        to={`/chat?collectionId=${encodeURIComponent(collection.id)}`}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        <ChatIcon />
+                        <span>{fa.collections.askInCollection}</span>
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
 
           {totalPages > 1 && (
             <nav className="pagination" aria-label={fa.collections.pageTitle}>

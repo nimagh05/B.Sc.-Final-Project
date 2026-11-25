@@ -87,6 +87,9 @@ export const fa = {
       `آیا از حذف مجموعه «${name}» و تمام اسناد و بخش‌های نمایه‌شده آن مطمئن هستید؟`,
     createdSuccess: 'مجموعه با موفقیت ایجاد شد.',
     updatedSuccess: 'اطلاعات مجموعه به‌روزرسانی شد.',
+    filterLabel: 'جستجو در مجموعه‌ها',
+    filterPlaceholder: 'جستجو بر اساس نام یا توضیحات مجموعه...',
+    filterEmpty: 'مجموعه‌ای مطابق با عبارت جستجو یافت نشد.',
   },
   collectionDetail: {
     backToCollections: 'بازگشت به فهرست مجموعه‌ها',

@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { fa } from '../i18n/fa';
+import { ChatIcon, FolderIcon, LogOutIcon } from './Icons';
 
 export function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
@@ -31,14 +32,16 @@ export function Layout({ children }: { children: ReactNode }) {
                 className="nav-link"
                 aria-current={location.pathname.startsWith('/collections') ? 'page' : undefined}
               >
-                {fa.nav.collections}
+                <FolderIcon />
+                <span>{fa.nav.collections}</span>
               </Link>
               <Link
                 to="/chat"
                 className="nav-link"
                 aria-current={location.pathname.startsWith('/chat') ? 'page' : undefined}
               >
-                {fa.nav.chat}
+                <ChatIcon />
+                <span>{fa.nav.chat}</span>
               </Link>
             </nav>
           </div>
@@ -51,7 +54,8 @@ export function Layout({ children }: { children: ReactNode }) {
               </bdi>
               {isAdmin && <span className="badge badge-role">{fa.nav.adminBadge}</span>}
               <button type="button" className="btn btn-secondary btn-sm" onClick={logout}>
-                {fa.nav.logout}
+                <LogOutIcon />
+                <span>{fa.nav.logout}</span>
               </button>
             </div>
           )}

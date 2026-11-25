@@ -1,5 +1,6 @@
 import type { SourceCitationDto } from '../api/types';
 import { fa } from '../i18n/fa';
+import { ExternalLinkIcon, FileTextIcon } from './Icons';
 
 interface SourceCardProps {
   source: SourceCitationDto;
@@ -27,7 +28,8 @@ export function SourceCard({
         <span className="source-index-pill" aria-hidden="true">
           <bdi dir="ltr">[{source.index}]</bdi>
         </span>
-        <span className="source-file-title">
+        <span className="source-file-title" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <FileTextIcon />
           <bdi>{source.fileName}</bdi>
         </span>
       </div>
@@ -58,7 +60,8 @@ export function SourceCard({
           disabled={isDownloading}
           onClick={() => onOpenPdf(source.documentId, source.fileName)}
         >
-          {isDownloading ? fa.chat.sourceCard.downloading : fa.chat.sourceCard.openPdf}
+          <ExternalLinkIcon />
+          <span>{isDownloading ? fa.chat.sourceCard.downloading : fa.chat.sourceCard.openPdf}</span>
         </button>
       </div>
     </article>

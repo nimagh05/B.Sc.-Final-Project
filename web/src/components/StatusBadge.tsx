@@ -9,7 +9,12 @@ const statusClassMap: Record<DocumentStatus, string> = {
 };
 
 export function StatusBadge({ status }: { status: DocumentStatus }) {
-  return <span className={`badge ${statusClassMap[status]}`}>{fa.documentStatuses[status]}</span>;
+  return (
+    <span className={`badge ${statusClassMap[status]}`}>
+      {status === 'Processing' && <span className="status-dot-pulse" aria-hidden="true" />}
+      <span>{fa.documentStatuses[status]}</span>
+    </span>
+  );
 }
 
 export function RoleBadge({ role }: { role: CollectionRole }) {
