@@ -1,0 +1,80 @@
+:root {
+  /* Palette: Minimalism & Swiss Style (Academic / University Research) */
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-muted: #e9eef5;
+  --color-surface-subtle: #f1f5f9;
+
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
+
+  --color-border: #cbd5e1;
+  --color-border-subtle: #e2e8f0;
+  --color-border-strong: #94a3b8;
+
+  --color-primary: #1e3a5f;
+  --color-primary-hover: #162d4a;
+  --color-on-primary: #ffffff;
+
+  --color-secondary: #2563eb;
+  --color-secondary-soft: #eff6ff;
+  --color-secondary-border: #bfdbfe;
+  --color-on-secondary: #ffffff;
+
+  --color-accent: #a16207;
+  --color-on-accent: #ffffff;
+
+  /* Semantic Status Colors */
+  --color-success: #166534;
+  --color-success-bg: #dcfce7;
+  --color-success-border: #86efac;
+
+  --color-info: #1d4ed8;
+  --color-info-bg: #dbeafe;
+  --color-info-border: #93c5fd;
+
+  --color-neutral: #334155;
+  --color-neutral-bg: #f1f5f9;
+  --color-neutral-border: #cbd5e1;
+
+  --color-danger: #b91c1c;
+  --color-danger-solid: #dc2626;
+  --color-danger-bg: #fee2e2;
+  --color-danger-border: #fca5a5;
+
+  --color-warning: #92400e;
+  --color-warning-bg: #fef3c7;
+  --color-warning-border: #fcd34d;
+
+  /* Typography */
+  --font-sans: 'Vazirmatn', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+
+  /* Spacing Scale (--density 5 standard) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* Geometry & Elevation */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 6px 16px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -2px rgba(15, 23, 42, 0.04);
+
+  /* Layout */
+  --header-height: 60px;
+  --container-max: 1200px;
+  --focus-ring: 2px solid var(--color-primary);
+}

@@ -113,6 +113,35 @@ jobs:
       - name: Run fast eval unit tests
         run: pytest eval/tests -v
 
+  web:
+    name: Web UI Build & Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: "web/package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Run unit & component tests
+        run: npm test
+
+      - name: Build production bundle
+        run: npm run build
+
   conformance:
     name: Conformance Suite
     runs-on: ubuntu-latest
