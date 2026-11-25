@@ -11,7 +11,7 @@ Persian RAG (Retrieval-Augmented Generation) document search web service. Users 
 - **Hybrid Persian Legal-Aware RAG:** Combines PyMuPDF extraction, header/footer cleaning, legal structure chunking (`فصل`, `ماده`, `تبصره`), PostgreSQL `pgvector` HNSW dense search (`bge-m3`, 1024 dims), PostgreSQL `simple` FTS, and canonical `ArticleKeys` matching fused via Reciprocal Rank Fusion (RRF).
 - **Selective OCR for Defective Persian PDFs:** Automatically detects image-only scans and CMap/ToUnicode font-corrupted documents (`Extraction:OcrMode=Defective`) and routes only defective documents/pages to Tesseract (`fas+eng`).
 - **Role-Based Access Control & Production Hardening:** ASP.NET Core Identity + JWT Bearer auth, per-collection ACLs (`Viewer`, `Editor`, `Owner`, plus global `Admin`), two-layer auth/ask/upload rate limiting (`429 Retry-After`), RFC 7807 `ProblemDetails`, strict CORS, and trusted proxy CIDR support.
-- **RTL React Web UI:** Self-hosted `Vazirmatn` typography, `<bdi>` mixed-script isolation, upload progress with live ingestion polling, clickable `[n]` source citations, authenticated PDF download/viewing, and `DegradedBanner` fallback.
+- **RTL React Web UI & Embeddable Widget:** Self-hosted `Vazirmatn` typography, `<bdi>` mixed-script isolation, upload progress with live ingestion polling, clickable `[n]` source citations, authenticated PDF download/viewing, `DegradedBanner` fallback, and a Shadow-DOM `<docsearch-widget>` Web Component ([Integration Guide](docs/INTEGRATION.md#5-embeddable-widget-docsearch-widget)).
 - **Empirical Thesis Benchmark (`docs/EVAL-RESULTS.md`):**
   - Evaluated on `eval-dataset-v2.2` ($N=138$ unique questions across 14 digital PDFs + 8 Regime B scanned-twin evaluations).
   - **Stage 1 Retrieval:** Overall MRR `0.8500` (Vector-Only) / `0.7822` (Full System); on the 150 DPI scanned twin (`bein-almelali-scan.pdf`, $N=8$), Selective OCR recovered MRR from `0.000` to `0.875` (Recall@5 `100.0%`, `6/8` answered end-to-end vs `0/8` OCR-Off).
@@ -335,11 +335,12 @@ dotnet test --no-build --filter "Category!=RequiresOllama"
 .\.venv\Scripts\python.exe -m pytest tools/extractor/tests -v
 .\.venv\Scripts\python.exe -m pytest eval/tests -v
 
-# Frontend typecheck, unit tests, and production bundle
+# Frontend typecheck, unit tests, and production bundles (SPA + embeddable widget)
 Set-Location web
 npx tsc --noEmit
 npm test
 npm run build
+npm run build:widget
 Set-Location ..
 ```
 

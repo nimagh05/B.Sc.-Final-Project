@@ -107,22 +107,63 @@ If a separate portal frontend (e.g. `https://portal.university.ac.ir`) calls the
 
 ---
 
-## 5. Optional Future Embeddable Widget (T18 Architecture)
+## 5. Embeddable Widget (`<docsearch-widget>`)
 
-> [!NOTE]
-> **Status:** Task **T18** (`Embeddable widget`) is an **optional unimplemented design** documented in `docs/TASKS.md` and is **not built** in the current repository.
+DocSearch provides a standalone Custom Element (`<docsearch-widget>`) built via Vite library mode as a single self-contained IIFE script (`web/dist-widget/docsearch-widget.js`, also served at `/widget/docsearch-widget.js` from the `web` Nginx container). It renders inside an open **Shadow DOM** (`dir="rtl" lang="fa"`) with isolated design tokens so host portal stylesheets cannot break the widget and widget styles cannot leak into the host page.
 
-If the university team chooses to embed a drop-in search box on static CMS pages without writing custom React code, the planned T18 pattern is:
+### Quick Embed Snippet
 
-- **Custom Web Component (`<docsearch-widget>`):** Built via Vite library mode as a single standalone ES/IIFE JS file using **Shadow DOM** (isolating RTL Persian styles and self-hosted `Vazirmatn` font tokens from the host university CSS):
-  ```html
-  <script type="module" src="https://docs.university.ac.ir/widget/docsearch-widget.js"></script>
-  <docsearch-widget
-    api-url="https://portal.university.ac.ir"
-    collection-ids="0196f8c0-0000-7000-8000-000000000001"
-  ></docsearch-widget>
-  ```
-- **Security Caution on Tokens:** Avoid embedding a static privileged JWT in public HTML attributes (`token="..."`). Instead, either have the widget request a short-lived, `Viewer`-scoped token from your portal backend (`/portal-api/docsearch-token`) or point `api-url` at a same-origin BFF proxy that attaches the service JWT server-side.
+```html
+<script src="https://docs.university.ac.ir/widget/docsearch-widget.js"></script>
+
+<docsearch-widget
+  id="university-docsearch"
+  api-url="https://docs.university.ac.ir"
+  collection-ids="0196f8c0-0000-7000-8000-000000000001"
+  widget-title="پرسش از آیین‌نامه‌های دانشگاه"
+  placeholder="پرسش خود را درباره آیین‌نامه بنویسید..."
+></docsearch-widget>
+
+<script>
+  // Preferred: inject a short-lived Viewer-scoped JWT in memory instead of static HTML attributes
+  document.getElementById('university-docsearch').token = portalShortLivedJwt;
+</script>
+```
+
+### Attributes & JavaScript Properties
+
+| HTML Attribute | JS Property | Required | Behavior & Notes |
+|---|---|---|---|
+| `api-url` | `apiUrl` | Yes | Base URL of the DocSearch API or same-origin BFF proxy (trailing slash trimmed; supports `http:`, `https:`, or relative `/...`). Changing it aborts any in-flight request and resets `conversationId`. |
+| `token` | `token` | Yes | JWT Bearer token. Setting `el.token = "..."` stores the token in private JS memory **without** serializing it to a DOM attribute, and updates the active widget without wiping conversation history. |
+| `collection-ids` | `collectionIds` | Yes | Comma-separated GUID list (`1..20` items, trimmed and deduplicated; JS setter also accepts `string[]`). Changing it aborts any in-flight request and resets `conversationId`. |
+| `widget-title` | `widgetTitle` | No | Header title inside the widget (default: `دستیار جستجوی اسناد`). Uses `widget-title` instead of `title` to avoid native browser hover tooltips. |
+| `placeholder` | `placeholder` | No | Question input placeholder text (default Persian prompt). |
+| `font-base-url` | `fontBaseUrl` | No | Optional `http:`/`https:` directory URL hosting `Vazirmatn-{Regular,Medium,SemiBold,Bold}.woff2`, registered via `FontFace` + `document.fonts.add()`. Cross-origin `.woff2` hosting requires `Access-Control-Allow-Origin` on the font server; otherwise the widget uses host `Vazirmatn` (if loaded) or `'Tahoma', system-ui, sans-serif`. |
+
+### Security, CORS & Rate-Limit Behavior
+
+- **Production token hygiene:** Avoid hardcoding a static privileged JWT in public HTML (`token="..."`). In production, either issue a short-lived `Viewer`-scoped token from your portal backend (`el.token = ...`) or route `api-url` through a same-origin BFF proxy that attaches the service-account JWT server-side.
+- **Cross-origin CORS:** Add each embedding portal origin to `Cors:AllowedOrigins` (e.g., `Cors__AllowedOrigins__0=https://portal.university.ac.ir`, `Cors__AllowedOrigins__1=https://edu.university.ac.ir`). Note that `docker-compose.yml` forwards `Cors__AllowedOrigins__0` by default; pass additional `Cors__AllowedOrigins__N` entries in your deployment environment (or host `dotnet run` session) when multiple origins are needed.
+- **Cross-origin `429 Retry-After`:** Because `Program.cs` does not expose `Retry-After` via `WithExposedHeaders("Retry-After")`, cross-origin browser `fetch` calls receive `null` for `Retry-After` on HTTP `429`. The widget handles this cleanly by showing the general Persian rate-limit notice (with no broken countdown), while same-origin BFF/reverse-proxy setups preserve the exact `Retry-After` seconds.
+
+### Building & Local Cross-Origin Testing (`web/widget-demo.html`)
+
+```powershell
+# 1. Build the single-file widget bundle (web/dist-widget/docsearch-widget.js)
+Set-Location web
+npm run build:widget
+Set-Location ..
+
+# 2. Run API on http://localhost:5000 with the demo origin allowed via env override (do not edit .env)
+. .\scripts\load-env.ps1
+$env:Cors__AllowedOrigins__1 = "http://localhost:8088"
+dotnet run --project src/DocSearch.Api
+
+# 3. In another terminal, serve web/ from a second origin (http://localhost:8088)
+python -m http.server 8088 --directory web
+# Open http://localhost:8088/widget-demo.html
+```
 
 ---
 
