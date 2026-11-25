@@ -119,4 +119,46 @@ describe('LoginPage', () => {
 
     expect(await screen.findByText(fa.auth.registerSuccess)).toBeInTheDocument();
   });
+
+  it('shows clear registration-disabled Persian error on 403 auth.forbidden', async () => {
+    const user = userEvent.setup();
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          type: 'https://docsearch.local/errors/auth.forbidden',
+          title: 'Forbidden',
+          status: 403,
+          detail: 'Self-registration is disabled.',
+          code: 'auth.forbidden',
+          traceId: 'trace-reg-off',
+        }),
+        { status: 403, headers: { 'Content-Type': 'application/problem+json' } },
+      ),
+    );
+
+    renderLogin();
+    await user.click(screen.getByRole('tab', { name: fa.auth.registerTab }));
+
+    await user.type(screen.getByLabelText(fa.auth.emailLabel), 'new@uni.ac.ir');
+    await user.type(screen.getByLabelText(fa.auth.passwordLabel), 'Str0ngPassword1');
+    await user.click(screen.getByRole('button', { name: fa.auth.registerButton }));
+
+    expect(await screen.findByText(fa.errors.registrationDisabled)).toBeInTheDocument();
+  });
+
+  it('surfaces sessionExpiredNotice on mount when sessionStorage contains an expired session', async () => {
+    window.sessionStorage.setItem(
+      'docsearch_auth_session',
+      JSON.stringify({
+        accessToken: 'expired-jwt',
+        expiresAtUtc: new Date(Date.now() - 120_000).toISOString(),
+        roles: ['User'],
+      }),
+    );
+
+    renderLogin();
+
+    expect(await screen.findByText(fa.auth.sessionExpired)).toBeInTheDocument();
+  });
 });

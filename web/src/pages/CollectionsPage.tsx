@@ -6,11 +6,14 @@ import { ErrorAlert } from '../components/ErrorAlert';
 import { ChatIcon, FileTextIcon, FolderIcon, PlusIcon } from '../components/Icons';
 import { Layout } from '../components/Layout';
 import { RoleBadge } from '../components/StatusBadge';
+import { useToast } from '../components/Toast';
 import { fa } from '../i18n/fa';
 
 const PAGE_SIZE = 20;
 
 export function CollectionsPage() {
+  const { showToast } = useToast();
+
   const [items, setItems] = useState<CollectionDto[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -73,6 +76,7 @@ export function CollectionsPage() {
       setDescription('');
       setShowCreate(false);
       setPage(1);
+      showToast(fa.collections.createdSuccess, 'success');
       await loadCollections(1);
     } catch (err) {
       setCreateApiError(err);
@@ -116,7 +120,13 @@ export function CollectionsPage() {
         <section className="card panel-reveal" style={{ marginBlockEnd: '24px' }} aria-label={fa.collections.newCollection}>
           <h2 className="section-heading">{fa.collections.newCollection}</h2>
           <form className="form-stack" onSubmit={handleCreate} noValidate>
-            {createApiError !== null && <ErrorAlert error={createApiError} />}
+            {createApiError !== null && (
+              <ErrorAlert
+                error={createApiError}
+                context="collection"
+                onDismiss={() => setCreateApiError(null)}
+              />
+            )}
 
             <div className="field">
               <label className="field-label" htmlFor={nameId}>
@@ -129,7 +139,11 @@ export function CollectionsPage() {
                 maxLength={200}
                 placeholder={fa.collections.namePlaceholder}
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (formError) setFormError(null);
+                  if (createApiError) setCreateApiError(null);
+                }}
                 aria-invalid={Boolean(formError)}
               />
               {formError && (
@@ -165,7 +179,11 @@ export function CollectionsPage() {
 
       {loadError !== null && (
         <div style={{ marginBlockEnd: '16px' }}>
-          <ErrorAlert error={loadError} onRetry={() => void loadCollections(page)} />
+          <ErrorAlert
+            error={loadError}
+            context="collection"
+            onRetry={() => void loadCollections(page)}
+          />
         </div>
       )}
 
@@ -184,10 +202,12 @@ export function CollectionsPage() {
         <div className="card empty-state">
           <h2 className="empty-state-title">{fa.collections.emptyTitle}</h2>
           <p>{fa.collections.emptyDescription}</p>
-          <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            <PlusIcon />
-            <span>{fa.collections.newCollection}</span>
-          </button>
+          {!showCreate && (
+            <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
+              <PlusIcon />
+              <span>{fa.collections.newCollection}</span>
+            </button>
+          )}
         </div>
       ) : (
         <>

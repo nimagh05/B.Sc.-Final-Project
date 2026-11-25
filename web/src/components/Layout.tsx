@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { fa } from '../i18n/fa';
@@ -7,7 +7,13 @@ import { ChatIcon, FolderIcon, LogOutIcon } from './Icons';
 export function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const isAdmin = user?.roles.includes('Admin') ?? false;
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login', { replace: true, state: null });
+  };
 
   return (
     <div className="app-shell">
@@ -53,7 +59,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 {user.email}
               </bdi>
               {isAdmin && <span className="badge badge-role">{fa.nav.adminBadge}</span>}
-              <button type="button" className="btn btn-secondary btn-sm" onClick={logout}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={handleLogout}>
                 <LogOutIcon />
                 <span>{fa.nav.logout}</span>
               </button>

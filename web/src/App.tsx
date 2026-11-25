@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { ToastProvider } from './components/Toast';
 import { ChatPage } from './pages/ChatPage';
 import { CollectionDetailPage } from './pages/CollectionDetailPage';
 import { CollectionsPage } from './pages/CollectionsPage';
@@ -42,9 +43,11 @@ export function AppRoutes() {
 export function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 }

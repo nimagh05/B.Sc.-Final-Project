@@ -140,7 +140,13 @@ export function LoginPage() {
             </div>
           )}
 
-          {apiError !== null && <ErrorAlert error={apiError} />}
+          {apiError !== null && (
+            <ErrorAlert
+              error={apiError}
+              context={mode === 'register' ? 'register' : 'auth'}
+              onDismiss={() => setApiError(null)}
+            />
+          )}
 
           <form className="form-stack" onSubmit={handleSubmit} noValidate>
             <div className="field">
@@ -155,7 +161,12 @@ export function LoginPage() {
                 className="input"
                 placeholder={fa.auth.emailPlaceholder}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (fieldErrors.email) {
+                    setFieldErrors((prev) => ({ ...prev, email: undefined }));
+                  }
+                }}
                 aria-invalid={Boolean(fieldErrors.email)}
               />
               {fieldErrors.email && (
@@ -194,10 +205,15 @@ export function LoginPage() {
                 className="input"
                 placeholder={fa.auth.passwordPlaceholder}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) {
+                    setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                  }
+                }}
                 aria-invalid={Boolean(fieldErrors.password)}
               />
-              {mode === 'register' && (
+              {mode === 'register' && !fieldErrors.password && (
                 <span className="field-hint">{fa.auth.passwordPolicyHint}</span>
               )}
               {fieldErrors.password && (

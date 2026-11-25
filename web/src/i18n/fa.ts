@@ -1,3 +1,7 @@
+export function formatPersianNumber(value: number): string {
+  return value.toLocaleString('fa-IR');
+}
+
 export const fa = {
   appName: 'جستجوگر اسناد دانشگاهی',
   appSubtitle: 'سامانه جستجو و پرسش‌وپاسخ مبتنی بر اسناد رسمی',
@@ -19,17 +23,20 @@ export const fa = {
     creating: 'در حال ایجاد...',
     delete: 'حذف',
     deleting: 'در حال حذف...',
+    confirm: 'تأیید',
     close: 'بستن',
     back: 'بازگشت',
     details: 'جزئیات',
     hideDetails: 'بستن جزئیات',
     empty: 'موردی برای نمایش وجود ندارد.',
     confirmDelete: 'آیا از حذف این مورد اطمینان دارید؟ این عملیات قابل بازگشت نیست.',
-    pageOf: (page: number, totalPages: number) => `صفحه ${page} از ${totalPages}`,
+    pageOf: (page: number, totalPages: number) =>
+      `صفحه ${formatPersianNumber(page)} از ${formatPersianNumber(totalPages)}`,
     previousPage: 'صفحه قبل',
     nextPage: 'صفحه بعد',
-    totalItems: (count: number) => `مجموع: ${count}`,
+    totalItems: (count: number) => `مجموع: ${formatPersianNumber(count)}`,
     traceIdLabel: 'شناسه پیگیری:',
+    traceIdToggle: 'جزئیات فنی خطا (شناسه پیگیری)',
     yes: 'بله',
     no: 'خیر',
   },
@@ -37,6 +44,11 @@ export const fa = {
     Viewer: 'بیننده',
     Editor: 'ویرایشگر',
     Owner: 'مالک',
+  },
+  roleDescriptions: {
+    Viewer: 'مشاهده اسناد و پرسش‌وپاسخ',
+    Editor: 'بارگذاری، پردازش مجدد و حذف اسناد',
+    Owner: 'مدیریت کامل مجموعه و اعضا',
   },
   documentStatuses: {
     Uploaded: 'در صف پردازش',
@@ -65,7 +77,7 @@ export const fa = {
     sessionExpired: 'نشست کاربری شما منقضی شده است. لطفاً دوباره وارد شوید.',
     emailRequired: 'وارد کردن ایمیل معتبر الزامی است.',
     passwordRequired: 'وارد کردن رمز عبور الزامی است.',
-    passwordInvalidPolicy: 'رمز عبور باید حداقل ۱۰ کاراکتر و شامل حروف بزرگ، کوچک و رقم باشد.',
+    passwordInvalidPolicy: 'رمز عبور باید حداقل ۱۰ کاراکتر و شامل حروف بزرگ، حروف کوچک و رقم انگلیسی باشد.',
   },
   collections: {
     pageTitle: 'مجموعه اسناد',
@@ -78,15 +90,17 @@ export const fa = {
     nameRequired: 'نام مجموعه الزامی است (حداکثر ۲۰۰ کاراکتر).',
     emptyTitle: 'هنوز مجموعه‌ای ندارید',
     emptyDescription: 'برای شروع، یک مجموعه جدید ایجاد کنید تا بتوانید اسناد PDF را بارگذاری و جستجو کنید.',
-    documentCount: (count: number) => `${count} سند`,
+    documentCount: (count: number) => `${formatPersianNumber(count)} سند`,
     openCollection: 'مدیریت اسناد',
     askInCollection: 'پرسش در این مجموعه',
     editCollection: 'ویرایش مشخصات',
     deleteCollection: 'حذف مجموعه',
+    confirmDeleteTitle: 'حذف مجموعه اسناد',
     confirmDeleteCollection: (name: string) =>
-      `آیا از حذف مجموعه «${name}» و تمام اسناد و بخش‌های نمایه‌شده آن مطمئن هستید؟`,
-    createdSuccess: 'مجموعه با موفقیت ایجاد شد.',
+      `آیا از حذف مجموعه «${name}» و تمام اسناد و بخش‌های نمایه‌شده آن مطمئن هستید؟ این عملیات قابل بازگشت نیست.`,
+    createdSuccess: 'مجموعه جدید با موفقیت ایجاد شد.',
     updatedSuccess: 'اطلاعات مجموعه به‌روزرسانی شد.',
+    deletedSuccess: 'مجموعه با موفقیت حذف شد.',
     filterLabel: 'جستجو در مجموعه‌ها',
     filterPlaceholder: 'جستجو بر اساس نام یا توضیحات مجموعه...',
     filterEmpty: 'مجموعه‌ای مطابق با عبارت جستجو یافت نشد.',
@@ -97,7 +111,7 @@ export const fa = {
     uploadSectionTitle: 'بارگذاری سند PDF',
     documentsSectionTitle: 'فهرست اسناد',
     membersSectionTitle: 'مدیریت اعضا',
-    statusFilterLabel: 'فیلتر وضعیت:',
+    statusFilterLabel: 'فیلتر وضعیت',
     allStatuses: 'همه وضعیت‌ها',
     pollingNotice: 'در حال پایش خودکار وضعیت پردازش اسناد...',
     pollingStoppedNotice: 'پایش خودکار وضعیت اسناد موقتاً متوقف شد.',
@@ -108,9 +122,12 @@ export const fa = {
     selectFileButton: 'انتخاب فایل PDF',
     uploadingFile: (fileName: string, percent: number) => `در حال بارگذاری ${fileName} (${percent}%)`,
     uploadSuccess: 'سند دریافت شد و در صف پردازش قرار گرفت.',
+    reprocessSuccess: 'سند در صف پردازش مجدد قرار گرفت.',
+    deleteSuccess: 'سند با موفقیت حذف شد.',
     invalidFileType: 'فقط فایل‌های PDF با پسوند .pdf مجاز هستند.',
     emptyFileError: 'فایل انتخاب‌شده خالی است.',
-    fileTooLargeClient: (maxMb: number) => `حجم فایل بیش از حد مجاز (${maxMb} مگابایت) است.`,
+    fileTooLargeClient: (maxMb: number) =>
+      `حجم فایل بیش از حد مجاز (${formatPersianNumber(maxMb)} مگابایت) است.`,
     columns: {
       fileName: 'نام فایل',
       size: 'حجم',
@@ -127,7 +144,9 @@ export const fa = {
     reprocess: 'پردازش مجدد',
     reprocessing: 'در حال ارسال...',
     deleteDocument: 'حذف سند',
-    confirmDeleteDocument: (name: string) => `آیا از حذف سند «${name}» اطمینان دارید؟`,
+    confirmDeleteDocumentTitle: 'حذف سند',
+    confirmDeleteDocument: (name: string) =>
+      `آیا از حذف سند «${name}» و بخش‌های نمایه‌شده آن اطمینان دارید؟`,
     detailFields: {
       chunks: 'تعداد قطعات متنی',
       ocrPagesPrefix: 'صفحات',
@@ -143,7 +162,12 @@ export const fa = {
       noExtractableText: {
         title: 'متن قابل استخراجی در سند یافت نشد',
         guidance:
-          'این فایل احتمالاً اسکن‌شده یا تصویرمحور است و قابلیت بازشناسی متن (OCR) در سرویس استخراج فعال نیست (Extraction:OcrMode=Defective).',
+          'متن قابل خواندن در صفحات این فایل شناسایی نشد. اگر فایل اسکن‌شده یا تصویرمحور است، کیفیت تصویر کافی نبوده یا سرویس OCR نتوانسته متن را تشخیص دهد.',
+      },
+      encryptedPdf: {
+        title: 'فایل PDF رمزگذاری‌شده است',
+        guidance:
+          'اسناد محافظت‌شده با رمز عبور پشتیبانی نمی‌شوند. لطفاً نسخه بدون رمز عبور فایل را بارگذاری کنید.',
       },
       noChunks: {
         title: 'قطعه متنی قابل نمایه‌سازی تولید نشد',
@@ -185,12 +209,24 @@ export const fa = {
       emailLabel: 'ایمیل کاربر',
       emailPlaceholder: 'user@university.ac.ir',
       roleLabel: 'سطح دسترسی',
-      addButton: 'افزودن / تغییر نقش',
+      rowRoleAriaLabel: (email: string) => `سطح دسترسی ${email}`,
+      addButton: 'افزودن عضو',
       adding: 'در حال ثبت...',
+      savingRole: 'در حال ذخیره...',
       removeButton: 'حذف عضو',
+      confirmRemoveTitle: 'حذف عضو از مجموعه',
+      confirmRemoveMember: (email: string) =>
+        `آیا از حذف دسترسی کاربر «${email}» به این مجموعه مطمئن هستید؟`,
+      primaryOwnerBadge: 'مالک اصلی',
+      youBadge: 'شما',
+      protectedOwnerHint: 'مالک اصلی مجموعه قابل تغییر نقش یا حذف نیست.',
+      selfRowProtectedHint: 'امکان تغییر نقش یا حذف حساب کاربری خودتان از این بخش وجود ندارد.',
       empty: 'عضوی یافت نشد.',
-      emailRequired: 'وارد کردن ایمیل کاربر الزامی است.',
-      updatedSuccess: 'دسترسی عضو با موفقیت ثبت شد.',
+      emailRequired: 'وارد کردن ایمیل معتبر الزامی است.',
+      updatedSuccess: 'عضو جدید با موفقیت به مجموعه اضافه شد.',
+      roleUpdatedSuccess: (email: string, roleLabel: string) =>
+        `نقش ${email} به «${roleLabel}» تغییر یافت.`,
+      removedSuccess: 'عضو با موفقیت از مجموعه حذف شد.',
     },
   },
   chat: {
@@ -198,6 +234,12 @@ export const fa = {
     conversationsHeading: 'گفتگوهای پیشین',
     newConversation: 'گفتگوی جدید',
     deleteConversation: 'حذف گفتگو',
+    confirmDeleteConversationTitle: 'حذف گفتگو',
+    confirmDeleteConversation: (title: string) =>
+      title
+        ? `آیا از حذف گفتگوی «${title}» مطمئن هستید؟ تمام پیام‌های آن پاک خواهند شد.`
+        : 'آیا از حذف این گفتگو مطمئن هستید؟ تمام پیام‌های آن پاک خواهند شد.',
+    conversationDeletedSuccess: 'گفتگو با موفقیت حذف شد.',
     emptyConversations: 'هنوز گفتگویی ثبت نشده است.',
     collectionsHeading: 'محدوده جستجو (مجموعه‌ها)',
     selectAllCollections: 'انتخاب همه',
@@ -214,16 +256,19 @@ export const fa = {
       'مجموعه‌های مورد نظر را انتخاب کنید و پرسش خود را بنویسید. پاسخ‌ها فقط از متن اسناد و همراه با ارجاع دقیق به فایل و صفحه ارائه می‌شوند.',
     userLabel: 'شما',
     assistantLabel: 'پاسخ سامانه',
+    copyAnswer: 'کپی پاسخ',
+    copiedAnswer: 'کپی شد',
+    answerCopiedToast: 'متن پاسخ در حافظه کپی شد.',
     notFoundTitle: 'پاسخی در اسناد یافت نشد',
     notFoundDescription:
       'شواهد کافی و مرتبطی در اسناد انتخاب‌شده برای این پرسش پیدا نشد. عبارت پرسش یا مجموعه‌های انتخابی را بررسی کنید.',
     degradedTitle: 'مدل تولید پاسخ موقتاً در دسترس نیست (حالت بازیابی اسناد)',
     degradedDescription:
       'ارتباط با سرویس تولید متن برقرار نشد، اما بخش‌های مرتبط زیر از اسناد بازیابی شده‌اند و قابل بررسی هستند.',
-    sourcesHeading: (count: number) => `منابع استنادی (${count})`,
+    sourcesHeading: (count: number) => `منابع استنادی (${formatPersianNumber(count)})`,
     citationAriaLabel: (index: number) => `نمایش منبع شماره ${index}`,
     sourceCard: {
-      page: (page: number) => `صفحه ${page}`,
+      page: (page: number) => `صفحه ${formatPersianNumber(page)}`,
       section: 'بخش:',
       score: 'امتیاز شباهت:',
       openPdf: 'مشاهده PDF',
@@ -231,7 +276,7 @@ export const fa = {
     },
     validation: {
       questionLength: 'پرسش باید حداقل ۳ و حداکثر ۲۰۰۰ کاراکتر باشد.',
-      noCollectionsSelected: 'حداقل یک مجموعه اسناد را انتخاب کنید.',
+      noCollectionsSelected: 'حداقل یک مجموعه اسناد را از ستون کناری انتخاب کنید.',
       tooManyCollections: 'حداکثر ۲۰ مجموعه قابل انتخاب است.',
     },
   },
@@ -241,18 +286,37 @@ export const fa = {
     invalidCredentials: 'ایمیل یا رمز عبور نادرست است.',
     unauthorized: 'برای انجام این عملیات باید وارد حساب کاربری خود شوید.',
     forbidden: 'شما اجازه انجام این عملیات را ندارید.',
+    forbiddenAction: 'شما سطح دسترسی لازم برای انجام این عملیات در این مجموعه را ندارید.',
+    registrationDisabled: 'امکان ثبت‌نام مستقیم در حال حاضر غیرفعال است. لطفاً با مدیر سامانه تماس بگیرید.',
     notFound: 'مورد درخواستی یافت نشد یا به آن دسترسی ندارید.',
+    collectionNotFound: 'مجموعه مورد نظر یافت نشد یا به آن دسترسی ندارید.',
+    documentNotFound: 'سند مورد نظر یافت نشد یا به آن دسترسی ندارید.',
+    conversationNotFound: 'گفتگوی مورد نظر یافت نشد یا حذف شده است.',
+    askCollectionsNotFound: 'هیچ‌یک از مجموعه‌های انتخاب‌شده یافت نشد یا قابل دسترسی نیست.',
+    memberUserNotFound: 'کاربری با این ایمیل در سامانه ثبت‌نام نکرده است.',
     emailTaken: 'کاربری با این ایمیل قبلاً ثبت‌نام کرده است.',
     collectionNameTaken: 'مجموعه‌ای با این نام قبلاً ایجاد شده است.',
-    ownerProtected: 'نقش مالک مجموعه قابل تغییر یا حذف نیست.',
+    ownerProtected: 'نقش مالک اصلی مجموعه قابل تغییر یا حذف نیست.',
+    ownerProtectedDemote: 'نقش مالک اصلی مجموعه قابل تغییر یا کاهش نیست.',
+    ownerProtectedRemove: 'مالک اصلی مجموعه قابل حذف از فهرست اعضا نیست.',
     invalidFile: 'فایل ارسالی معتبر نیست. فقط فایل PDF سالم پذیرفته می‌شود.',
     fileTooLarge: 'حجم فایل بیش از سقف مجاز سرور است.',
     duplicateDocument: 'سندی با همین محتوا قبلاً در این مجموعه ثبت شده است.',
     documentConflict: 'این سند هم‌اکنون در حال پردازش است و امکان پردازش مجدد هم‌زمان وجود ندارد.',
+    ragInvalidScope: 'محدوده مجموعه‌های انتخاب‌شده برای جستجو معتبر نیست.',
+    reindexAlreadyRunning: 'فرایند بازنمایه‌سازی برای این مجموعه هم‌اکنون در حال اجرا است.',
+    methodNotAllowed: 'درخواست ارسالی برای این نشانی مجاز نیست.',
+    unsupportedMediaType: 'قالب داده ارسالی توسط سرور پشتیبانی نمی‌شود.',
     validationFailed: 'لطفاً مقادیر ورودی را بررسی و اصلاح کنید.',
     rateLimited: 'تعداد درخواست‌ها بیش از حد مجاز است. لطفاً کمی صبر کرده و دوباره تلاش کنید.',
     rateLimitedWithSeconds: (seconds: number) =>
-      `تعداد درخواست‌ها بیش از حد مجاز است. لطفاً پس از ${seconds} ثانیه دوباره تلاش کنید.`,
+      `تعداد درخواست‌ها بیش از حد مجاز است. لطفاً پس از ${formatPersianNumber(seconds)} ثانیه دوباره تلاش کنید.`,
+    serviceUnavailable: 'سرویس مورد نیاز موقتاً در دسترس نیست. لطفاً چند لحظه بعد دوباره تلاش کنید.',
+    serviceUnavailableEmbedding:
+      'سرویس تولید بردار متنی (Embedding) موقتاً در دسترس نیست. لطفاً وضعیت Ollama را بررسی و دوباره تلاش کنید.',
+    serviceUnavailableExtractor:
+      'سرویس استخراج متن PDF موقتاً در دسترس نیست. لطفاً چند لحظه بعد دوباره تلاش کنید.',
+    gatewayTimeout: 'پاسخ‌گویی از سرور با تأخیر یا وقفه مواجه شد. لطفاً دوباره تلاش کنید.',
     serverError: 'خطای داخلی سرور رخ داد. لطفاً بعداً دوباره تلاش کنید.',
   },
 } as const;
