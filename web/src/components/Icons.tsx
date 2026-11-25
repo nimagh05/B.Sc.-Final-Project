@@ -68,9 +68,19 @@ export function UploadIcon(props: IconProps) {
 
 export function SendIcon(props: IconProps) {
   return (
-    <BaseIcon {...props}>
+    <BaseIcon className="ui-icon icon-rtl-mirror" {...props}>
       <path d="m22 2-7 20-4-9-9-4Z" />
       <path d="M22 2 11 13" />
+    </BaseIcon>
+  );
+}
+
+export function AlertTriangleIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
     </BaseIcon>
   );
 }

@@ -1,5 +1,6 @@
 import { ApiError, getFriendlyErrorMessage } from '../api/errors';
 import { fa } from '../i18n/fa';
+import { AlertTriangleIcon } from './Icons';
 
 interface ErrorAlertProps {
   error: unknown;
@@ -19,9 +20,12 @@ export function ErrorAlert({ error, onRetry, onDismiss }: ErrorAlertProps) {
   return (
     <div className="alert alert-error" role="alert">
       <div className="alert-content">
-        <p className="alert-detail">{message}</p>
+        <div className="alert-lead">
+          <AlertTriangleIcon />
+          <p className="alert-detail">{message}</p>
+        </div>
         {fieldErrors.length > 0 && (
-          <ul style={{ margin: '4px 0 0', paddingInlineStart: '18px' }}>
+          <ul style={{ margin: '4px 0 0', paddingInlineStart: '22px' }}>
             {fieldErrors.map((item, idx) => (
               <li key={idx}>
                 <bdi>{item}</bdi>
@@ -30,9 +34,12 @@ export function ErrorAlert({ error, onRetry, onDismiss }: ErrorAlertProps) {
           </ul>
         )}
         {traceId && (
-          <span className="alert-trace">
-            {fa.common.traceIdLabel} <bdi dir="ltr" className="mono">{traceId}</bdi>
-          </span>
+          <div className="alert-footer">
+            <span>{fa.common.traceIdLabel}</span>
+            <bdi dir="ltr" className="mono alert-trace-badge">
+              {traceId}
+            </bdi>
+          </div>
         )}
       </div>
       {(onRetry || onDismiss) && (

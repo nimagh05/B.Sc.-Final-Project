@@ -102,6 +102,90 @@ export function parseProblemDetailsPayload(
   });
 }
 
+export interface TranslatedDocumentError {
+  title: string;
+  guidance: string;
+  technicalDetail?: string;
+}
+
+export function translateDocumentError(rawError?: string | null): TranslatedDocumentError {
+  const trimmed = rawError?.trim();
+  const normalized = trimmed?.toLowerCase() ?? '';
+
+  if (!trimmed) {
+    return {
+      title: fa.collectionDetail.documentErrors.unknown.title,
+      guidance: fa.collectionDetail.documentErrors.unknown.guidance,
+    };
+  }
+
+  if (normalized.includes('no extractable text')) {
+    return {
+      title: fa.collectionDetail.documentErrors.noExtractableText.title,
+      guidance: fa.collectionDetail.documentErrors.noExtractableText.guidance,
+      technicalDetail: trimmed,
+    };
+  }
+
+  if (normalized.includes('no text chunks') || normalized.includes('produced no chunks')) {
+    return {
+      title: fa.collectionDetail.documentErrors.noChunks.title,
+      guidance: fa.collectionDetail.documentErrors.noChunks.guidance,
+      technicalDetail: trimmed,
+    };
+  }
+
+  if (normalized.includes('timed out') || normalized.includes('timeout')) {
+    return {
+      title: fa.collectionDetail.documentErrors.timeout.title,
+      guidance: fa.collectionDetail.documentErrors.timeout.guidance,
+      technicalDetail: trimmed,
+    };
+  }
+
+  if (normalized.includes('invalid or corrupt') || normalized.includes('corrupt')) {
+    return {
+      title: fa.collectionDetail.documentErrors.corruptPdf.title,
+      guidance: fa.collectionDetail.documentErrors.corruptPdf.guidance,
+      technicalDetail: trimmed,
+    };
+  }
+
+  if (normalized.includes('exceeds') || normalized.includes('size limit') || normalized.includes('too large')) {
+    return {
+      title: fa.collectionDetail.documentErrors.tooLarge.title,
+      guidance: fa.collectionDetail.documentErrors.tooLarge.guidance,
+      technicalDetail: trimmed,
+    };
+  }
+
+  if (normalized.includes('embedding') || normalized.includes('dimension mismatch')) {
+    return {
+      title: fa.collectionDetail.documentErrors.embeddingUnavailable.title,
+      guidance: fa.collectionDetail.documentErrors.embeddingUnavailable.guidance,
+      technicalDetail: trimmed,
+    };
+  }
+
+  if (
+    normalized.includes('extract') ||
+    normalized.includes('sidecar') ||
+    normalized.includes('ocr')
+  ) {
+    return {
+      title: fa.collectionDetail.documentErrors.extractionUnavailable.title,
+      guidance: fa.collectionDetail.documentErrors.extractionUnavailable.guidance,
+      technicalDetail: trimmed,
+    };
+  }
+
+  return {
+    title: fa.collectionDetail.documentErrors.unknown.title,
+    guidance: fa.collectionDetail.documentErrors.unknown.guidance,
+    technicalDetail: trimmed,
+  };
+}
+
 export function getFriendlyErrorMessage(error: unknown): string {
   if (!(error instanceof ApiError)) {
     return error instanceof Error && error.message ? error.message : fa.errors.unknown;

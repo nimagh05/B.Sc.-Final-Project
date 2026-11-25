@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ApiError } from '../api/errors';
+import { ApiError, translateDocumentError } from '../api/errors';
 import { collectionsApi, documentsApi, triggerPdfAction } from '../api/endpoints';
 import type {
   CollectionDto,
@@ -12,7 +12,7 @@ import type {
 } from '../api/types';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { FileDrop } from '../components/FileDrop';
-import { ChatIcon, FileTextIcon, TrashIcon } from '../components/Icons';
+import { AlertTriangleIcon, ChatIcon, FileTextIcon, TrashIcon } from '../components/Icons';
 import { Layout } from '../components/Layout';
 import { RoleBadge, StatusBadge } from '../components/StatusBadge';
 import { fa } from '../i18n/fa';
@@ -596,8 +596,7 @@ export function CollectionDetailPage() {
                     </label>
                     <select
                       id={statusSelectId}
-                      className="select"
-                      style={{ inlineSize: 'auto', minInlineSize: '160px' }}
+                      className="select status-filter-select"
                       value={statusFilter}
                       onChange={(e) => {
                         setPage(1);
@@ -651,9 +650,9 @@ export function CollectionDetailPage() {
                         <thead>
                           <tr>
                             <th>{fa.collectionDetail.columns.fileName}</th>
-                            <th>{fa.collectionDetail.columns.size}</th>
-                            <th>{fa.collectionDetail.columns.pages}</th>
-                            <th>{fa.collectionDetail.columns.status}</th>
+                            <th className="col-center">{fa.collectionDetail.columns.size}</th>
+                            <th className="col-center">{fa.collectionDetail.columns.pages}</th>
+                            <th className="col-center">{fa.collectionDetail.columns.status}</th>
                             <th>{fa.collectionDetail.columns.createdAt}</th>
                             <th>{fa.collectionDetail.columns.actions}</th>
                           </tr>
@@ -663,23 +662,37 @@ export function CollectionDetailPage() {
                             const detail = detailsById[doc.id];
                             const isExpanded = Boolean(expandedDocIds[doc.id]);
                             const isLoadingDetail = Boolean(loadingDetailIds[doc.id]);
+                            const translatedError =
+                              doc.status === 'Failed' || detail?.errorMessage
+                                ? translateDocumentError(detail?.errorMessage)
+                                : null;
 
                             return (
                               <Fragment key={doc.id}>
                                 <tr>
                                   <td>
                                     <bdi className="bidi-plain">{doc.fileName}</bdi>
-                                    {doc.status === 'Failed' && detail?.errorMessage && (
-                                      <div className="field-error" style={{ marginBlockStart: '4px' }}>
-                                        <bdi>{detail.errorMessage}</bdi>
+                                    {doc.status === 'Failed' && !isExpanded && translatedError && (
+                                      <div>
+                                        <button
+                                          type="button"
+                                          className="doc-row-error-hint"
+                                          onClick={() => void handleToggleDetails(doc.id)}
+                                          title={fa.collectionDetail.detailFields.errorHintClick}
+                                        >
+                                          <AlertTriangleIcon />
+                                          <span>{translatedError.title}</span>
+                                        </button>
                                       </div>
                                     )}
                                   </td>
-                                  <td>
+                                  <td className="col-center">
                                     <bdi dir="ltr">{formatBytes(doc.sizeBytes)}</bdi>
                                   </td>
-                                  <td>{doc.pageCount ?? '—'}</td>
-                                  <td>
+                                  <td className="col-center">
+                                    <bdi dir="ltr">{doc.pageCount ?? '—'}</bdi>
+                                  </td>
+                                  <td className="col-center">
                                     <StatusBadge status={doc.status} />
                                   </td>
                                   <td>
@@ -748,34 +761,80 @@ export function CollectionDetailPage() {
                                         <span>{fa.collectionDetail.detailFields.loading}</span>
                                       ) : detail ? (
                                         <div className="doc-detail-panel panel-reveal">
-                                          <div>
-                                            <strong>{fa.collectionDetail.detailFields.chunks}</strong>{' '}
-                                            <bdi dir="ltr">{detail.chunkCount}</bdi>
+                                          <div className="doc-detail-stats">
+                                            <div className="doc-stat-item">
+                                              <span className="doc-stat-label">
+                                                {fa.collectionDetail.detailFields.chunks}
+                                              </span>
+                                              <span className="doc-stat-value">
+                                                <bdi dir="ltr">{detail.chunkCount}</bdi>
+                                              </span>
+                                            </div>
+                                            <div className="doc-stat-item">
+                                              <span className="doc-stat-label">
+                                                {fa.collectionDetail.detailFields.ocrPagesPrefix}{' '}
+                                                <bdi dir="ltr">
+                                                  {fa.collectionDetail.detailFields.ocrAcronym}
+                                                </bdi>
+                                              </span>
+                                              <span className="doc-stat-value">
+                                                {detail.ocrPages && detail.ocrPages.length > 0 ? (
+                                                  <bdi dir="ltr">
+                                                    {detail.ocrPages.length} ({detail.ocrPages.join(', ')})
+                                                  </bdi>
+                                                ) : (
+                                                  fa.collectionDetail.detailFields.none
+                                                )}
+                                              </span>
+                                            </div>
+                                            <div className="doc-stat-item">
+                                              <span className="doc-stat-label">
+                                                {fa.collectionDetail.detailFields.processedAt}
+                                              </span>
+                                              <span className="doc-stat-value">
+                                                {detail.processedAt ? (
+                                                  <bdi dir="ltr">
+                                                    {new Date(detail.processedAt).toLocaleString('fa-IR')}
+                                                  </bdi>
+                                                ) : (
+                                                  '—'
+                                                )}
+                                              </span>
+                                            </div>
                                           </div>
-                                          <div>
-                                            <strong>{fa.collectionDetail.detailFields.ocrPages}</strong>{' '}
-                                            {detail.ocrPages && detail.ocrPages.length > 0 ? (
-                                              <bdi dir="ltr">
-                                                {detail.ocrPages.length} ({detail.ocrPages.join(', ')})
-                                              </bdi>
-                                            ) : (
-                                              fa.collectionDetail.detailFields.none
-                                            )}
-                                          </div>
-                                          <div>
-                                            <strong>{fa.collectionDetail.detailFields.processedAt}</strong>{' '}
-                                            {detail.processedAt ? (
-                                              <bdi dir="ltr">
-                                                {new Date(detail.processedAt).toLocaleString('fa-IR')}
-                                              </bdi>
-                                            ) : (
-                                              '—'
-                                            )}
-                                          </div>
-                                          {detail.errorMessage && (
-                                            <div style={{ gridColumn: '1 / -1' }} className="field-error">
-                                              <strong>{fa.collectionDetail.detailFields.errorMessage}</strong>{' '}
-                                              <bdi>{detail.errorMessage}</bdi>
+                                          {translatedError && (
+                                            <div className="doc-error-callout" role="alert">
+                                              <div className="doc-error-callout-header">
+                                                <AlertTriangleIcon />
+                                                <span>{translatedError.title}</span>
+                                              </div>
+                                              <p className="doc-error-callout-guidance">
+                                                {translatedError.guidance}
+                                              </p>
+                                              <div className="doc-error-callout-actions">
+                                                {translatedError.technicalDetail && (
+                                                  <details className="doc-error-technical">
+                                                    <summary>
+                                                      {fa.collectionDetail.detailFields.technicalDetailToggle}
+                                                    </summary>
+                                                    <bdi dir="ltr" className="mono doc-error-technical-text">
+                                                      {translatedError.technicalDetail}
+                                                    </bdi>
+                                                  </details>
+                                                )}
+                                                {canEdit && doc.status !== 'Processing' && (
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn-secondary btn-sm"
+                                                    disabled={reprocessingDocId === doc.id}
+                                                    onClick={() => void handleReprocess(doc.id)}
+                                                  >
+                                                    {reprocessingDocId === doc.id
+                                                      ? fa.collectionDetail.reprocessing
+                                                      : fa.collectionDetail.reprocess}
+                                                  </button>
+                                                )}
+                                              </div>
                                             </div>
                                           )}
                                         </div>

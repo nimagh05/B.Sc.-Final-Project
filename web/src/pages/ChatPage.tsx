@@ -23,6 +23,18 @@ interface ChatMessageItem {
   sources: SourceCitationDto[];
 }
 
+function getComposerDirection(text: string): 'rtl' | 'ltr' {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return 'rtl';
+  }
+  const firstStrong = trimmed.match(/[A-Za-z\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/);
+  if (firstStrong && /[A-Za-z]/.test(firstStrong[0])) {
+    return 'ltr';
+  }
+  return 'rtl';
+}
+
 export function ChatPage() {
   const [searchParams] = useSearchParams();
   const initialCollectionIdParam = searchParams.get('collectionId');
@@ -496,8 +508,8 @@ export function ChatPage() {
               </div>
               <textarea
                 id={questionId}
-                dir="auto"
-                className="textarea"
+                dir={getComposerDirection(question)}
+                className="textarea chat-textarea"
                 placeholder={fa.chat.questionPlaceholder}
                 value={question}
                 onChange={(e) => {
@@ -508,6 +520,9 @@ export function ChatPage() {
                 maxLength={2000}
                 aria-invalid={Boolean(validationError)}
               />
+            </div>
+
+            <div className="chat-composer-footer">
               {validationError ? (
                 <span className="field-error" role="alert">
                   {validationError}
@@ -515,9 +530,7 @@ export function ChatPage() {
               ) : (
                 <span className="field-hint">{fa.chat.questionLengthHint}</span>
               )}
-            </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 type="submit"
                 className="btn btn-primary"

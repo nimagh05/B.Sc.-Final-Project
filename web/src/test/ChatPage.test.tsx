@@ -123,7 +123,10 @@ describe('ChatPage and RTL hygiene', () => {
     expect(arshadCheckbox).toBeChecked();
     expect(bsCheckbox).not.toBeChecked();
 
-    await user.type(screen.getByLabelText(fa.chat.questionLabel), 'حداکثر واحد مجاز چند واحد است؟');
+    const composer = screen.getByLabelText(fa.chat.questionLabel);
+    expect(composer).toHaveAttribute('dir', 'rtl');
+
+    await user.type(composer, 'حداکثر واحد مجاز چند واحد است؟');
     await user.click(screen.getByRole('button', { name: fa.chat.sendButton }));
 
     expect(await screen.findByText(/سقف مجاز ۲۰ واحد است/)).toBeInTheDocument();

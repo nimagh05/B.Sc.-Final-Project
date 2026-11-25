@@ -169,7 +169,21 @@ describe('CollectionDetailPage', () => {
     renderDetailPage();
 
     expect(await screen.findByText('broken-scan.pdf')).toBeInTheDocument();
-    expect(await screen.findByText('No extractable text found in PDF.')).toBeInTheDocument();
+    // Collapsed row shows compact localized Persian title, NOT raw English error headline
+    const rowErrorHint = await screen.findByRole('button', {
+      name: fa.collectionDetail.documentErrors.noExtractableText.title,
+    });
+    expect(rowErrorHint).toBeInTheDocument();
+
+    // Expanding details removes row hint duplicate and shows structured Persian error callout
+    await userEvent.click(rowErrorHint);
+    expect(
+      await screen.findByText(fa.collectionDetail.documentErrors.noExtractableText.guidance),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(fa.collectionDetail.documentErrors.noExtractableText.title),
+    ).toHaveLength(1);
+    expect(screen.getByText('No extractable text found in PDF.')).toBeInTheDocument();
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     const pdfFile = new File(['%PDF-1.4 content'], 'aein-91.pdf', { type: 'application/pdf' });
