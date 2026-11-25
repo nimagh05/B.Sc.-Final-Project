@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { fa } from '../i18n/fa';
+import { ErrorAlert } from './ErrorAlert';
 import { UploadIcon } from './Icons';
 
 interface FileDropProps {
@@ -9,6 +10,8 @@ interface FileDropProps {
   uploadProgress?: number;
   selectedFileName?: string | null;
   maxSizeMb?: number;
+  externalError?: unknown;
+  onClearExternalError?: () => void;
 }
 
 export function FileDrop({
@@ -18,6 +21,8 @@ export function FileDrop({
   uploadProgress = 0,
   selectedFileName = null,
   maxSizeMb = 50,
+  externalError = null,
+  onClearExternalError,
 }: FileDropProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -28,6 +33,8 @@ export function FileDrop({
     if (!file) {
       return;
     }
+
+    onClearExternalError?.();
 
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       setClientError(fa.collectionDetail.invalidFileType);
@@ -133,7 +140,22 @@ export function FileDrop({
       {clientError && (
         <div className="alert alert-error" role="alert">
           <p className="alert-detail">{clientError}</p>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setClientError(null)}
+          >
+            {fa.common.close}
+          </button>
         </div>
+      )}
+
+      {!clientError && externalError !== null && externalError !== undefined && (
+        <ErrorAlert
+          error={externalError}
+          context="upload"
+          onDismiss={onClearExternalError}
+        />
       )}
     </div>
   );

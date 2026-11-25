@@ -55,7 +55,7 @@ describe('CitationText', () => {
   it('escapes HTML/XSS payloads as plain text with zero injected DOM tags', () => {
     const { container } = render(
       <CitationText
-        text={'متن آزمایشی <script>alert(1)</script> و <img src=x onerror=alert(2)> [1]'}
+        text={'متن آزمایشی <script>alert(1)</script> و **<img src=x onerror=alert(2)>** [1]'}
         sources={sampleSources}
         activeSourceIndex={null}
         onSelectSource={vi.fn()}
@@ -65,6 +65,7 @@ describe('CitationText', () => {
     expect(container.querySelector('script')).toBeNull();
     expect(container.querySelector('img')).toBeNull();
     expect(screen.getByText(/<script>alert\(1\)<\/script>/)).toBeInTheDocument();
+    expect(screen.getByText(/<img src=x onerror=alert\(2\)>/)).toBeInTheDocument();
   });
 
   it('splits multi-line answers into paragraphs with dir="auto"', () => {
@@ -79,5 +80,47 @@ describe('CitationText', () => {
 
     const paragraphs = container.querySelectorAll('p[dir="auto"]');
     expect(paragraphs).toHaveLength(2);
+  });
+
+  it('renders Markdown bold, bullet lists, inline code, and citations inside bold without eating unpaired *', () => {
+    const onSelect = vi.fn();
+    const { container } = render(
+      <CitationText
+        text={[
+          'بر اساس آیین‌نامه:',
+          '* **مؤسسه:** دانشگاه مجری دوره است [1].',
+          '* **نکته مهم [2]** و کد `npm test` با ضریب 2 * 3 و *تست بدون بسته شدن',
+        ].join('\n')}
+        sources={sampleSources}
+        activeSourceIndex={null}
+        onSelectSource={onSelect}
+      />,
+    );
+
+    const listItems = container.querySelectorAll('ul li');
+    expect(listItems).toHaveLength(2);
+    expect(container.querySelectorAll('strong')).toHaveLength(2);
+    expect(container.querySelector('code')).toHaveTextContent('npm test');
+    expect(screen.getByText(/2 \* 3/)).toBeInTheDocument();
+    expect(screen.getByText(/\*تست بدون بسته شدن/)).toBeInTheDocument();
+
+    const cite2 = screen.getByRole('button', { name: /منبع شماره 2/ });
+    expect(cite2.closest('strong')).not.toBeNull();
+    fireEvent.click(cite2);
+    expect(onSelect).toHaveBeenCalledWith(2);
+  });
+
+  it('splits inline colon-bullet items like ": * **term:**" into clean list items', () => {
+    const { container } = render(
+      <CitationText
+        text={'تعاریف به شرح زیر است: * **مؤسسه:** دانشگاه است [1].\n* **شورای آموزشی:** شورا است [2].'}
+        sources={sampleSources}
+        activeSourceIndex={null}
+        onSelectSource={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelectorAll('p')).toHaveLength(1);
+    expect(container.querySelectorAll('ul li')).toHaveLength(2);
   });
 });

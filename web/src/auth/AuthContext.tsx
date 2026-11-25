@@ -9,6 +9,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isInitializing: boolean;
   sessionExpiredNotice: boolean;
+  wasExplicitLogout: boolean;
   clearSessionNotice: () => void;
   login: (email: string, password: string) => Promise<void>;
   register: (payload: RegisterRequest) => Promise<void>;
@@ -18,13 +19,21 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const [initialState] = useState(() => {
+    const token = tokenStorage.getAccessToken();
+    const expired = token === null && tokenStorage.consumeExpiredNotice();
+    return { hasToken: token !== null, expired };
+  });
+
   const [user, setUser] = useState<CurrentUserResponse | null>(null);
-  const [isInitializing, setIsInitializing] = useState<boolean>(() => tokenStorage.getAccessToken() !== null);
-  const [sessionExpiredNotice, setSessionExpiredNotice] = useState(false);
+  const [isInitializing, setIsInitializing] = useState<boolean>(initialState.hasToken);
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState<boolean>(initialState.expired);
+  const [wasExplicitLogout, setWasExplicitLogout] = useState<boolean>(false);
 
   const handleUnauthorized = useCallback(() => {
     tokenStorage.clear();
     setUser(null);
+    setWasExplicitLogout(false);
     setSessionExpiredNotice(true);
   }, []);
 
@@ -36,6 +45,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const existingToken = tokenStorage.getAccessToken();
     if (!existingToken) {
+      if (tokenStorage.consumeExpiredNotice()) {
+        setSessionExpiredNotice(true);
+      }
       setIsInitializing(false);
       return;
     }
@@ -76,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       roles: response.roles,
     });
     setSessionExpiredNotice(false);
+    setWasExplicitLogout(false);
 
     try {
       const me = await authApi.me();
@@ -97,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenStorage.clear();
     setUser(null);
     setSessionExpiredNotice(false);
+    setWasExplicitLogout(true);
   }, []);
 
   const clearSessionNotice = useCallback(() => {
@@ -109,12 +123,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: user !== null,
       isInitializing,
       sessionExpiredNotice,
+      wasExplicitLogout,
       clearSessionNotice,
       login,
       register,
       logout,
     }),
-    [user, isInitializing, sessionExpiredNotice, clearSessionNotice, login, register, logout],
+    [
+      user,
+      isInitializing,
+      sessionExpiredNotice,
+      wasExplicitLogout,
+      clearSessionNotice,
+      login,
+      register,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,6 +1,16 @@
 import { fa } from '../i18n/fa';
 import type { ProblemDetailsResponse } from './types';
 
+export type ErrorContext =
+  | 'auth'
+  | 'register'
+  | 'member'
+  | 'upload'
+  | 'collection'
+  | 'document'
+  | 'chat'
+  | 'general';
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -86,13 +96,17 @@ export function parseProblemDetailsPayload(
         ? 'auth.forbidden'
         : status === 404
           ? 'resource.not_found'
-          : status === 413
-            ? 'document.too_large'
-            : status === 429
-              ? 'rate.limited'
-              : status >= 500
-                ? 'server.error'
-                : `http.${status}`;
+          : status === 405
+            ? 'http.method_not_allowed'
+            : status === 413
+              ? 'document.too_large'
+              : status === 415
+                ? 'http.unsupported_media_type'
+                : status === 429
+                  ? 'rate.limited'
+                  : status >= 500
+                    ? 'server.error'
+                    : `http.${status}`;
 
   return new ApiError({
     status,
@@ -123,6 +137,14 @@ export function translateDocumentError(rawError?: string | null): TranslatedDocu
     return {
       title: fa.collectionDetail.documentErrors.noExtractableText.title,
       guidance: fa.collectionDetail.documentErrors.noExtractableText.guidance,
+      technicalDetail: trimmed,
+    };
+  }
+
+  if (normalized.includes('password-protected') || normalized.includes('encrypted')) {
+    return {
+      title: fa.collectionDetail.documentErrors.encryptedPdf.title,
+      guidance: fa.collectionDetail.documentErrors.encryptedPdf.guidance,
       technicalDetail: trimmed,
     };
   }
@@ -186,7 +208,114 @@ export function translateDocumentError(rawError?: string | null): TranslatedDocu
   };
 }
 
-export function getFriendlyErrorMessage(error: unknown): string {
+export function translateValidationDetail(rawMessage: string): string | null {
+  const normalized = rawMessage.trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.includes('valid email') || normalized.includes('email')) {
+    if (normalized.includes('required')) {
+      return fa.auth.emailRequired;
+    }
+    if (normalized.includes('already taken') || normalized.includes('already exists')) {
+      return fa.errors.emailTaken;
+    }
+    return fa.auth.emailRequired;
+  }
+
+  if (normalized.includes('password') || normalized.includes('digit') || normalized.includes('uppercase') || normalized.includes('lowercase')) {
+    return fa.auth.passwordInvalidPolicy;
+  }
+
+  if (normalized.includes('collection name')) {
+    return fa.collections.nameRequired;
+  }
+
+  if (normalized.includes('question')) {
+    return fa.chat.validation.questionLength;
+  }
+
+  if (normalized.includes('collectionids')) {
+    return fa.chat.validation.noCollectionsSelected;
+  }
+
+  if (normalized.includes('topk')) {
+    return 'مقدار تعداد نتایج بازیابی (topK) باید بین ۱ تا ۲۰ باشد.';
+  }
+
+  return null;
+}
+
+function resolveNotFoundMessage(detail: string, context: ErrorContext): string {
+  const detailLower = detail.toLowerCase();
+
+  if (detailLower.includes('user with this email')) {
+    return fa.errors.memberUserNotFound;
+  }
+  if (detailLower.includes('conversation')) {
+    return fa.errors.conversationNotFound;
+  }
+  if (detailLower.includes('none of the requested collections')) {
+    return fa.errors.askCollectionsNotFound;
+  }
+  if (detailLower.includes('document')) {
+    return fa.errors.documentNotFound;
+  }
+  if (detailLower.includes('collection')) {
+    return fa.errors.collectionNotFound;
+  }
+
+  switch (context) {
+    case 'member':
+      return fa.errors.memberUserNotFound;
+    case 'document':
+      return fa.errors.documentNotFound;
+    case 'collection':
+      return fa.errors.collectionNotFound;
+    case 'chat':
+      return fa.errors.conversationNotFound;
+    default:
+      return fa.errors.notFound;
+  }
+}
+
+function resolveForbiddenMessage(detail: string, context: ErrorContext): string {
+  const detailLower = detail.toLowerCase();
+  if (context === 'register' || detailLower.includes('self-registration')) {
+    return fa.errors.registrationDisabled;
+  }
+  if (context === 'collection' || context === 'document' || context === 'member') {
+    return fa.errors.forbiddenAction;
+  }
+  return fa.errors.forbidden;
+}
+
+function resolveServiceUnavailableMessage(detail: string): string {
+  const detailLower = detail.toLowerCase();
+  if (detailLower.includes('embedding')) {
+    return fa.errors.serviceUnavailableEmbedding;
+  }
+  if (detailLower.includes('pdfextractor') || detailLower.includes('extractor')) {
+    return fa.errors.serviceUnavailableExtractor;
+  }
+  return fa.errors.serviceUnavailable;
+}
+
+export function isExpectedUserError(error: unknown): boolean {
+  if (!(error instanceof ApiError)) {
+    return false;
+  }
+  return (
+    !error.isNetworkError &&
+    [400, 401, 403, 404, 409, 413, 415, 429].includes(error.status)
+  );
+}
+
+export function getFriendlyErrorMessage(
+  error: unknown,
+  context: ErrorContext = 'general',
+): string {
   if (!(error instanceof ApiError)) {
     return error instanceof Error && error.message ? error.message : fa.errors.unknown;
   }
@@ -195,21 +324,38 @@ export function getFriendlyErrorMessage(error: unknown): string {
     return fa.errors.network;
   }
 
+  // Backend ExternalServiceUnavailableException currently uses status 503 with code "server.error"
+  if (error.status === 503) {
+    return resolveServiceUnavailableMessage(error.detail);
+  }
+
+  if (error.status === 502 || error.status === 504) {
+    return fa.errors.gatewayTimeout;
+  }
+
   switch (error.code) {
     case 'auth.invalid_credentials':
       return fa.errors.invalidCredentials;
     case 'auth.unauthorized':
       return fa.errors.unauthorized;
     case 'auth.forbidden':
-      return fa.errors.forbidden;
+      return resolveForbiddenMessage(error.detail, context);
     case 'auth.email_taken':
       return fa.errors.emailTaken;
     case 'resource.not_found':
-      return fa.errors.notFound;
+      return resolveNotFoundMessage(error.detail, context);
     case 'collection.name_taken':
       return fa.errors.collectionNameTaken;
-    case 'collection.owner_protected':
+    case 'collection.owner_protected': {
+      const detailLower = error.detail.toLowerCase();
+      if (detailLower.includes('demote')) {
+        return fa.errors.ownerProtectedDemote;
+      }
+      if (detailLower.includes('remove')) {
+        return fa.errors.ownerProtectedRemove;
+      }
       return fa.errors.ownerProtected;
+    }
     case 'document.invalid_file':
       return fa.errors.invalidFile;
     case 'document.too_large':
@@ -218,6 +364,14 @@ export function getFriendlyErrorMessage(error: unknown): string {
       return fa.errors.duplicateDocument;
     case 'document.conflict':
       return fa.errors.documentConflict;
+    case 'rag.invalid_scope':
+      return fa.errors.ragInvalidScope;
+    case 'reindex.already_running':
+      return fa.errors.reindexAlreadyRunning;
+    case 'http.method_not_allowed':
+      return fa.errors.methodNotAllowed;
+    case 'http.unsupported_media_type':
+      return fa.errors.unsupportedMediaType;
     case 'validation.failed':
       return fa.errors.validationFailed;
     case 'rate.limited':
@@ -233,10 +387,13 @@ export function getFriendlyErrorMessage(error: unknown): string {
           : fa.errors.rateLimited;
       }
       if (error.status === 401) return fa.errors.unauthorized;
-      if (error.status === 403) return fa.errors.forbidden;
-      if (error.status === 404) return fa.errors.notFound;
+      if (error.status === 403) return resolveForbiddenMessage(error.detail, context);
+      if (error.status === 404) return resolveNotFoundMessage(error.detail, context);
+      if (error.status === 405) return fa.errors.methodNotAllowed;
       if (error.status === 413) return fa.errors.fileTooLarge;
+      if (error.status === 415) return fa.errors.unsupportedMediaType;
+      if (error.status === 400) return fa.errors.validationFailed;
       if (error.status >= 500) return fa.errors.serverError;
-      return error.detail || fa.errors.unknown;
+      return fa.errors.unknown;
   }
 }

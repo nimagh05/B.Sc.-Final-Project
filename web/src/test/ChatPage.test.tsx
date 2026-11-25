@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../auth/AuthContext';
 import { tokenStorage } from '../auth/tokenStorage';
+import { ToastProvider } from '../components/Toast';
 import { fa } from '../i18n/fa';
 import { ChatPage } from '../pages/ChatPage';
 
@@ -23,12 +24,14 @@ function seedAuth() {
 function renderChat(initialEntry = `/chat?collectionId=${COL_2}`) {
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={[initialEntry]}>
-        <Routes>
-          <Route path="/chat" element={<ChatPage />} />
-          <Route path="/login" element={<div>Login Page</div>} />
-        </Routes>
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={[initialEntry]}>
+          <Routes>
+            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/login" element={<div>Login Page</div>} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
     </AuthProvider>,
   );
 }
@@ -40,11 +43,16 @@ describe('ChatPage and RTL hygiene', () => {
     expect(indexHtml).not.toMatch(/fonts\.googleapis\.com|cdn\.|unpkg\.com|jsdelivr/i);
   });
 
-  it('pre-selects collectionId from query param, highlights clicked citation source, and renders <bdi>/dir="auto"', async () => {
+  it('pre-selects collectionId from query param, highlights clicked citation source, copies answer, and renders <bdi>/dir="auto"', async () => {
     seedAuth();
     const user = userEvent.setup();
     const scrollIntoViewMock = vi.fn();
     HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: writeTextMock },
+    });
 
     let capturedAskBody: { collectionIds?: string[] } | null = null;
 
@@ -143,15 +151,20 @@ describe('ChatPage and RTL hygiene', () => {
     const sourceCard = document.querySelector('.source-card');
     expect(sourceCard).toHaveAttribute('data-active', 'true');
     expect(scrollIntoViewMock).toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: fa.chat.copyAnswer }));
+    expect(writeTextMock).toHaveBeenCalledWith('سقف مجاز ۲۰ واحد است [1].');
+    expect(await screen.findByText(fa.chat.answerCopiedToast)).toBeInTheDocument();
   });
 
-  it('renders DegradedBanner while preserving sources, notFound notice, and 429 Retry-After error', async () => {
+  it('renders DegradedBanner while preserving sources, notFound notice, 429 Retry-After error, and ConfirmDialog on delete conversation', async () => {
     seedAuth();
     const user = userEvent.setup();
     let askAttempt = 0;
 
-    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
       const url = String(input);
+      const method = init?.method ?? 'GET';
       if (url.endsWith('/api/v1/auth/me')) {
         return new Response(
           JSON.stringify({ id: 'u1', email: 'u1@uni.ac.ir', roles: ['User'] }),
@@ -178,11 +191,14 @@ describe('ChatPage and RTL hygiene', () => {
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
       }
-      if (url.includes('/api/v1/conversations')) {
+      if (url.includes('/api/v1/conversations?') && method === 'GET') {
         return new Response(JSON.stringify([]), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         });
+      }
+      if (url.endsWith('/api/v1/conversations/conv-deg') && method === 'DELETE') {
+        return new Response(null, { status: 204 });
       }
       if (url.endsWith('/api/v1/ask')) {
         askAttempt += 1;
@@ -238,7 +254,7 @@ describe('ChatPage and RTL hygiene', () => {
           },
         );
       }
-      throw new Error(`Unexpected fetch: ${url}`);
+      throw new Error(`Unexpected fetch: ${method} ${url}`);
     });
 
     renderChat('/chat');
@@ -260,11 +276,17 @@ describe('ChatPage and RTL hygiene', () => {
     expect(screen.getByText(fa.chat.notFoundDescription)).toBeInTheDocument();
     expect(screen.queryByText('«در اسناد موجود پاسخی برای این پرسش پیدا نشد.»')).not.toBeInTheDocument();
 
-    // 3) 429 Retry-After
+    // 3) 429 Retry-After (with Persian numerals)
     await user.type(textbox, 'پرسش سوم با محدودیت نرخ');
     await user.click(sendBtn);
     await waitFor(() => {
       expect(screen.getByText(fa.errors.rateLimitedWithSeconds(45))).toBeInTheDocument();
     });
+
+    // 4) Delete conversation opens ConfirmDialog
+    await user.click(screen.getByRole('button', { name: /حذف گفتگو/ }));
+    const dialog = screen.getByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: fa.chat.deleteConversation }));
+    expect(await screen.findByText(fa.chat.conversationDeletedSuccess)).toBeInTheDocument();
   });
 });

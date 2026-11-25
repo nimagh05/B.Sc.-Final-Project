@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../auth/AuthContext';
 import { tokenStorage } from '../auth/tokenStorage';
+import { ToastProvider } from '../components/Toast';
 import { fa } from '../i18n/fa';
 import { CollectionDetailPage } from '../pages/CollectionDetailPage';
 
@@ -22,12 +23,15 @@ function seedAuthSession() {
 function renderDetailPage() {
   return render(
     <AuthProvider>
-      <MemoryRouter initialEntries={[`/collections/${COLLECTION_ID}`]}>
-        <Routes>
-          <Route path="/collections/:id" element={<CollectionDetailPage />} />
-          <Route path="/login" element={<div>Login Page</div>} />
-        </Routes>
-      </MemoryRouter>
+      <ToastProvider>
+        <MemoryRouter initialEntries={[`/collections/${COLLECTION_ID}`]}>
+          <Routes>
+            <Route path="/collections/:id" element={<CollectionDetailPage />} />
+            <Route path="/collections" element={<div>Collections Index</div>} />
+            <Route path="/login" element={<div>Login Page</div>} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
     </AuthProvider>,
   );
 }
@@ -131,7 +135,6 @@ describe('CollectionDetailPage', () => {
       throw new Error(`Unexpected fetch: ${url}`);
     });
 
-    // Mock XMLHttpRequest to verify multipart field 'file' and progress events
     let capturedFormData: FormData | null = null;
     class MockXHR {
       upload = { onprogress: null as ((ev: ProgressEvent) => void) | null };
@@ -169,13 +172,11 @@ describe('CollectionDetailPage', () => {
     renderDetailPage();
 
     expect(await screen.findByText('broken-scan.pdf')).toBeInTheDocument();
-    // Collapsed row shows compact localized Persian title, NOT raw English error headline
     const rowErrorHint = await screen.findByRole('button', {
       name: fa.collectionDetail.documentErrors.noExtractableText.title,
     });
     expect(rowErrorHint).toBeInTheDocument();
 
-    // Expanding details removes row hint duplicate and shows structured Persian error callout
     await userEvent.click(rowErrorHint);
     expect(
       await screen.findByText(fa.collectionDetail.documentErrors.noExtractableText.guidance),
@@ -196,7 +197,6 @@ describe('CollectionDetailPage', () => {
     const table = screen.getByRole('table');
     expect(within(table).getByText(fa.documentStatuses.Uploaded)).toBeInTheDocument();
 
-    // Poll 1 -> Processing, Poll 2 -> Ready
     await waitFor(
       () => {
         expect(within(table).getByText(fa.documentStatuses.Processing)).toBeInTheDocument();
@@ -211,7 +211,6 @@ describe('CollectionDetailPage', () => {
       { timeout: 3000 },
     );
 
-    // Inspect merged details for Ready row (chunkCount + ocrPages)
     const detailButtons = screen.getAllByRole('button', { name: fa.common.details });
     fireEvent.click(detailButtons[0]);
     expect(await screen.findByText('18')).toBeInTheDocument();
@@ -294,7 +293,238 @@ describe('CollectionDetailPage', () => {
     });
     expect(anchorClickSpy).toHaveBeenCalledTimes(1);
     expect(authHeadersSent).toContain('Bearer jwt-valid-token');
-    // Must not revoke synchronously before browser completes download
     expect(revokeSpy).not.toHaveBeenCalled();
+  });
+
+  it('scopes edit/upload/member errors to their cards, protects primary owner, edits roles inline, and confirms deletions via ConfirmDialog', async () => {
+    seedAuthSession();
+    const user = userEvent.setup();
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+
+      if (url.endsWith('/api/v1/auth/me')) {
+        return new Response(
+          JSON.stringify({ id: 'owner-1', email: 'owner@uni.ac.ir', roles: ['User'] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.endsWith(`/api/v1/collections/${COLLECTION_ID}`) && method === 'GET') {
+        return new Response(
+          JSON.stringify({
+            id: COLLECTION_ID,
+            name: 'آیین‌نامه‌ها',
+            description: 'توضیح',
+            role: 'Owner',
+            documentCount: 1,
+            createdAt: '2026-10-01T10:00:00Z',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.endsWith(`/api/v1/collections/${COLLECTION_ID}`) && method === 'PUT') {
+        return new Response(
+          JSON.stringify({
+            type: 'https://docsearch.local/errors/collection.name_taken',
+            title: 'Conflict',
+            status: 409,
+            detail: 'A collection with this name already exists.',
+            code: 'collection.name_taken',
+            traceId: 'trace-edit-409',
+          }),
+          { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+        );
+      }
+      if (url.includes(`/api/v1/collections/${COLLECTION_ID}/documents`)) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: DOC_NEW_ID,
+                collectionId: COLLECTION_ID,
+                fileName: 'aein.pdf',
+                sizeBytes: 2048,
+                status: 'Ready',
+                pageCount: 3,
+                createdAt: '2026-10-01T10:00:00Z',
+              },
+            ],
+            total: 1,
+            page: 1,
+            pageSize: 20,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.endsWith(`/api/v1/collections/${COLLECTION_ID}/members`) && method === 'GET') {
+        return new Response(
+          JSON.stringify([
+            { userId: 'owner-1', email: 'owner@uni.ac.ir', role: 'Owner' },
+            { userId: 'member-2', email: 'student@uni.ac.ir', role: 'Viewer' },
+          ]),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.endsWith(`/api/v1/collections/${COLLECTION_ID}/members`) && method === 'PUT') {
+        const body = JSON.parse(String(init?.body)) as { email: string; role: string };
+        if (body.email === 'missing@uni.ac.ir') {
+          return new Response(
+            JSON.stringify({
+              type: 'https://docsearch.local/errors/resource.not_found',
+              title: 'Resource not found',
+              status: 404,
+              detail: 'User with this email was not found.',
+              code: 'resource.not_found',
+              traceId: 'trace-member-404',
+            }),
+            { status: 404, headers: { 'Content-Type': 'application/problem+json' } },
+          );
+        }
+        return new Response(
+          JSON.stringify({ userId: 'member-2', email: 'student@uni.ac.ir', role: body.role }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.endsWith(`/api/v1/documents/${DOC_NEW_ID}`) && method === 'DELETE') {
+        return new Response(null, { status: 204 });
+      }
+      if (url.endsWith(`/api/v1/collections/${COLLECTION_ID}/members/member-2`) && method === 'DELETE') {
+        return new Response(null, { status: 204 });
+      }
+      throw new Error(`Unexpected fetch: ${method} ${url}`);
+    });
+
+    renderDetailPage();
+
+    // 1) Sole owner row shows "مالک اصلی" and has NO active remove button
+    const membersRegion = await screen.findByRole('region', {
+      name: fa.collectionDetail.membersSectionTitle,
+    });
+    expect(within(membersRegion).getByText(fa.collectionDetail.members.primaryOwnerBadge)).toBeInTheDocument();
+    expect(within(membersRegion).getAllByRole('button', { name: fa.collectionDetail.members.removeButton })).toHaveLength(1);
+
+    // 2) Non-existent email error renders INSIDE Members card with clear Persian copy
+    await user.type(
+      within(membersRegion).getByLabelText(fa.collectionDetail.members.emailLabel),
+      'missing@uni.ac.ir',
+    );
+    await user.click(
+      within(membersRegion).getByRole('button', { name: fa.collectionDetail.members.addButton }),
+    );
+    expect(await within(membersRegion).findByText(fa.errors.memberUserNotFound)).toBeInTheDocument();
+
+    // 3) Inline role change for student@uni.ac.ir via CustomSelect
+    const rowRoleTrigger = within(membersRegion).getByRole('combobox', {
+      name: fa.collectionDetail.members.rowRoleAriaLabel('student@uni.ac.ir'),
+    });
+    await user.click(rowRoleTrigger);
+    await user.click(within(membersRegion).getByRole('option', { name: new RegExp(fa.roles.Editor) }));
+    expect(
+      await screen.findByText(fa.collectionDetail.members.roleUpdatedSuccess('student@uni.ac.ir', fa.roles.Editor)),
+    ).toBeInTheDocument();
+
+    // 4) Edit metadata: empty name shows inline Persian validation; 409 shows inside edit form & clears on cancel
+    await user.click(screen.getByRole('button', { name: fa.collections.editCollection }));
+    const editNameInput = screen.getByLabelText(fa.collections.nameLabel);
+    await user.clear(editNameInput);
+    await user.click(screen.getByRole('button', { name: fa.common.save }));
+    expect(screen.getByText(fa.collections.nameRequired)).toBeInTheDocument();
+
+    await user.type(editNameInput, 'نام تکراری');
+    await user.click(screen.getByRole('button', { name: fa.common.save }));
+    expect(await screen.findByText(fa.errors.collectionNameTaken)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: fa.common.cancel }));
+    expect(screen.queryByText(fa.errors.collectionNameTaken)).not.toBeInTheDocument();
+
+    // 5) Delete document uses ConfirmDialog instead of window.confirm
+    const docsRegion = screen.getByRole('region', { name: fa.collectionDetail.documentsSectionTitle });
+    await user.click(within(docsRegion).getByRole('button', { name: fa.collectionDetail.deleteDocument }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText(fa.collectionDetail.confirmDeleteDocument('aein.pdf'))).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: fa.collectionDetail.deleteDocument }));
+
+    await waitFor(() => {
+      expect(within(docsRegion).queryByText('aein.pdf')).not.toBeInTheDocument();
+    });
+  });
+
+  it('locks self row when multiple Owners exist and rolls back inline role select if 409 collection.owner_protected occurs', async () => {
+    seedAuthSession();
+    const user = userEvent.setup();
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+      if (url.endsWith('/api/v1/auth/me')) {
+        return new Response(
+          JSON.stringify({ id: 'owner-2', email: 'co-owner@uni.ac.ir', roles: ['User'] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.endsWith(`/api/v1/collections/${COLLECTION_ID}`)) {
+        return new Response(
+          JSON.stringify({
+            id: COLLECTION_ID,
+            name: 'مجموعه مشترک',
+            description: null,
+            role: 'Owner',
+            documentCount: 0,
+            createdAt: '2026-10-01T10:00:00Z',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.includes(`/api/v1/collections/${COLLECTION_ID}/documents`)) {
+        return new Response(
+          JSON.stringify({ items: [], total: 0, page: 1, pageSize: 20 }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.endsWith(`/api/v1/collections/${COLLECTION_ID}/members`) && method === 'GET') {
+        return new Response(
+          JSON.stringify([
+            { userId: 'owner-1', email: 'primary@uni.ac.ir', role: 'Owner' },
+            { userId: 'owner-2', email: 'co-owner@uni.ac.ir', role: 'Owner' },
+          ]),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.endsWith(`/api/v1/collections/${COLLECTION_ID}/members`) && method === 'PUT') {
+        return new Response(
+          JSON.stringify({
+            type: 'https://docsearch.local/errors/collection.owner_protected',
+            title: 'Conflict',
+            status: 409,
+            detail: 'Cannot demote the collection owner.',
+            code: 'collection.owner_protected',
+            traceId: 'trace-owner-409',
+          }),
+          { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+        );
+      }
+      throw new Error(`Unexpected fetch: ${method} ${url}`);
+    });
+
+    renderDetailPage();
+
+    const membersRegion = await screen.findByRole('region', {
+      name: fa.collectionDetail.membersSectionTitle,
+    });
+    expect(within(membersRegion).queryByText(fa.collectionDetail.members.primaryOwnerBadge)).not.toBeInTheDocument();
+    expect(within(membersRegion).getByText(fa.collectionDetail.members.youBadge)).toBeInTheDocument();
+
+    const otherOwnerSelect = within(membersRegion).getByRole('combobox', {
+      name: fa.collectionDetail.members.rowRoleAriaLabel('primary@uni.ac.ir'),
+    });
+    expect(otherOwnerSelect).toHaveTextContent(fa.roles.Owner);
+
+    await user.click(otherOwnerSelect);
+    await user.click(within(membersRegion).getByRole('option', { name: new RegExp(fa.roles.Viewer) }));
+
+    expect(await within(membersRegion).findByText(fa.errors.ownerProtectedDemote)).toBeInTheDocument();
+    // Role select stays rolled back to Owner
+    expect(otherOwnerSelect).toHaveTextContent(fa.roles.Owner);
   });
 });

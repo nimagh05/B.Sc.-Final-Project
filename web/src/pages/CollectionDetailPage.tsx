@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, translateDocumentError } from '../api/errors';
 import { collectionsApi, documentsApi, triggerPdfAction } from '../api/endpoints';
@@ -10,16 +10,59 @@ import type {
   DocumentResponse,
   DocumentStatus,
 } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import { CustomSelect, type CustomSelectOption } from '../components/CustomSelect';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { FileDrop } from '../components/FileDrop';
-import { AlertTriangleIcon, ChatIcon, FileTextIcon, TrashIcon } from '../components/Icons';
+import { AlertTriangleIcon, ChatIcon, FileTextIcon, ShieldIcon, TrashIcon } from '../components/Icons';
 import { Layout } from '../components/Layout';
 import { RoleBadge, StatusBadge } from '../components/StatusBadge';
-import { fa } from '../i18n/fa';
+import { useToast } from '../components/Toast';
+import { fa, formatPersianNumber } from '../i18n/fa';
 
 const PAGE_SIZE = 20;
 const POLL_INTERVAL_MS = 1500;
 const MAX_CONSECUTIVE_POLL_ERRORS = 3;
+
+const ROLE_ORDER: Record<CollectionRole, number> = {
+  Owner: 0,
+  Editor: 1,
+  Viewer: 2,
+};
+
+type StatusFilterValue = DocumentStatus | '';
+
+const STATUS_FILTER_OPTIONS: readonly CustomSelectOption<StatusFilterValue>[] = [
+  { value: '', label: fa.collectionDetail.allStatuses, dotColor: '#64748b' },
+  { value: 'Ready', label: fa.documentStatuses.Ready, dotColor: '#166534' },
+  { value: 'Processing', label: fa.documentStatuses.Processing, dotColor: '#1d4ed8' },
+  { value: 'Uploaded', label: fa.documentStatuses.Uploaded, dotColor: '#475569' },
+  { value: 'Failed', label: fa.documentStatuses.Failed, dotColor: '#b91c1c' },
+];
+
+const ROLE_OPTIONS: readonly CustomSelectOption<CollectionRole>[] = [
+  {
+    value: 'Viewer',
+    label: fa.roles.Viewer,
+    description: fa.roleDescriptions.Viewer,
+  },
+  {
+    value: 'Editor',
+    label: fa.roles.Editor,
+    description: fa.roleDescriptions.Editor,
+  },
+  {
+    value: 'Owner',
+    label: fa.roles.Owner,
+    description: fa.roleDescriptions.Owner,
+  },
+];
+
+type ConfirmTarget =
+  | { kind: 'collection' }
+  | { kind: 'document'; doc: DocumentResponse }
+  | { kind: 'member'; member: CollectionMemberDto };
 
 function formatBytes(sizeBytes: number): string {
   if (sizeBytes >= 1024 * 1024) {
@@ -36,20 +79,28 @@ function isNonTerminal(status: DocumentStatus): boolean {
 export function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { showToast } = useToast();
 
   const [collection, setCollection] = useState<CollectionDto | null>(null);
   const [documents, setDocuments] = useState<DocumentResponse[]>([]);
   const [totalDocs, setTotalDocs] = useState(0);
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<DocumentStatus | ''>('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('');
   const [detailsById, setDetailsById] = useState<Record<string, DocumentDetailResponse>>({});
   const [expandedDocIds, setExpandedDocIds] = useState<Record<string, boolean>>({});
   const [loadingDetailIds, setLoadingDetailIds] = useState<Record<string, boolean>>({});
 
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState<unknown>(null);
-  const [actionError, setActionError] = useState<unknown>(null);
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  // Scoped card errors
+  const [editError, setEditError] = useState<unknown>(null);
+  const [editNameError, setEditNameError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<unknown>(null);
+  const [documentsError, setDocumentsError] = useState<unknown>(null);
+  const [membersError, setMembersError] = useState<unknown>(null);
+  const [memberEmailError, setMemberEmailError] = useState<string | null>(null);
 
   // Edit collection
   const [isEditingCollection, setIsEditingCollection] = useState(false);
@@ -78,16 +129,22 @@ export function CollectionDetailPage() {
   const [memberEmail, setMemberEmail] = useState('');
   const [memberRole, setMemberRole] = useState<CollectionRole>('Viewer');
   const [isSavingMember, setIsSavingMember] = useState(false);
+  const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
+  // Confirmation modal state
+  const [confirmTarget, setConfirmTarget] = useState<ConfirmTarget | null>(null);
+
+  const statusLabelId = useId();
   const statusSelectId = useId();
   const editNameId = useId();
   const editDescId = useId();
   const memberEmailId = useId();
+  const memberRoleLabelId = useId();
   const memberRoleId = useId();
 
   const loadAll = useCallback(
-    async (targetPage: number, targetStatus: DocumentStatus | '', signal?: AbortSignal) => {
+    async (targetPage: number, targetStatus: StatusFilterValue, signal?: AbortSignal) => {
       if (!id) return;
       setIsLoading(true);
       setPageError(null);
@@ -245,8 +302,7 @@ export function CollectionDetailPage() {
 
   const handleUpload = async (file: File) => {
     if (!id) return;
-    setActionError(null);
-    setActionNotice(null);
+    setUploadError(null);
     setIsUploading(true);
     setUploadProgress(0);
     setUploadingFileName(file.name);
@@ -258,7 +314,7 @@ export function CollectionDetailPage() {
       setPollingStopped(false);
       pollFailCountRef.current = 0;
       setPollTrigger((n) => n + 1);
-      setActionNotice(fa.collectionDetail.uploadSuccess);
+      showToast(fa.collectionDetail.uploadSuccess, 'success');
 
       setDocuments((prev) => {
         const filtered = prev.filter((d) => d.id !== uploaded.id);
@@ -266,7 +322,7 @@ export function CollectionDetailPage() {
       });
       setTotalDocs((prev) => prev + 1);
     } catch (err) {
-      setActionError(err);
+      setUploadError(err);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -284,7 +340,7 @@ export function CollectionDetailPage() {
         const detail = await documentsApi.get(docId);
         setDetailsById((prev) => ({ ...prev, [docId]: detail }));
       } catch (err) {
-        setActionError(err);
+        setDocumentsError(err);
       } finally {
         setLoadingDetailIds((prev) => ({ ...prev, [docId]: false }));
       }
@@ -292,21 +348,20 @@ export function CollectionDetailPage() {
   };
 
   const handleDownloadPdf = async (doc: DocumentResponse, mode: 'open' | 'download') => {
-    setActionError(null);
+    setDocumentsError(null);
     setDownloadingDocId(doc.id);
     try {
       const blob = await documentsApi.downloadFile(doc.id);
       triggerPdfAction(blob, doc.fileName, mode);
     } catch (err) {
-      setActionError(err);
+      setDocumentsError(err);
     } finally {
       setDownloadingDocId(null);
     }
   };
 
   const handleReprocess = async (docId: string) => {
-    setActionError(null);
-    setActionNotice(null);
+    setDocumentsError(null);
     setReprocessingDocId(docId);
     try {
       const updated = await documentsApi.reprocess(docId);
@@ -319,28 +374,39 @@ export function CollectionDetailPage() {
         delete copy[docId];
         return copy;
       });
+      showToast(fa.collectionDetail.reprocessSuccess, 'info');
     } catch (err) {
-      setActionError(err);
+      setDocumentsError(err);
     } finally {
       setReprocessingDocId(null);
     }
   };
 
-  const handleDeleteDocument = async (doc: DocumentResponse) => {
-    if (!window.confirm(fa.collectionDetail.confirmDeleteDocument(doc.fileName))) {
-      return;
-    }
-    setActionError(null);
+  const executeDeleteDocument = async (doc: DocumentResponse) => {
+    setDocumentsError(null);
     setDeletingDocId(doc.id);
     try {
       await documentsApi.delete(doc.id);
       setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
       setTotalDocs((prev) => Math.max(0, prev - 1));
+      setConfirmTarget(null);
+      showToast(fa.collectionDetail.deleteSuccess, 'success');
     } catch (err) {
-      setActionError(err);
+      setConfirmTarget(null);
+      setDocumentsError(err);
     } finally {
       setDeletingDocId(null);
     }
+  };
+
+  const handleToggleEditCollection = () => {
+    setEditError(null);
+    setEditNameError(null);
+    if (collection) {
+      setEditName(collection.name);
+      setEditDescription(collection.description ?? '');
+    }
+    setIsEditingCollection((prev) => !prev);
   };
 
   const handleSaveCollection = async (event: FormEvent) => {
@@ -348,10 +414,12 @@ export function CollectionDetailPage() {
     if (!id) return;
     const trimmedName = editName.trim();
     if (!trimmedName || trimmedName.length > 200) {
+      setEditNameError(fa.collections.nameRequired);
       return;
     }
 
-    setActionError(null);
+    setEditNameError(null);
+    setEditError(null);
     setIsSavingCollection(true);
     try {
       const updated = await collectionsApi.update(id, {
@@ -360,27 +428,26 @@ export function CollectionDetailPage() {
       });
       setCollection(updated);
       setIsEditingCollection(false);
-      setActionNotice(fa.collections.updatedSuccess);
+      showToast(fa.collections.updatedSuccess, 'success');
     } catch (err) {
-      setActionError(err);
+      setEditError(err);
     } finally {
       setIsSavingCollection(false);
     }
   };
 
-  const handleDeleteCollection = async () => {
+  const executeDeleteCollection = async () => {
     if (!collection) return;
-    if (!window.confirm(fa.collections.confirmDeleteCollection(collection.name))) {
-      return;
-    }
-
-    setActionError(null);
+    setEditError(null);
     setIsDeletingCollection(true);
     try {
       await collectionsApi.delete(collection.id);
+      setConfirmTarget(null);
+      showToast(fa.collections.deletedSuccess, 'success');
       navigate('/collections', { replace: true });
     } catch (err) {
-      setActionError(err);
+      setConfirmTarget(null);
+      setEditError(err);
       setIsDeletingCollection(false);
     }
   };
@@ -389,12 +456,13 @@ export function CollectionDetailPage() {
     event.preventDefault();
     if (!id) return;
     const trimmedEmail = memberEmail.trim();
-    if (!trimmedEmail) {
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      setMemberEmailError(fa.collectionDetail.members.emailRequired);
       return;
     }
 
-    setActionError(null);
-    setActionNotice(null);
+    setMemberEmailError(null);
+    setMembersError(null);
     setIsSavingMember(true);
     try {
       const saved = await collectionsApi.upsertMember(id, {
@@ -406,23 +474,48 @@ export function CollectionDetailPage() {
         return exists ? prev.map((m) => (m.userId === saved.userId ? saved : m)) : [...prev, saved];
       });
       setMemberEmail('');
-      setActionNotice(fa.collectionDetail.members.updatedSuccess);
+      showToast(fa.collectionDetail.members.updatedSuccess, 'success');
     } catch (err) {
-      setActionError(err);
+      setMembersError(err);
     } finally {
       setIsSavingMember(false);
     }
   };
 
-  const handleRemoveMember = async (userId: string) => {
-    if (!id) return;
-    setActionError(null);
-    setRemovingMemberId(userId);
+  const handleInlineRoleChange = async (member: CollectionMemberDto, nextRole: CollectionRole) => {
+    if (!id || nextRole === member.role) return;
+    setMembersError(null);
+    setUpdatingMemberId(member.userId);
     try {
-      await collectionsApi.removeMember(id, userId);
-      setMembers((prev) => prev.filter((m) => m.userId !== userId));
+      const saved = await collectionsApi.upsertMember(id, {
+        email: member.email,
+        role: nextRole,
+      });
+      setMembers((prev) => prev.map((m) => (m.userId === saved.userId ? saved : m)));
+      showToast(
+        fa.collectionDetail.members.roleUpdatedSuccess(member.email, fa.roles[saved.role]),
+        'success',
+      );
     } catch (err) {
-      setActionError(err);
+      // Do not mutate members state on failure so row CustomSelect stays/rolls back to member.role
+      setMembersError(err);
+    } finally {
+      setUpdatingMemberId(null);
+    }
+  };
+
+  const executeRemoveMember = async (member: CollectionMemberDto) => {
+    if (!id) return;
+    setMembersError(null);
+    setRemovingMemberId(member.userId);
+    try {
+      await collectionsApi.removeMember(id, member.userId);
+      setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
+      setConfirmTarget(null);
+      showToast(fa.collectionDetail.members.removedSuccess, 'success');
+    } catch (err) {
+      setConfirmTarget(null);
+      setMembersError(err);
     } finally {
       setRemovingMemberId(null);
     }
@@ -431,6 +524,57 @@ export function CollectionDetailPage() {
   const canEdit = collection?.role === 'Editor' || collection?.role === 'Owner';
   const isOwner = collection?.role === 'Owner';
   const totalPages = Math.max(1, Math.ceil(totalDocs / PAGE_SIZE));
+
+  const ownerCount = useMemo(
+    () => members.filter((m) => m.role === 'Owner').length,
+    [members],
+  );
+
+  const sortedMembers = useMemo(
+    () =>
+      [...members].sort((a, b) => {
+        const roleDiff = ROLE_ORDER[a.role] - ROLE_ORDER[b.role];
+        if (roleDiff !== 0) return roleDiff;
+        if (user?.id) {
+          if (a.userId === user.id && b.userId !== user.id) return -1;
+          if (b.userId === user.id && a.userId !== user.id) return 1;
+        }
+        return a.email.localeCompare(b.email);
+      }),
+    [members, user?.id],
+  );
+
+  const isConfirmBusy =
+    isDeletingCollection || Boolean(deletingDocId) || Boolean(removingMemberId);
+
+  const confirmModalCopy = (() => {
+    if (!confirmTarget) return null;
+    if (confirmTarget.kind === 'collection' && collection) {
+      return {
+        title: fa.collections.confirmDeleteTitle,
+        description: fa.collections.confirmDeleteCollection(collection.name),
+        confirmLabel: fa.collections.deleteCollection,
+        onConfirm: executeDeleteCollection,
+      };
+    }
+    if (confirmTarget.kind === 'document') {
+      return {
+        title: fa.collectionDetail.confirmDeleteDocumentTitle,
+        description: fa.collectionDetail.confirmDeleteDocument(confirmTarget.doc.fileName),
+        confirmLabel: fa.collectionDetail.deleteDocument,
+        onConfirm: () => executeDeleteDocument(confirmTarget.doc),
+      };
+    }
+    if (confirmTarget.kind === 'member') {
+      return {
+        title: fa.collectionDetail.members.confirmRemoveTitle,
+        description: fa.collectionDetail.members.confirmRemoveMember(confirmTarget.member.email),
+        confirmLabel: fa.collectionDetail.members.removeButton,
+        onConfirm: () => executeRemoveMember(confirmTarget.member),
+      };
+    }
+    return null;
+  })();
 
   return (
     <Layout>
@@ -442,7 +586,11 @@ export function CollectionDetailPage() {
         </div>
 
         {pageError !== null && (
-          <ErrorAlert error={pageError} onRetry={() => void loadAll(page, statusFilter)} />
+          <ErrorAlert
+            error={pageError}
+            context="collection"
+            onRetry={() => void loadAll(page, statusFilter)}
+          />
         )}
 
         {isLoading ? (
@@ -472,8 +620,8 @@ export function CollectionDetailPage() {
                       <RoleBadge role={collection.role} />
                     </div>
                     {collection.description && (
-                      <p className="page-subtitle" dir="auto">
-                        {collection.description}
+                      <p className="page-subtitle">
+                        <bdi>{collection.description}</bdi>
                       </p>
                     )}
                   </div>
@@ -491,7 +639,7 @@ export function CollectionDetailPage() {
                       <button
                         type="button"
                         className="btn btn-secondary"
-                        onClick={() => setIsEditingCollection((prev) => !prev)}
+                        onClick={handleToggleEditCollection}
                       >
                         {isEditingCollection ? fa.common.cancel : fa.collections.editCollection}
                       </button>
@@ -502,7 +650,7 @@ export function CollectionDetailPage() {
                         type="button"
                         className="btn btn-danger"
                         disabled={isDeletingCollection}
-                        onClick={() => void handleDeleteCollection()}
+                        onClick={() => setConfirmTarget({ kind: 'collection' })}
                       >
                         <TrashIcon />
                         <span>
@@ -513,13 +661,36 @@ export function CollectionDetailPage() {
                   </div>
                 </div>
 
+                {!isEditingCollection && editError !== null && (
+                  <div style={{ marginBlockStart: '16px' }}>
+                    <ErrorAlert
+                      error={editError}
+                      context="collection"
+                      onDismiss={() => setEditError(null)}
+                    />
+                  </div>
+                )}
+
                 {isEditingCollection && canEdit && (
                   <form
-                    className="form-stack"
-                    style={{ marginBlockStart: '16px', paddingBlockStart: '16px', borderTop: '1px solid var(--color-border)' }}
+                    className="form-stack panel-reveal"
+                    style={{
+                      marginBlockStart: '16px',
+                      paddingBlockStart: '16px',
+                      borderTop: '1px solid var(--color-border)',
+                    }}
                     onSubmit={handleSaveCollection}
+                    noValidate
                   >
-                    <div className="form-row">
+                    {editError !== null && (
+                      <ErrorAlert
+                        error={editError}
+                        context="collection"
+                        onDismiss={() => setEditError(null)}
+                      />
+                    )}
+
+                    <div className="form-row collection-edit-form">
                       <div className="field">
                         <label className="field-label" htmlFor={editNameId}>
                           {fa.collections.nameLabel}
@@ -529,10 +700,19 @@ export function CollectionDetailPage() {
                           type="text"
                           className="input"
                           maxLength={200}
-                          required
                           value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
+                          onChange={(e) => {
+                            setEditName(e.target.value);
+                            if (editNameError) setEditNameError(null);
+                            if (editError) setEditError(null);
+                          }}
+                          aria-invalid={Boolean(editNameError)}
                         />
+                        {editNameError && (
+                          <span className="field-error" role="alert">
+                            {editNameError}
+                          </span>
+                        )}
                       </div>
                       <div className="field">
                         <label className="field-label" htmlFor={editDescId}>
@@ -555,23 +735,6 @@ export function CollectionDetailPage() {
                 )}
               </section>
 
-              {actionError !== null && (
-                <ErrorAlert error={actionError} onDismiss={() => setActionError(null)} />
-              )}
-
-              {actionNotice && (
-                <div className="alert alert-success" role="status">
-                  <p className="alert-detail">{actionNotice}</p>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => setActionNotice(null)}
-                  >
-                    {fa.common.close}
-                  </button>
-                </div>
-              )}
-
               {canEdit && (
                 <section className="card" aria-label={fa.collectionDetail.uploadSectionTitle}>
                   <h2 className="section-heading">{fa.collectionDetail.uploadSectionTitle}</h2>
@@ -580,6 +743,8 @@ export function CollectionDetailPage() {
                     uploadProgress={uploadProgress}
                     selectedFileName={uploadingFileName}
                     onFileSelected={(file) => void handleUpload(file)}
+                    externalError={uploadError}
+                    onClearExternalError={() => setUploadError(null)}
                   />
                 </section>
               )}
@@ -590,27 +755,35 @@ export function CollectionDetailPage() {
                     {fa.collectionDetail.documentsSectionTitle}
                   </h2>
 
-                  <div className="form-row" style={{ alignItems: 'center' }}>
-                    <label className="field-label" htmlFor={statusSelectId}>
+                  <div className="status-filter-wrap">
+                    <label id={statusLabelId} className="field-label" htmlFor={statusSelectId}>
                       {fa.collectionDetail.statusFilterLabel}
                     </label>
-                    <select
+                    <CustomSelect
                       id={statusSelectId}
-                      className="select status-filter-select"
+                      ariaLabelledBy={statusLabelId}
+                      compact
+                      alignEnd
+                      className="status-filter-dropdown"
                       value={statusFilter}
-                      onChange={(e) => {
+                      options={STATUS_FILTER_OPTIONS}
+                      onChange={(nextStatus) => {
                         setPage(1);
-                        setStatusFilter(e.target.value as DocumentStatus | '');
+                        setStatusFilter(nextStatus);
                       }}
-                    >
-                      <option value="">{fa.collectionDetail.allStatuses}</option>
-                      <option value="Ready">{fa.documentStatuses.Ready}</option>
-                      <option value="Processing">{fa.documentStatuses.Processing}</option>
-                      <option value="Uploaded">{fa.documentStatuses.Uploaded}</option>
-                      <option value="Failed">{fa.documentStatuses.Failed}</option>
-                    </select>
+                    />
                   </div>
                 </div>
+
+                {documentsError !== null && (
+                  <div style={{ marginBlockEnd: '12px' }}>
+                    <ErrorAlert
+                      error={documentsError}
+                      context="document"
+                      onDismiss={() => setDocumentsError(null)}
+                    />
+                  </div>
+                )}
 
                 {activePollIds.length > 0 && !pollingStopped && (
                   <div className="alert alert-info" role="status" aria-live="polite" style={{ marginBlockEnd: '12px' }}>
@@ -670,7 +843,7 @@ export function CollectionDetailPage() {
                             return (
                               <Fragment key={doc.id}>
                                 <tr>
-                                  <td>
+                                  <td className="col-filename">
                                     <bdi className="bidi-plain">{doc.fileName}</bdi>
                                     {doc.status === 'Failed' && !isExpanded && translatedError && (
                                       <div>
@@ -686,16 +859,18 @@ export function CollectionDetailPage() {
                                       </div>
                                     )}
                                   </td>
-                                  <td className="col-center">
+                                  <td className="col-center col-nowrap">
                                     <bdi dir="ltr">{formatBytes(doc.sizeBytes)}</bdi>
                                   </td>
-                                  <td className="col-center">
-                                    <bdi dir="ltr">{doc.pageCount ?? '—'}</bdi>
+                                  <td className="col-center col-nowrap">
+                                    <bdi dir="ltr">
+                                      {doc.pageCount !== null ? formatPersianNumber(doc.pageCount) : '—'}
+                                    </bdi>
                                   </td>
-                                  <td className="col-center">
+                                  <td className="col-center col-nowrap">
                                     <StatusBadge status={doc.status} />
                                   </td>
-                                  <td>
+                                  <td className="col-nowrap">
                                     <bdi dir="ltr">{new Date(doc.createdAt).toLocaleDateString('fa-IR')}</bdi>
                                   </td>
                                   <td>
@@ -741,7 +916,7 @@ export function CollectionDetailPage() {
                                           type="button"
                                           className="btn btn-danger btn-sm"
                                           disabled={deletingDocId === doc.id}
-                                          onClick={() => void handleDeleteDocument(doc)}
+                                          onClick={() => setConfirmTarget({ kind: 'document', doc })}
                                         >
                                           <TrashIcon />
                                           <span>
@@ -883,7 +1058,17 @@ export function CollectionDetailPage() {
                 <section className="card" aria-label={fa.collectionDetail.membersSectionTitle}>
                   <h2 className="section-heading">{fa.collectionDetail.membersSectionTitle}</h2>
 
-                  <form className="form-row" onSubmit={handleUpsertMember}>
+                  {membersError !== null && (
+                    <div style={{ marginBlockEnd: '12px' }}>
+                      <ErrorAlert
+                        error={membersError}
+                        context="member"
+                        onDismiss={() => setMembersError(null)}
+                      />
+                    </div>
+                  )}
+
+                  <form className="form-row member-add-form" onSubmit={handleUpsertMember} noValidate>
                     <div className="field">
                       <label className="field-label" htmlFor={memberEmailId}>
                         {fa.collectionDetail.members.emailLabel}
@@ -895,25 +1080,34 @@ export function CollectionDetailPage() {
                         className="input"
                         placeholder={fa.collectionDetail.members.emailPlaceholder}
                         value={memberEmail}
-                        onChange={(e) => setMemberEmail(e.target.value)}
-                        required
+                        onChange={(e) => {
+                          setMemberEmail(e.target.value);
+                          if (memberEmailError) setMemberEmailError(null);
+                          if (membersError) setMembersError(null);
+                        }}
+                        aria-invalid={Boolean(memberEmailError)}
                       />
+                      {memberEmailError && (
+                        <span className="field-error" role="alert">
+                          {memberEmailError}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="field" style={{ maxInlineSize: '180px' }}>
-                      <label className="field-label" htmlFor={memberRoleId}>
+                    <div className="field member-role-field">
+                      <label id={memberRoleLabelId} className="field-label" htmlFor={memberRoleId}>
                         {fa.collectionDetail.members.roleLabel}
                       </label>
-                      <select
+                      <CustomSelect
                         id={memberRoleId}
-                        className="select"
+                        ariaLabelledBy={memberRoleLabelId}
                         value={memberRole}
-                        onChange={(e) => setMemberRole(e.target.value as CollectionRole)}
-                      >
-                        <option value="Viewer">{fa.roles.Viewer}</option>
-                        <option value="Editor">{fa.roles.Editor}</option>
-                        <option value="Owner">{fa.roles.Owner}</option>
-                      </select>
+                        options={ROLE_OPTIONS}
+                        onChange={(nextRole) => {
+                          setMemberRole(nextRole);
+                          if (membersError) setMembersError(null);
+                        }}
+                      />
                     </div>
 
                     <button type="submit" className="btn btn-primary" disabled={isSavingMember}>
@@ -923,28 +1117,87 @@ export function CollectionDetailPage() {
                     </button>
                   </form>
 
-                  {members.length === 0 ? (
+                  {sortedMembers.length === 0 ? (
                     <p style={{ marginBlockStart: '16px' }}>{fa.collectionDetail.members.empty}</p>
                   ) : (
                     <ul className="member-list">
-                      {members.map((member) => (
-                        <li key={member.userId} className="member-item">
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <bdi>{member.email}</bdi>
-                            <RoleBadge role={member.role} />
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-danger btn-sm"
-                            disabled={removingMemberId === member.userId}
-                            onClick={() => void handleRemoveMember(member.userId)}
-                          >
-                            {removingMemberId === member.userId
-                              ? fa.common.deleting
-                              : fa.collectionDetail.members.removeButton}
-                          </button>
-                        </li>
-                      ))}
+                      {sortedMembers.map((member) => {
+                        const isSoleOwner = ownerCount === 1 && member.role === 'Owner';
+                        const isSelf = Boolean(user?.id && member.userId === user.id);
+                        const isLockedRow = isSoleOwner || (ownerCount > 1 && isSelf);
+                        const isRowBusy =
+                          updatingMemberId === member.userId || removingMemberId === member.userId;
+
+                        return (
+                          <li key={member.userId} className="member-item">
+                            <div className="member-info">
+                              <bdi>{member.email}</bdi>
+                              {isSoleOwner ? (
+                                <span className="badge badge-primary-owner">
+                                  <ShieldIcon />
+                                  <span>{fa.collectionDetail.members.primaryOwnerBadge}</span>
+                                </span>
+                              ) : (
+                                <RoleBadge role={member.role} />
+                              )}
+                              {isSelf && (
+                                <span className="badge badge-you">
+                                  {fa.collectionDetail.members.youBadge}
+                                </span>
+                              )}
+                            </div>
+
+                            {isLockedRow ? (
+                              <div
+                                className="member-locked-note"
+                                title={
+                                  isSoleOwner
+                                    ? fa.collectionDetail.members.protectedOwnerHint
+                                    : fa.collectionDetail.members.selfRowProtectedHint
+                                }
+                              >
+                                <ShieldIcon />
+                                <span>
+                                  {isSoleOwner
+                                    ? fa.collectionDetail.members.protectedOwnerHint
+                                    : fa.collectionDetail.members.selfRowProtectedHint}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="member-controls">
+                                {updatingMemberId === member.userId && (
+                                  <span className="field-hint">
+                                    {fa.collectionDetail.members.savingRole}
+                                  </span>
+                                )}
+                                <CustomSelect
+                                  compact
+                                  alignEnd
+                                  className="member-inline-role-select"
+                                  ariaLabel={fa.collectionDetail.members.rowRoleAriaLabel(member.email)}
+                                  value={member.role}
+                                  options={ROLE_OPTIONS}
+                                  disabled={isRowBusy}
+                                  onChange={(nextRole) => void handleInlineRoleChange(member, nextRole)}
+                                />
+                                <button
+                                  type="button"
+                                  className="btn btn-danger btn-sm"
+                                  disabled={isRowBusy}
+                                  onClick={() => setConfirmTarget({ kind: 'member', member })}
+                                >
+                                  <TrashIcon />
+                                  <span>
+                                    {removingMemberId === member.userId
+                                      ? fa.common.deleting
+                                      : fa.collectionDetail.members.removeButton}
+                                  </span>
+                                </button>
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </section>
@@ -953,6 +1206,23 @@ export function CollectionDetailPage() {
           )
         )}
       </div>
+
+      {confirmModalCopy && (
+        <ConfirmDialog
+          open={confirmTarget !== null}
+          title={confirmModalCopy.title}
+          description={confirmModalCopy.description}
+          confirmLabel={confirmModalCopy.confirmLabel}
+          variant="danger"
+          isBusy={isConfirmBusy}
+          onConfirm={confirmModalCopy.onConfirm}
+          onCancel={() => {
+            if (!isConfirmBusy) {
+              setConfirmTarget(null);
+            }
+          }}
+        />
+      )}
     </Layout>
   );
 }

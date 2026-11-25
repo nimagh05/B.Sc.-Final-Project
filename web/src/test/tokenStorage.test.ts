@@ -18,7 +18,6 @@ describe('tokenStorage and 401 handling', () => {
     expect(tokenStorage.getAccessToken()).toBe('jwt-test-token');
     expect(window.sessionStorage.getItem('docsearch_auth_session')).toContain('jwt-test-token');
     expect(window.localStorage.length).toBe(0);
-    // Ensure setItem was called on sessionStorage, never on localStorage
     expect(localSetSpy).toHaveBeenCalledTimes(1);
     expect(localSetSpy.mock.instances[0]).toBe(window.sessionStorage);
 
@@ -27,7 +26,7 @@ describe('tokenStorage and 401 handling', () => {
     expect(window.sessionStorage.getItem('docsearch_auth_session')).toBeNull();
   });
 
-  it('rejects expired tokens', () => {
+  it('rejects expired tokens and records one-shot expired notice flag', () => {
     const past = new Date(Date.now() - 60_000).toISOString();
     tokenStorage.setSession({
       accessToken: 'expired-token',
@@ -36,6 +35,8 @@ describe('tokenStorage and 401 handling', () => {
     });
 
     expect(tokenStorage.getAccessToken()).toBeNull();
+    expect(tokenStorage.consumeExpiredNotice()).toBe(true);
+    expect(tokenStorage.consumeExpiredNotice()).toBe(false);
   });
 
   it('triggers unauthorized handler only when Bearer token was attached, never on login', async () => {

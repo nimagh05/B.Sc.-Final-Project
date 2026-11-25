@@ -7,6 +7,7 @@ export interface StoredSession {
 const SESSION_STORAGE_KEY = 'docsearch_auth_session';
 
 let memorySession: StoredSession | null = null;
+let expiredSessionDetected = false;
 
 function isExpired(expiresAtUtc: string): boolean {
   const expiresMs = Date.parse(expiresAtUtc);
@@ -14,6 +15,17 @@ function isExpired(expiresAtUtc: string): boolean {
     return false;
   }
   return expiresMs <= Date.now();
+}
+
+function clearStorageOnly(): void {
+  memorySession = null;
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage errors
+  }
 }
 
 function readFromSessionStorage(): StoredSession | null {
@@ -32,6 +44,7 @@ function readFromSessionStorage(): StoredSession | null {
       typeof parsed.expiresAtUtc === 'string'
     ) {
       if (isExpired(parsed.expiresAtUtc)) {
+        expiredSessionDetected = true;
         window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
         return null;
       }
@@ -51,7 +64,8 @@ export const tokenStorage = {
   getSession(): StoredSession | null {
     if (memorySession) {
       if (isExpired(memorySession.expiresAtUtc)) {
-        this.clear();
+        expiredSessionDetected = true;
+        clearStorageOnly();
         return null;
       }
       return memorySession;
@@ -68,7 +82,14 @@ export const tokenStorage = {
     return this.getSession()?.accessToken ?? null;
   },
 
+  consumeExpiredNotice(): boolean {
+    const wasExpired = expiredSessionDetected;
+    expiredSessionDetected = false;
+    return wasExpired;
+  },
+
   setSession(session: StoredSession): void {
+    expiredSessionDetected = false;
     memorySession = session;
     try {
       if (typeof window !== 'undefined' && window.sessionStorage) {
@@ -80,13 +101,7 @@ export const tokenStorage = {
   },
 
   clear(): void {
-    memorySession = null;
-    try {
-      if (typeof window !== 'undefined' && window.sessionStorage) {
-        window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      }
-    } catch {
-      // Ignore storage errors
-    }
+    expiredSessionDetected = false;
+    clearStorageOnly();
   },
 };

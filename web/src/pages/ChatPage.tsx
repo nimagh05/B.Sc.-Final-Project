@@ -7,12 +7,22 @@ import type {
   SourceCitationDto,
 } from '../api/types';
 import { CitationText } from '../components/CitationText';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DegradedBanner } from '../components/DegradedBanner';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { FolderIcon, PlusIcon, SendIcon, SparklesIcon, TrashIcon } from '../components/Icons';
+import {
+  CheckIcon,
+  CopyIcon,
+  FolderIcon,
+  PlusIcon,
+  SendIcon,
+  SparklesIcon,
+  TrashIcon,
+} from '../components/Icons';
 import { Layout } from '../components/Layout';
 import { SourceCard } from '../components/SourceCard';
-import { fa } from '../i18n/fa';
+import { useToast } from '../components/Toast';
+import { fa, formatPersianNumber } from '../i18n/fa';
 
 interface ChatMessageItem {
   id: string;
@@ -38,6 +48,7 @@ function getComposerDirection(text: string): 'rtl' | 'ltr' {
 export function ChatPage() {
   const [searchParams] = useSearchParams();
   const initialCollectionIdParam = searchParams.get('collectionId');
+  const { showToast } = useToast();
 
   const [collections, setCollections] = useState<CollectionDto[]>([]);
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([]);
@@ -57,6 +68,9 @@ export function ChatPage() {
     null,
   );
   const [downloadingSourceKey, setDownloadingSourceKey] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [confirmDeleteConv, setConfirmDeleteConv] = useState<ConversationSummaryDto | null>(null);
+  const [isDeletingConv, setIsDeletingConv] = useState(false);
 
   const questionId = useId();
 
@@ -137,18 +151,26 @@ export function ChatPage() {
     }
   };
 
-  const handleDeleteConversation = async (conversationId: string) => {
+  const executeDeleteConversation = async () => {
+    if (!confirmDeleteConv) return;
+    const targetId = confirmDeleteConv.id;
     setError(null);
+    setIsDeletingConv(true);
     try {
-      await conversationsApi.delete(conversationId);
-      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
-      if (activeConversationId === conversationId) {
+      await conversationsApi.delete(targetId);
+      setConversations((prev) => prev.filter((c) => c.id !== targetId));
+      if (activeConversationId === targetId) {
         setActiveConversationId(null);
         setMessages([]);
         setActiveCitation(null);
       }
+      setConfirmDeleteConv(null);
+      showToast(fa.chat.conversationDeletedSuccess, 'success');
     } catch (err) {
+      setConfirmDeleteConv(null);
       setError(err);
+    } finally {
+      setIsDeletingConv(false);
     }
   };
 
@@ -158,6 +180,22 @@ export function ChatPage() {
     setActiveCitation(null);
     setError(null);
     setValidationError(null);
+  };
+
+  const handleCopyAnswer = async (msg: ChatMessageItem) => {
+    if (!msg.content) return;
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(msg.content);
+      }
+      setCopiedMessageId(msg.id);
+      showToast(fa.chat.answerCopiedToast, 'success');
+      window.setTimeout(() => {
+        setCopiedMessageId((prev) => (prev === msg.id ? null : prev));
+      }, 2000);
+    } catch {
+      // Clipboard API unavailable
+    }
   };
 
   const submitQuestion = async () => {
@@ -279,6 +317,10 @@ export function ChatPage() {
     }
   };
 
+  const showSidebarCollectionHint =
+    selectedCollectionIds.length === 0 &&
+    validationError !== fa.chat.validation.noCollectionsSelected;
+
   return (
     <Layout>
       <div className="page-header" style={{ marginBlockEnd: '16px' }}>
@@ -288,7 +330,7 @@ export function ChatPage() {
       <div className="chat-layout">
         <aside className="chat-sidebar" aria-label={fa.chat.collectionsHeading}>
           <section className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBlockEnd: '10px' }}>
+            <div className="chat-sidebar-head">
               <h2 className="section-heading collection-meta-item" style={{ margin: 0, fontSize: '1rem' }}>
                 <FolderIcon />
                 <span>{fa.chat.collectionsHeading}</span>
@@ -341,7 +383,7 @@ export function ChatPage() {
                   ))}
                 </div>
 
-                {selectedCollectionIds.length === 0 && (
+                {showSidebarCollectionHint && (
                   <p className="field-hint" style={{ marginBlockStart: '8px' }}>
                     {fa.chat.selectCollectionHint}
                   </p>
@@ -351,7 +393,7 @@ export function ChatPage() {
           </section>
 
           <section className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBlockEnd: '10px' }}>
+            <div className="chat-sidebar-head">
               <h2 className="section-heading" style={{ margin: 0, fontSize: '1rem' }}>
                 {fa.chat.conversationsHeading}
               </h2>
@@ -383,7 +425,7 @@ export function ChatPage() {
                       type="button"
                       className="btn btn-ghost btn-sm"
                       aria-label={`${fa.chat.deleteConversation}: ${conv.title ?? ''}`}
-                      onClick={() => void handleDeleteConversation(conv.id)}
+                      onClick={() => setConfirmDeleteConv(conv)}
                     >
                       <TrashIcon />
                     </button>
@@ -395,8 +437,12 @@ export function ChatPage() {
         </aside>
 
         <section className="chat-main" aria-label={fa.chat.pageTitle}>
-          {error !== null && <ErrorAlert error={error} onDismiss={() => setError(null)} />}
-          {pdfError !== null && <ErrorAlert error={pdfError} onDismiss={() => setPdfError(null)} />}
+          {error !== null && (
+            <ErrorAlert error={error} context="chat" onDismiss={() => setError(null)} />
+          )}
+          {pdfError !== null && (
+            <ErrorAlert error={pdfError} context="document" onDismiss={() => setPdfError(null)} />
+          )}
 
           <div className="chat-thread" aria-live="polite">
             {messagesLoading ? (
@@ -414,10 +460,25 @@ export function ChatPage() {
                   key={msg.id}
                   className={`card message-card ${msg.role === 'user' ? 'message-card-user' : ''}`}
                 >
-                  <span className="message-role">
-                    {msg.role === 'assistant' && <SparklesIcon />}
-                    <span>{msg.role === 'user' ? fa.chat.userLabel : fa.chat.assistantLabel}</span>
-                  </span>
+                  <div className="message-header-row">
+                    <span className="message-role">
+                      {msg.role === 'assistant' && <SparklesIcon />}
+                      <span>{msg.role === 'user' ? fa.chat.userLabel : fa.chat.assistantLabel}</span>
+                    </span>
+
+                    {msg.role === 'assistant' && !msg.notFound && msg.content && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm message-copy-btn"
+                        onClick={() => void handleCopyAnswer(msg)}
+                      >
+                        {copiedMessageId === msg.id ? <CheckIcon /> : <CopyIcon />}
+                        <span>
+                          {copiedMessageId === msg.id ? fa.chat.copiedAnswer : fa.chat.copyAnswer}
+                        </span>
+                      </button>
+                    )}
+                  </div>
 
                   {msg.role === 'user' ? (
                     <p className="answer-paragraph" dir="auto">
@@ -503,7 +564,7 @@ export function ChatPage() {
                   {fa.chat.questionLabel}
                 </label>
                 <span className="field-hint">
-                  <bdi dir="ltr">{question.trim().length} / 2000</bdi>
+                  <bdi dir="ltr">{formatPersianNumber(question.trim().length)} / ۲۰۰۰</bdi>
                 </span>
               </div>
               <textarea
@@ -543,6 +604,23 @@ export function ChatPage() {
           </form>
         </section>
       </div>
+
+      {confirmDeleteConv && (
+        <ConfirmDialog
+          open={confirmDeleteConv !== null}
+          title={fa.chat.confirmDeleteConversationTitle}
+          description={fa.chat.confirmDeleteConversation(confirmDeleteConv.title ?? '')}
+          confirmLabel={fa.chat.deleteConversation}
+          variant="danger"
+          isBusy={isDeletingConv}
+          onConfirm={executeDeleteConversation}
+          onCancel={() => {
+            if (!isDeletingConv) {
+              setConfirmDeleteConv(null);
+            }
+          }}
+        />
+      )}
     </Layout>
   );
 }
