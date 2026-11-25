@@ -1520,6 +1520,77 @@ def test_audit_docs_numbers_assert_row_catches_swapped_table_rows(tmp_path):
     assert len(auditor_correct.passes) == 2
 
 
+def test_audit_manual_cmap_csv_reproduces_table_8_6():
+    """CI-safe verification that tracked manual_audit_heldout_cmap.csv reproduces Table 8.6 and EVAL-RESULTS.md."""
+    import csv
+    from audit_docs_numbers import DocAuditor, HELDOUT_CMAP_FILES
+
+    repo_root = EVAL_DIR.parent
+    csv_path = repo_root / "eval" / "manual_audit_heldout_cmap.csv"
+    raw_bytes = csv_path.read_bytes()
+    assert not raw_bytes.startswith(b"\xef\xbb\xbf"), "CSV must be UTF-8 without BOM"
+    assert b"\r\n" not in raw_bytes, "CSV must use LF line endings"
+
+    with open(csv_path, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        assert reader.fieldnames == ["id", "arm", "label", "note"]
+        rows = list(reader)
+
+    assert len(rows) == 54
+    questions = json.loads((repo_root / "eval" / "questions.json").read_text(encoding="utf-8"))
+    expected_ids = {
+        q["id"] for q in questions
+        if q.get("source_file") in HELDOUT_CMAP_FILES and q.get("type") != "not-in-docs"
+    }
+    assert len(expected_ids) == 27
+
+    by_arm = {"arm2": {}, "arm3": {}}
+    valid_labels = {"correct", "partial", "wrong", "refused"}
+    for r in rows:
+        assert r["id"] in expected_ids
+        assert r["arm"] in by_arm
+        assert r["label"] in valid_labels
+        by_arm[r["arm"]][r["id"]] = r["label"]
+
+    assert set(by_arm["arm2"].keys()) == expected_ids
+    assert set(by_arm["arm3"].keys()) == expected_ids
+
+    counts_arm2 = {lbl: sum(1 for v in by_arm["arm2"].values() if v == lbl) for lbl in valid_labels}
+    counts_arm3 = {lbl: sum(1 for v in by_arm["arm3"].values() if v == lbl) for lbl in valid_labels}
+    assert counts_arm2 == {"correct": 16, "partial": 1, "wrong": 7, "refused": 3}
+    assert counts_arm3 == {"correct": 15, "partial": 3, "wrong": 4, "refused": 5}
+
+    b = sum(1 for qid in expected_ids if by_arm["arm2"][qid] == "wrong" and by_arm["arm3"][qid] != "wrong")
+    c = sum(1 for qid in expected_ids if by_arm["arm2"][qid] != "wrong" and by_arm["arm3"][qid] == "wrong")
+    assert (b, c) == (6, 3)
+    p_val = mcnemar_exact(b, c)
+    assert p_val == pytest.approx(0.5078125, abs=1e-4)
+    assert f"{p_val:.3f}" == "0.508"
+
+    # Run DocAuditor CSV-backed verification + hygiene checks directly on tracked docs/EVAL-RESULTS.md (no eval/results needed)
+    auditor = DocAuditor(repo_root / "docs" / "EVAL-RESULTS.md")
+    auditor._audit_hygiene_and_forbidden_strings()
+    auditor.audit_manual_cmap_from_csv()
+    assert len(auditor.failures) == 0, f"DocAuditor CSV/hygiene failures: {auditor.failures}"
+    assert len(auditor.passes) >= 15
+
+
+def test_audit_wilson_interval_exact_boundary_cases():
+    """Verifies exact full-precision Wilson interval quantile formatting on key boundary denominators."""
+    from audit_docs_numbers import wilson_interval_exact
+
+    expected = [
+        ((6, 18), ("16.3%", "56.3%")),
+        ((14, 42), ("21.0%", "48.4%")),
+        ((0, 12), ("0.0%", "24.2%")),
+    ]
+    for (k, n), exp_pair in expected:
+        lo, hi = wilson_interval_exact(k, n)
+        assert (f"{lo * 100:.1f}%", f"{hi * 100:.1f}%") == exp_pair
+
+
+
+
 
 
 
