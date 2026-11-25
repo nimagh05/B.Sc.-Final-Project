@@ -204,17 +204,17 @@ Fast unit tests (zero Docker, zero Ollama, zero real PDFs) verifying hit rules, 
 ```
 
 ### 3.2 Documentation Number & Hygiene Auditor (`audit_docs_numbers.py`)
-`eval/audit_docs_numbers.py` runs a local row-scoped consistency and hygiene check (156 checks covering table rows, provenance metadata, forbidden phrases, and relative figure links) on `docs/EVAL-RESULTS.md`:
+`eval/audit_docs_numbers.py` runs a row-scoped consistency and hygiene check across `docs/EVAL-RESULTS.md`, computing expected metrics programmatically from `results.json` (via `stage2.simulate_threshold` and `stage2.mcnemar_exact`) and `eval/manual_audit_heldout_cmap.csv` (covering Tables 5.1, 8.1, 8.6 + Per-Document breakdown, 9.3, and 9.4 alongside Stage 1, ROC-AUC, null experiment, FRR decomposition, Regime B, and latency tables). Because frozen `stage2.wilson_score_interval` rounds bounds to 4 decimals (which can trigger round-half-even double-rounding at 1-decimal percentage display, e.g., `0.5625 -> 56.2%`), `audit_docs_numbers.py` computes full-precision Wilson bounds using `statistics.NormalDist().inv_cdf(0.975)` (`wilson_interval_exact`) before formatting.
 - **Local Consistency Check:** When raw evaluation data is present in `eval/results/`, run:
   ```powershell
   .venv\Scripts\python eval/audit_docs_numbers.py
   ```
-  This performs row-by-row cell verification across all key markdown tables (Section 1.1 provenance, Table 3.1 Stage 1 MRR, Section 5.1 FRR/FAR partitions, Table 5.5 ROC-AUC, Table 8.1 / 8.6 CMap extraction audits, Table 9.3 question-type breakdown, Table 9.4 citations, and Table 9.6 latency profiles).
-- **CI Safety:** In CI workflows where `eval/results/` is git-ignored, `pytest eval/tests/` verifies the auditor's row-scoped mismatch detection, forbidden string rules, and relative URL hygiene using synthetic fixtures without requiring large benchmark artifacts.
+  This performs section- and row-scoped cell verification directly against the underlying JSON and CSV artifacts.
+- **CI Safety:** In CI workflows where `eval/results/` is git-ignored, `pytest eval/tests/` verifies the auditor's row-scoped mismatch detection, forbidden string rules, relative URL hygiene, and the tracked CSV-backed Table 8.6 audit (`test_audit_manual_cmap_csv_reproduces_table_8_6`) without requiring large benchmark artifacts.
 
 ### 3.3 Reproducibility Archive Restoration
 To unpack and verify the official evaluation artifacts from GitHub:
-1. Download `t19-eval-data.zip` from Release tag `t19b-stage2-data` (Git SHA `e7f4924554bc733979a72ddc6c7ff998a47d64ca`, SHA-256 `e8d7e4fc92c6e7e2f3965be9ad1f0e3e325ab030f9d31bd2db667df6209f2b95`).
+1. Download `t19-eval-data.zip` from Release tag `t19b-stage2-data` (data commit `e7f4924554bc733979a72ddc6c7ff998a47d64ca`, 18 files, 975,651 bytes, built with POSIX `/` paths for Linux/macOS/Windows compatibility, SHA-256 `34b64841e785d72842f3860ea64d81eea54f26a4d1d4cc097f048f1d680b2310`).
 2. Extract the archive folders into `eval/results/` and move `collection_manifest.json` into `eval/cache/`:
    ```powershell
    Expand-Archive -Path t19-eval-data.zip -DestinationPath eval/results/ -Force

@@ -1,0 +1,55 @@
+id,arm,label,note
+q079,arm2,wrong,CMap digit corruption (57M/170M vs 75M/150M)
+q079,arm3,correct,recovered exact ceilings
+q080,arm2,wrong,CMap digit corruption (370M vs 350M)
+q080,arm3,wrong,350M ok but percentage slip (20% vs 30%)
+q081,arm2,wrong,CMap digit corruption (1yr and 444/444/94)
+q081,arm3,partial,2yr and 10M ok; hedged illegible total ceiling
+q082,arm2,correct,borderline: core facts accurate with stray refusal sentence appended
+q082,arm3,wrong,non-digit error (two vs three grants in rank)
+q083,arm2,correct,
+q083,arm3,correct,minor OCR token artifact without altering meaning
+q084,arm2,correct,
+q084,arm3,correct,
+q085,arm2,correct,
+q085,arm3,correct,
+q086,arm2,correct,borderline: core 2nd/4th docs accurate with preamble noting max not stated
+q086,arm3,correct,
+q087,arm2,refused,
+q087,arm3,refused,
+q088,arm2,correct,
+q088,arm3,refused,
+q089,arm2,correct,correct 2yr rule with corrupted clause reference
+q089,arm3,correct,
+q090,arm2,correct,
+q090,arm3,wrong,non-digit error (President vs University Presidential Board)
+q091,arm2,correct,
+q091,arm3,correct,
+q092,arm2,correct,
+q092,arm3,correct,
+q093,arm2,correct,
+q093,arm3,correct,
+q094,arm2,correct,
+q094,arm3,partial,omitted domestic 12yr sabbatical cap
+q095,arm2,correct,
+q095,arm3,correct,
+q096,arm2,wrong,CMap digit corruption (1333 and 53 vs 1000 and 20)
+q096,arm3,correct,recovered exact rank and H-index
+q097,arm2,wrong,CMap digit corruption (5yr vs 3yr)
+q097,arm3,correct,recovered exact 3yr commitment
+q098,arm2,partial,answered schedule; refused advisor requirement
+q098,arm3,partial,answered schedule; refused advisor requirement
+q099,arm2,wrong,CMap digit corruption (30% and <10yr vs 60% and <16yr)
+q099,arm3,correct,recovered exact 60% and <16yr
+q100,arm2,refused,
+q100,arm3,refused,
+q101,arm2,refused,
+q101,arm3,refused,
+q102,arm2,wrong,CMap digit corruption (8mo vs 9mo)
+q102,arm3,refused,
+q103,arm2,correct,
+q103,arm3,wrong,non-digit error (1-2 ISI articles vs joint project or 2 JCR Q1/Q2)
+q104,arm2,correct,
+q104,arm3,correct,
+q105,arm2,correct,
+q105,arm3,correct,

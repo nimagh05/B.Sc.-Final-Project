@@ -21,7 +21,7 @@ All experiments were executed on locked, audited test benches with fixed model c
 | **Report Rendering Git SHA** | `b3c9c12552e27349773fc63784f9e98cb61ff4e4` (rendered report marked `dirty: True` in Stage 1 artifact) | `506aa58708dde16154aa358bf6ce2455a834bbed` |
 | **Git Working Tree Status** | pre-schema / unrecorded; report rendered with `dirty: True` | Clean on data generation (`git_dirty: false`) & report (`git_dirty: false`) |
 | **Run Status** | pre-schema / unrecorded | `official` |
-| **Reproducibility Archive** | Git tag `t19b-stage2-data` (`e7f4924554bc733979a72ddc6c7ff998a47d64ca`), GitHub Release asset `t19-eval-data.zip` (18 files, 975,651 bytes), SHA-256: `e8d7e4fc92c6e7e2f3965be9ad1f0e3e325ab030f9d31bd2db667df6209f2b95` | Git tag `t19b-stage2-data` (`e7f4924554bc733979a72ddc6c7ff998a47d64ca`), GitHub Release asset `t19-eval-data.zip` (18 files, 975,651 bytes), SHA-256: `e8d7e4fc92c6e7e2f3965be9ad1f0e3e325ab030f9d31bd2db667df6209f2b95` |
+| **Reproducibility Archive** | Same archive `t19-eval-data.zip` (`t19a_stage1/` folder, generated at `b3c9c12`; untagged); SHA-256: `34b64841e785d72842f3860ea64d81eea54f26a4d1d4cc097f048f1d680b2310` | Git tag `t19b-stage2-data` (data commit `e7f4924`); GitHub Release asset `t19-eval-data.zip` (18 files, 975,651 bytes, includes phase checkpoints from `e7f4924` and merged `t19b_stage2/` report artifacts rendered at `506aa58`); SHA-256: `34b64841e785d72842f3860ea64d81eea54f26a4d1d4cc097f048f1d680b2310` |
 | **Dataset Tag** | `eval-dataset-v2.2` | `eval-dataset-v2.2` |
 | **Questions SHA-256 (LF)** | `71d8573ce418c278a921638cdb9005acb48aa332bc7dae45a90d63bd213da62d` | `71d8573ce418c278a921638cdb9005acb48aa332bc7dae45a90d63bd213da62d` |
 | **Embedding Model** | `BAAI/bge-m3` via Ollama (1024 dims, dense cosine) | `BAAI/bge-m3` via Ollama (1024 dims, dense cosine) |
@@ -61,16 +61,18 @@ To preserve scientific integrity and avoid selective reporting, all experimental
 | **Primary Endpoint 2** | `heldout-CMap` ($N=27$) | Stage 1 | Pre-Registered | ADR 0010 §3 & §5 | $\Delta\text{MRR}$ (Arm 3 Full System vs. Arm 2 OCR-Off), Paired Bootstrap 95% CI |
 | **Primary Endpoint 2.1** | `heldout` answerable ($N=52$) | Stage 2 | Pre-Registered | ADR 0011 §5.1 | False Rejection Rate ($\text{FRR}$) across operating points (`prod_055` vs. `calibrated_tau`), 95% Wilson CI |
 | **Primary Endpoint 2.2** | `heldout` not-in-docs ($N=12$) | Stage 2 | Pre-Registered | ADR 0011 §5.1 | False Acceptance Rate ($\text{FAR}$) across operating points (`prod_055` vs. `calibrated_tau`), 95% Wilson CI |
-| **Secondary Endpoint (Granular Extraction)** | `heldout-CMap` ($N=27$) | Stage 2 | Pre-Registered | ADR 0011 §5.2 | Multi-digit Number Recall & Unit Phrase Recall under `ungated`, Descriptive & McNemar |
+| **Secondary Endpoint (Granular Extraction)** | `heldout-CMap` ($N=27$) | Stage 2 | Pre-Registered (post-Stage 1, pre-Stage 2) | ADR 0010 §7.1 & ADR 0011 §5.2 | Multi-digit Number Recall & Unit Phrase Recall under `ungated`, Descriptive & McNemar |
 | **Regime B Scanned Twin Benchmark** | `bein-almelali-scan.pdf` ($N=8$) | Stages 1 & 2 | Pre-Registered | ADR 0010 §2.2 & ADR 0011 §2.2 | MRR & Answer Rate across OCR modes vs. Digital Reference |
-| **Pure OCR Extractor Latency** | 37 sample pages | Stage 1 | Pre-Registered | ADR 0009 §5 | Wall-clock seconds per page across CMap & Scanned documents |
+| **Pure OCR Extractor Latency** | 37 sample pages | Stage 1 | Planned measurement | ADR 0009 §5 | Wall-clock seconds per page across CMap & Scanned documents |
 | **Vector-Component ROC-AUC** | Overall ($N=138$) & Heldout ($N=64$) | Stage 2 | Post-Hoc / Diagnostic | Section 5 of this report | ROC-AUC of `bestVectorScore` with Hanley-McNeil & bootstrap CIs |
 | **FTS-Bypass Counterfactual Analysis** | `heldout` answerable ($N=52$) | Stage 2 | Post-Hoc / Diagnostic | Section 6 of this report | $\text{FRR}_{\text{LowSimilarity}}$ with vs. without Full-Text Search rescue |
 | **Untouched Document Noise Floor** | Clean subset ($N=76$) | Stage 2 | Post-Hoc / Diagnostic | Section 7 of this report | Paired answer identity between Arm 2 and Arm 3 under identical context |
 | **54-Judgment Manual Correctness Audit** | `heldout-CMap` ($N=27 \times 2$ arms, `ungated`) | Stage 2 | Post-Hoc / Diagnostic | Section 8.6 of this report | 4-label rubric (Correct, Partial, Wrong, Refused), Descriptive & McNemar |
 | **Answerable FRR Decomposition** | Overall answerable ($N=112$) | Stage 2 | Post-Hoc / Diagnostic | Section 9 of this report | Rejection attribution (`LowSimilarity` vs. `RetMiss` vs. `Gold-in-top-6`) |
 | **Persian Number-Word Sensitivity** | `heldout-CMap` ($N=27$) | Stage 2 | Post-Hoc / Diagnostic | Section 8 of this report | Impact of spelled-out Persian numbers on unit extraction |
-| **Citation Precision & Page-Hit Audit** | Answered queries ($N=97\text{--}100$) | Stage 2 | Pre-Registered | ADR 0011 §7 | Citation Validity, Page-Hit Rate, Precision, and Recall |
+| **Citation Precision & Page-Hit Audit** | Answered queries ($N=97\text{--}100$) | Stage 2 | Pre-specified metric definitions | ADR 0011 §7 | Citation Validity, Page-Hit Rate, Precision, and Recall |
+
+*(Note: `Secondary Endpoint (Granular Extraction)` was registered in the 2026-11-21 Post-Stage 1 amendment after observing Stage 1 results and before Stage 2 execution. `Pure OCR Extractor Latency` was a planned measurement recorded in T19 rather than a hypothesis test, and `Citation Precision & Page-Hit Audit` uses pre-specified metric definitions from ADR 0011 §7 without a formal hypothesis.)*
 
 ---
 
@@ -189,7 +191,7 @@ Stage 2 evaluated end-to-end question answering across three operating points:
 | **Arm 1 (Vector)** | `calibrated_tau` ($\tau^*=0.70$) | 61.9% [46.8%, 75.0%] | 61.9% | 0.0% | 0.0% [0.0%, 35.4%] |
 | **Arm 2 (Hybrid)** | `ungated` | 9.5% [3.8%, 22.1%] | 0.0% | 9.5% | 0.0% [0.0%, 35.4%] |
 | **Arm 2 (Hybrid)** | `prod_055` | 9.5% [3.8%, 22.1%] | 0.0% | 9.5% | 0.0% [0.0%, 35.4%] |
-| **Arm 2 (Hybrid)** | `calibrated_tau` ($\tau^*=0.75$) | 33.3% [21.0%, 48.5%] | 28.6% | 4.8% | 0.0% [0.0%, 35.4%] |
+| **Arm 2 (Hybrid)** | `calibrated_tau` ($\tau^*=0.75$) | 33.3% [21.0%, 48.4%] | 28.6% | 4.8% | 0.0% [0.0%, 35.4%] |
 | **Arm 3 (Full System)** | `ungated` | 11.9% [5.2%, 25.0%] | 0.0% | 11.9% | 0.0% [0.0%, 35.4%] |
 | **Arm 3 (Full System)** | `prod_055` | 11.9% [5.2%, 25.0%] | 0.0% | 11.9% | 0.0% [0.0%, 35.4%] |
 | **Arm 3 (Full System)** | `calibrated_tau` ($\tau^*=0.75$) | 35.7% [23.0%, 50.8%] | 28.6% | 7.1% | 0.0% [0.0%, 35.4%] |
@@ -333,9 +335,9 @@ Evaluating Persian spelled-out number words:
 
 ### 8.6 54-Judgment Manual Correctness Audit on `heldout-CMap` (Post-Hoc)
 
-To assess factual truthfulness beyond regex string matching, a manual judgment audit was conducted across all 27 answerable questions on `heldout-CMap` under `ungated` execution for Arm 2 and Arm 3 ($N = 27 \times 2 = 54$ judgments). Responses were classified under a mutually exclusive 4-label rubric:
-1. **Correct:** The generated response is completely accurate and answers the query according to ground-truth document facts.
-2. **Partial (no error):** The response provides accurate partial information (e.g. covers partial eligibility clauses) without asserting factual or numeric errors.
+To assess factual truthfulness beyond regex string matching, a manual judgment audit was conducted across all 27 answerable questions on `heldout-CMap` under `ungated` execution for Arm 2 and Arm 3 ($N = 27 \times 2 = 54$ judgments). All judgments come from **single-rater, unblinded, author-reviewed judgments (LLM-assisted)** and are persisted in [`eval/manual_audit_heldout_cmap.csv`](../eval/manual_audit_heldout_cmap.csv). Responses were classified under a mutually exclusive 4-label rubric:
+1. **Correct:** The generated response is completely accurate and answers the query according to ground-truth document facts (borderline rulings: `q082` Arm 2 scored `correct` with a stray refusal sentence noted; `q086` Arm 2 scored `correct` because core 2nd/4th document rules were accurate with a preamble noting the maximum was not stated).
+2. **Partial (no error):** The response provides accurate partial information without asserting factual or numeric errors (borderline rulings: `q081` Arm 3 and `q098` in both arms).
 3. **Wrong (factual/numeric error):** The response asserts factually incorrect information or corrupted numerals.
 4. **Refused:** The model explicitly refused to answer (e.g. stating that the document does not contain the answer).
 
@@ -347,16 +349,24 @@ To assess factual truthfulness beyond regex string matching, a manual judgment a
 | **Refused** | **3 / 27 (11.1%)** | **5 / 27 (18.5%)** | **+7.4 pp** | Arm 2: `q087, q100, q101`; Arm 3: `q087, q088, q100, q101, q102` |
 | **CMap Digit-Corruption Subset** | **7 / 27 (25.9%)** | **1 / 27 (3.7%)** | **-22.2 pp** | Arm 2: 7/7 corrupted numerals (`q079, q080, q081, q096, q097, q099, q102`); Arm 3: 1 slip (`q080` 20% vs 30%) |
 
+#### Per-Document Breakdown (`heldout-CMap`, Descriptive Only with $G=2$)
+
+| Document | Arm 2 (Correct / Partial / Wrong / Refused) | Arm 3 (Correct / Partial / Wrong / Refused) | Observation |
+|---|---|---|---|
+| `forsat-motaleati.pdf` ($N=12$) | 5 / 1 / 4 / 2 | 6 / 2 / 1 / 3 | Selective OCR reduced errors (`4 -> 1`) and increased correct answers (`5 -> 6`) |
+| `tarh-dakheli.pdf` ($N=15$) | 11 / 0 / 3 / 1 | 9 / 1 / 3 / 2 | Neutral/weaker overall (`11 -> 9` correct; 2 new non-digit errors, 1 new refusal, 1 partial) |
+
 #### Qualitative Error Attribution
 - **Arm 2 Font Corruption Failures:** In Arm 2 (OCR Off), all 7 wrong responses (`q079, q080, q081, q096, q097, q099, q102`) were caused directly by broken CMap/ToUnicode mappings in the ingested text. In every case, the model presented corrupted numbers (e.g. inverted digits or mismatched ASCII values) with high confidence.
-- **Arm 3 Selective OCR Recovery:** Selective OCR eliminated 6 of the 7 corrupted numeral errors:
+- **Arm 3 Outcome on the 7 CMap Digit-Corruption Errors:** On the 7 CMap digit-corruption errors in Arm 2, Arm 3 yielded **4 fully corrected answers (`q079, q096, q097, q099`), 2 converted to partial/refusal (`q081` partial, `q102` refused — abstention is not a correct answer), and 1 numeric error remaining (`q080`)**:
   - `q079`, `q096`, `q097`, and `q099` (4 items) were converted from wrong numbers in Arm 2 into fully correct answers in Arm 3.
-  - On `q080`, the monetary ceiling (`350,000,000` Rials) was recovered correctly, with an OCR/generation slip on the accompanying percentage (`20%` vs. `30%`).
-  - On `q081`, Arm 3 provided a partial answer (correct 2-year window and `10,000,000`-Rial personnel cap) while transparently noting the total ceiling was illegible.
-  - On `q102`, Arm 3 refused rather than asserting a corrupted deadline digit (`8` vs. `9` months in Arm 2).
-- **Non-Digit Errors & Regressions in Arm 3:** The remaining 3 wrong answers in Arm 3 (`q082, q090, q103`) were non-digit errors: `q082` (`tarh-dakheli.pdf`) stated "two" instead of "three" maximum grants during Assistant Professor rank (spelled-out numeral error); `q090` attributed profit-share approval to the "University President" instead of the "University Board of Directors" (`هیأت رئیسه`); and `q103` stated "one or two ISI articles" instead of "a joint project or 2 JCR Q1/Q2 articles". Arm 3 also added 1 refusal (`q088`) and 1 partial omission (`q094`, omitting the domestic sabbatical cap).
-- **Minor Artifacts & `kw_hit` Caveat:** In Arm 2, `q082` appended a stray refusal sentence after stating the correct facts and `q089` had a corrupted clause reference while stating the correct 2-year rule; in Arm 3, `q083` contained a minor OCR token artifact without altering meaning. Crucially, while `kw_hit` can produce false positives on numeric questions (observed on `tuned` CMap items `q014` and `q022`), on `heldout-CMap` itself the Arm 3 vs. Arm 2 contrast reflects a genuine trade-off between eliminating 6/7 CMap digit corruptions and introducing non-digit OCR/retrieval errors.
-- **Statistical Assessment:** Paired comparison yields 6 questions wrong only in Arm 2 vs. 3 wrong only in Arm 3 (exact two-sided McNemar $p = 0.508$). Consequently, while the reduction in numeral hallucination is prominent (7 down to 1), overall correctness differences remain descriptive on this sample size.
+  - On `q080`, the monetary ceiling (`350,000,000` Rials) was recovered correctly, with a percentage slip remaining (`20%` vs. `30%`).
+  - On `q081`, Arm 3 yielded a `partial` answer (correct 2-year window and `10,000,000`-Rial personnel cap) while hedging that the total ceiling was illegible.
+  - On `q102`, Arm 3 `refused` rather than asserting a corrupted deadline digit (`8` vs. `9` months in Arm 2).
+- **Non-Digit Errors & Regressions in Arm 3 (Failure Causes Are Hypotheses, Not Verified by Ablation):** The remaining 3 wrong answers in Arm 3 (`q082, q090, q103`) were non-digit errors: `q082` (`tarh-dakheli.pdf`) stated "two" instead of "three" maximum grants in Assistant Professor rank; `q090` attributed profit-share approval to the "University President" instead of the "University Presidential Board" (`هیأت رئیسه`); and `q103` stated "1–2 ISI articles" instead of "a joint project or 2 JCR Q1/Q2 articles". Arm 3 also added 1 refusal (`q088`) and 1 partial omission (`q094`, omitting the domestic 12-year sabbatical cap). **Hypotheses (not verified by ablation):** these regressions are hypothesized to arise from Tesseract character/ligature artifacts on prose tokens and OCR text-flow changes shifting chunk boundaries (`tarh-dakheli.pdf` Stage 1 MRR shifted from `0.8833` in Arm 2 to `0.7856` in Arm 3).
+- **Document-Wide OCR Propagation Hypothesis:** Per ADR 0009 §2, when any page exhibits CMap corruption, OCR is propagated to all Persian pages in the document, replacing clean text-layer regions with Tesseract output (consistent with the `aein-91.pdf` `OcrMode=Always` regression documented in ADR 0009 §5).
+- **Minor Artifacts & `kw_hit` Caveat:** In Arm 2, `q082` appended a stray refusal sentence after stating the correct facts and `q089` had a corrupted clause reference while stating the correct 2-year rule; in Arm 3, `q083` contained a minor OCR token artifact without altering meaning. Crucially, while `kw_hit` can produce false positives on numeric questions (observed on `tuned` CMap items `q014` and `q022`), on `heldout-CMap` itself the Arm 3 vs. Arm 2 contrast reflects a genuine trade-off between reducing CMap digit-corruption errors (`7 -> 1`, via 4 full recoveries and 2 partial/refusal conversions) and introducing non-digit regressions.
+- **Statistical Assessment & McNemar Borderline Invariance:** Paired comparison on `wrong` judgments yields `b = 6` questions wrong only in Arm 2 vs. `c = 3` wrong only in Arm 3 (exact two-sided McNemar $p = 0.508$). Because the paired McNemar test is computed strictly on the binary `wrong` vs. non-`wrong` (`correct`/`partial`/`refused`) indicator, reclassifying any of the four borderline non-`wrong` rulings (`q082`, `q086`, `q081`, `q098`) leaves the discordant counts ($b=6, c=3$) and exact p-value ($p=0.5078$, rounded to `0.508`) unchanged. Consequently, while the reduction in CMap numeral errors is notable (7 down to 1), overall correctness differences remain descriptive on this sample size.
 
 ---
 
@@ -463,3 +473,8 @@ During live execution:
 
 1. **Configurable RRF Fusion Weights (ADR 0012):** Currently, Reciprocal Rank Fusion uses fixed equal weights ($w_{\text{vec}} = 1.0, w_{\text{fts}} = 1.0, k = 60$). Parameterizing weights via configuration (`Rag:RrfVectorWeight`, `Rag:RrfFtsWeight`) and re-tuning to favor dense vector ranking ($w_{\text{vec}} \approx 0.7, w_{\text{fts}} \approx 0.3$) warrants retrieval-only Stage 1 re-evaluation to test whether dense-weighted fusion mitigates the Stage 1 ranking drop while preserving FTS keyword matching for explicit regulation codes and article numbers.
 2. **Client-Side HTTP Resilience for LLM Calls:** Upstream Gemini API calls via OpenAI-compatible endpoints experienced a ~3.8% transient failure rate on initial attempts during live benchmarking (recovering on second attempt). Incorporating a standard resilience pipeline (`Microsoft.Extensions.Http.Resilience` or Polly with exponential backoff and jitter) directly into `RagService.cs` will prevent user-facing degraded responses.
+3. **Targeted Digit/Ligature Repair or Page-Level Quality-Gated OCR (Hypothesis):** Instead of replacing entire Persian documents when CMap corruption is detected (ADR 0009 §2), explore page-level quality gating or targeted numeric/ligature token repair from OCR while retaining clean text-layer prose.
+
+### 11.2 Methodological Limitations
+
+- **Unblinded Rater Bias in Manual Correctness Audit (§8.6):** The 54-judgment manual audit (§8.6) was single-rater, unblinded, and LLM-assisted, introducing potential confirmation bias despite the explicit 4-label rubric and binary-`wrong` McNemar invariance ($b=6, c=3, p=0.5078$).
