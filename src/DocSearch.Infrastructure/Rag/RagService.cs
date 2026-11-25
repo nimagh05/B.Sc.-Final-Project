@@ -1,5 +1,6 @@
 using System.ClientModel;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using DocSearch.Application.Abstractions;
@@ -195,7 +196,7 @@ public sealed partial class RagService : IRagService
             {
                 throw;
             }
-            catch (Exception ex) when (!ct.IsCancellationRequested && IsDegradedException(ex))
+            catch (Exception ex) when (!ct.IsCancellationRequested && IsDegradedException(ex, ct))
             {
                 if (attempt == 1 && !linkedCts.IsCancellationRequested)
                 {
@@ -309,12 +310,53 @@ public sealed partial class RagService : IRagService
 
     private readonly record struct AskTimings(long EmbedRetrieveMs, long LlmMs);
 
-    private static bool IsDegradedException(Exception ex)
+    internal static bool IsDegradedException(Exception ex, CancellationToken callerCt)
     {
-        return ex is HttpRequestException
-            or TimeoutException
-            or OperationCanceledException
-            or ClientResultException;
+        ArgumentNullException.ThrowIfNull(ex);
+
+        if (callerCt.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        var visited = new HashSet<Exception>(ReferenceEqualityComparer.Instance);
+        var stack = new Stack<Exception>();
+        stack.Push(ex);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            if (!visited.Add(current))
+            {
+                continue;
+            }
+
+            if (current is HttpRequestException
+                or TimeoutException
+                or OperationCanceledException
+                or ClientResultException
+                or SocketException)
+            {
+                return true;
+            }
+
+            if (current is AggregateException aggEx)
+            {
+                foreach (var inner in aggEx.Flatten().InnerExceptions)
+                {
+                    stack.Push(inner);
+                }
+
+                continue;
+            }
+
+            if (current.InnerException is not null)
+            {
+                stack.Push(current.InnerException);
+            }
+        }
+
+        return false;
     }
 
     [GeneratedRegex(@"\[(.*?)\]", RegexOptions.CultureInvariant)]

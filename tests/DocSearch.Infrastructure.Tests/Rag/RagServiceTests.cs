@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.Net.Sockets;
 using DocSearch.Application.Abstractions;
 using DocSearch.Application.Chunking;
 using DocSearch.Application.Options;
@@ -895,6 +896,209 @@ public sealed class RagServiceTests(PostgresFixture fixture)
         Assert.Single(result.Sources);
         // Score in SourceCitation MUST reflect VectorScore (0.795), not RRF FusedScore (0.032)
         Assert.Equal(0.795, result.Sources[0].Score);
+    }
+}
+
+public sealed class RagServiceDegradedModeUnitTests
+{
+    private readonly IOptions<RagOptions> _ragOptions = Microsoft.Extensions.Options.Options.Create(new RagOptions
+    {
+        TopK = 5,
+        CandidateK = 10,
+        MinSimilarity = 0.55,
+        MaxContextTokens = 4000,
+        PromptVersion = "v1",
+        ReturnSourcesWhenNotFound = false
+    });
+
+    private readonly IOptions<AiOptions> _aiOptions = Microsoft.Extensions.Options.Options.Create(new AiOptions
+    {
+        Chat = new AiChatOptions
+        {
+            TimeoutSeconds = 60,
+            Temperature = 0.1,
+            MaxOutputTokens = 800
+        }
+    });
+
+    private RagService CreateService(AppDbContext db, IChatClient chatClient, Guid collectionId)
+    {
+        var chunk = new ScoredChunk(
+            ChunkId: Guid.NewGuid(),
+            DocumentId: Guid.NewGuid(),
+            FileName: "rules.pdf",
+            PageStart: 5,
+            PageEnd: 5,
+            SectionTitle: "ماده ۵",
+            Text: "شرایط انصراف از تحصیل",
+            VectorScore: 0.82,
+            FtsScore: null,
+            FusedScore: 0.82);
+
+        var chunkingOpts = Microsoft.Extensions.Options.Options.Create(new ChunkingOptions());
+
+        return new RagService(
+            new StubAccessService([collectionId]),
+            new StubRetriever(new RetrievalResult([chunk], BestVectorScore: 0.82, HasFtsHit: false)),
+            new PromptBuilder(new HeuristicTokenCounter(chunkingOpts)),
+            new CitationParser(),
+            chatClient,
+            db,
+            _ragOptions,
+            _aiOptions,
+            new PersianTextNormalizer(),
+            NullLogger<RagService>.Instance);
+    }
+
+    private static AppDbContext CreateDetachedDbContext()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>().Options;
+        return new AppDbContext(options);
+    }
+
+    [Fact]
+    public async Task AskAsync_AggregateExceptionWrappingHttpRequestException_ReturnsDegradedWithSources()
+    {
+        // Arrange: simulates OpenAI SDK ClientRetryPolicy wrapping a DNS resolution failure
+        await using var db = CreateDetachedDbContext();
+        var collectionId = Guid.NewGuid();
+        var dnsFailure = new HttpRequestException(
+            "Name or service not known (generativelanguage.googleapis.com:443)",
+            new SocketException((int)SocketError.HostNotFound));
+        var retryAggregate = new AggregateException("Retry failed after 4 tries.", dnsFailure);
+        var service = CreateService(db, new ThrowingChatClient(retryAggregate), collectionId);
+        var request = new AskRequest("user1", "شرایط انصراف چیست؟", [collectionId], ConversationId: null, TopK: 5);
+
+        // Act
+        var result = await service.AskAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.Degraded);
+        Assert.False(result.NotFound);
+        Assert.Null(result.Answer);
+        Assert.Single(result.Sources);
+        Assert.Equal("rules.pdf", result.Sources[0].FileName);
+    }
+
+    [Fact]
+    public async Task AskAsync_AggregateExceptionWrappingClientResultException_ReturnsDegradedWithSources()
+    {
+        // Arrange
+        await using var db = CreateDetachedDbContext();
+        var collectionId = Guid.NewGuid();
+        var retryAggregate = new AggregateException(
+            "Retry failed after 4 tries.",
+            new ClientResultException("Service unavailable", null));
+        var service = CreateService(db, new ThrowingChatClient(retryAggregate), collectionId);
+        var request = new AskRequest("user1", "شرایط انصراف چیست؟", [collectionId], ConversationId: null, TopK: 5);
+
+        // Act
+        var result = await service.AskAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.Degraded);
+        Assert.False(result.NotFound);
+        Assert.Null(result.Answer);
+        Assert.Single(result.Sources);
+    }
+
+    [Fact]
+    public async Task AskAsync_AggregateExceptionWrappingTimeoutException_ReturnsDegradedWithSources()
+    {
+        // Arrange
+        await using var db = CreateDetachedDbContext();
+        var collectionId = Guid.NewGuid();
+        var retryAggregate = new AggregateException(
+            "Retry failed after 4 tries.",
+            new TimeoutException("Request timed out"));
+        var service = CreateService(db, new ThrowingChatClient(retryAggregate), collectionId);
+        var request = new AskRequest("user1", "شرایط انصراف چیست؟", [collectionId], ConversationId: null, TopK: 5);
+
+        // Act
+        var result = await service.AskAsync(request, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.Degraded);
+        Assert.False(result.NotFound);
+        Assert.Null(result.Answer);
+        Assert.Single(result.Sources);
+    }
+
+    [Fact]
+    public async Task AskAsync_CallerCancelledWrappedOperationCanceledException_Rethrows()
+    {
+        // Arrange
+        await using var db = CreateDetachedDbContext();
+        var collectionId = Guid.NewGuid();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var wrappedCancel = new AggregateException(new OperationCanceledException(cts.Token));
+        var service = CreateService(db, new ThrowingChatClient(wrappedCancel), collectionId);
+        var request = new AskRequest("user1", "شرایط انصراف چیست؟", [collectionId], ConversationId: null, TopK: 5);
+
+        // Act & Assert
+        var thrown = await Assert.ThrowsAsync<AggregateException>(() => service.AskAsync(request, cts.Token));
+        Assert.IsType<OperationCanceledException>(thrown.InnerException);
+    }
+
+    [Fact]
+    public async Task AskAsync_CallerCancelledOperationCanceledException_Rethrows()
+    {
+        // Arrange
+        await using var db = CreateDetachedDbContext();
+        var collectionId = Guid.NewGuid();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var service = CreateService(db, new ThrowingChatClient(new OperationCanceledException(cts.Token)), collectionId);
+        var request = new AskRequest("user1", "شرایط انصراف چیست؟", [collectionId], ConversationId: null, TopK: 5);
+
+        // Act & Assert
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AskAsync(request, cts.Token));
+    }
+
+    [Fact]
+    public void IsDegradedException_NestedAggregateAndInnerExceptionChains_ReturnsTrue()
+    {
+        var nestedAggregate = new AggregateException(
+            new InvalidOperationException("unrelated"),
+            new AggregateException(new SocketException((int)SocketError.HostNotFound)));
+
+        var innerChain = new InvalidOperationException(
+            "wrapper",
+            new AggregateException(new TaskCanceledException("internal timeout")));
+
+        var httpInner = new InvalidOperationException(
+            "wrapper",
+            new HttpRequestException("connection reset"));
+
+        Assert.True(RagService.IsDegradedException(nestedAggregate, CancellationToken.None));
+        Assert.True(RagService.IsDegradedException(innerChain, CancellationToken.None));
+        Assert.True(RagService.IsDegradedException(httpInner, CancellationToken.None));
+    }
+
+    [Fact]
+    public void IsDegradedException_CallerCancelled_ReturnsFalseEvenWhenWrapped()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var wrappedCancel = new AggregateException(new OperationCanceledException(cts.Token));
+        var wrappedNetwork = new AggregateException(new HttpRequestException("dns failure"));
+
+        Assert.False(RagService.IsDegradedException(wrappedCancel, cts.Token));
+        Assert.False(RagService.IsDegradedException(wrappedNetwork, cts.Token));
+    }
+
+    [Fact]
+    public void IsDegradedException_UnrelatedException_ReturnsFalse()
+    {
+        var unrelated = new AggregateException(
+            new InvalidOperationException("bad state"),
+            new ArgumentException("bad arg"));
+
+        Assert.False(RagService.IsDegradedException(unrelated, CancellationToken.None));
     }
 }
 
