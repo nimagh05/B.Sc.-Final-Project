@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>پرتال آزمایشی وبسایت دانشگاه | DocSearch Widget Demo</title>
+    <style>
+      /* Intentional conflicting host CSS rules to prove Shadow DOM isolation */
+      * {
+        font-family: Georgia, 'Times New Roman', serif;
+      }
+
+      body {
+        margin: 0;
+        background: #f3efe6;
+        color: #4c1d24;
+        line-height: 1.7;
+      }
+
+      p {
+        color: #9d174d;
+        font-size: 16px;
+      }
+
+      button {
+        background: #be123c;
+        color: #fef08a;
+        border: 2px dashed #1f2937;
+        border-radius: 999px;
+        padding: 8px 18px;
+        cursor: pointer;
+        font-weight: 700;
+      }
+
+      button:hover {
+        background: #9f1239;
+      }
+
+      input,
+      textarea {
+        background: #fef9c3;
+        border: 2px solid #b45309;
+        color: #7c2d12;
+        border-radius: 8px;
+        padding: 8px 10px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .portal-header {
+        background: #4c1d24;
+        color: #fef3c7;
+        padding: 16px 24px;
+        border-bottom: 4px solid #b45309;
+      }
+
+      .portal-header h1 {
+        margin: 0 0 4px;
+        font-size: 1.35rem;
+      }
+
+      .portal-header p {
+        margin: 0;
+        color: #fde68a;
+        font-size: 0.9rem;
+      }
+
+      .portal-main {
+        max-width: 1120px;
+        margin: 24px auto;
+        padding: 0 16px 40px;
+        display: grid;
+        grid-template-columns: 340px minmax(0, 1fr);
+        gap: 20px;
+        align-items: start;
+      }
+
+      @media (max-width: 900px) {
+        .portal-main {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .host-panel {
+        background: #fffbeb;
+        border: 2px solid #d97706;
+        border-radius: 12px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .host-panel h2 {
+        margin: 0;
+        font-size: 1.05rem;
+        color: #78350f;
+      }
+
+      .host-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.85rem;
+      }
+
+      .host-field label {
+        font-weight: 700;
+      }
+
+      .host-status {
+        margin: 0;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        color: #78350f;
+        font-size: 0.82rem;
+      }
+
+      .host-divider {
+        border: 0;
+        border-top: 1px dashed #d97706;
+        margin: 4px 0;
+        width: 100%;
+      }
+
+      .widget-stage {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .stage-banner {
+        background: #ffffff;
+        border: 1px solid #d6d3d1;
+        border-radius: 10px;
+        padding: 12px 16px;
+      }
+
+      .stage-banner h2 {
+        margin: 0 0 4px;
+        font-size: 1.05rem;
+        color: #1f2937;
+      }
+
+      .ltr-input {
+        direction: ltr;
+        text-align: left;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="portal-header">
+      <h1>پرتال آزمایشی وبسایت دانشگاه</h1>
+      <p>
+        صفحه میزبان با استایل‌های متعارض (Georgia، دکمه‌های زرشکی، کادرهای زرد) برای نمایش ایزوله‌سازی
+        <bdi dir="ltr">Shadow DOM</bdi> و تست فراخوانی <bdi dir="ltr">Cross-Origin CORS</bdi>
+      </p>
+    </header>
+
+    <main class="portal-main">
+      <section class="host-panel" aria-label="تنظیمات آزمایشی صفحه میزبان">
+        <h2>پنل پیکربندی میزبان (صرفاً در حافظه)</h2>
+        <p>این بخش بخشی از سایت میزبان است و از توکن داخل حافظه (<bdi dir="ltr">el.token</bdi>) استفاده می‌کند.</p>
+
+        <div class="host-field">
+          <label for="cfg-api-url">نشانی سرویس (<bdi dir="ltr">api-url</bdi>)</label>
+          <input id="cfg-api-url" class="ltr-input" type="url" value="http://localhost:5000" />
+        </div>
+
+        <div class="host-field">
+          <label for="cfg-collections">شناسه‌های مجموعه (<bdi dir="ltr">collection-ids</bdi>)</label>
+          <input
+            id="cfg-collections"
+            class="ltr-input"
+            type="text"
+            placeholder="0196f8c0-0000-7000-8000-000000000001"
+          />
+        </div>
+
+        <div class="host-field">
+          <label for="cfg-title">عنوان ویجت (<bdi dir="ltr">widget-title</bdi>)</label>
+          <input id="cfg-title" type="text" value="پرسش از آیین‌نامه‌های دانشگاه" />
+        </div>
+
+        <div class="host-field">
+          <label for="cfg-font-url">نشانی فونت اختیاری (<bdi dir="ltr">font-base-url</bdi>)</label>
+          <input
+            id="cfg-font-url"
+            class="ltr-input"
+            type="url"
+            placeholder="http://localhost:8088/public/fonts"
+          />
+        </div>
+
+        <div class="host-field">
+          <label for="cfg-token">تزریق مستقیم <bdi dir="ltr">JWT</bdi> به <bdi dir="ltr">el.token</bdi></label>
+          <textarea
+            id="cfg-token"
+            class="ltr-input"
+            rows="2"
+            placeholder="eyJhbGciOiJIUzI1NiIs..."
+          ></textarea>
+        </div>
+
+        <button id="apply-config-btn" type="button">اعمال تنظیمات روی ویجت</button>
+
+        <hr class="host-divider" />
+
+        <h2>ورود آزمایشی برای دریافت توکن و مجموعه‌ها</h2>
+        <div class="host-field">
+          <label for="login-email">ایمیل حساب آزمایشی</label>
+          <input id="login-email" class="ltr-input" type="email" placeholder="user@university.ac.ir" />
+        </div>
+        <div class="host-field">
+          <label for="login-password">رمز عبور</label>
+          <input id="login-password" class="ltr-input" type="password" placeholder="••••••••••" />
+        </div>
+        <button id="demo-login-btn" type="button">دریافت توکن و اعمال خودکار</button>
+
+        <p id="host-status" class="host-status" role="status">
+          ابتدا شناسه مجموعه و توکن را وارد یا دریافت کنید.
+        </p>
+      </section>
+
+      <section class="widget-stage">
+        <div class="stage-banner">
+          <h2>ناحیه تعبیه ویجت (<bdi dir="ltr">&lt;docsearch-widget&gt;</bdi>)</h2>
+          <p>
+            با وجود قواعد تهاجمی میزبان روی <code>button</code> و <code>*</code>، ویجت زیر ظاهر رسمی
+            و راست‌به‌چپ خود را حفظ می‌کند.
+          </p>
+        </div>
+
+        <docsearch-widget
+          id="demo-widget"
+          api-url="http://localhost:5000"
+          widget-title="پرسش از آیین‌نامه‌های دانشگاه"
+          placeholder="پرسش خود را درباره مفاد آیین‌نامه‌ها بنویسید..."
+        ></docsearch-widget>
+      </section>
+    </main>
+
+    <script src="./dist-widget/docsearch-widget.js"></script>
+    <script>
+      (function () {
+        const widget = document.getElementById('demo-widget');
+        const apiInput = document.getElementById('cfg-api-url');
+        const collectionsInput = document.getElementById('cfg-collections');
+        const titleInput = document.getElementById('cfg-title');
+        const fontUrlInput = document.getElementById('cfg-font-url');
+        const tokenInput = document.getElementById('cfg-token');
+        const applyBtn = document.getElementById('apply-config-btn');
+        const emailInput = document.getElementById('login-email');
+        const passwordInput = document.getElementById('login-password');
+        const loginBtn = document.getElementById('demo-login-btn');
+        const statusEl = document.getElementById('host-status');
+
+        if (!customElements.get('docsearch-widget')) {
+          statusEl.textContent =
+            'فایل dist-widget/docsearch-widget.js بارگذاری نشد. ابتدا دستور npm run build:widget را اجرا کنید.';
+          return;
+        }
+
+        function applyConfig() {
+          widget.apiUrl = apiInput.value.trim();
+          widget.collectionIds = collectionsInput.value.trim();
+          widget.widgetTitle = titleInput.value.trim();
+          widget.fontBaseUrl = fontUrlInput.value.trim();
+          widget.token = tokenInput.value.trim();
+          statusEl.textContent = 'تنظیمات و توکن با موفقیت روی نمونه ویجت اعمال شدند (ذخیره صرفاً در حافظه).';
+        }
+
+        applyBtn.addEventListener('click', applyConfig);
+
+        loginBtn.addEventListener('click', async function () {
+          const base = apiInput.value.trim().replace(/\/+$/, '');
+          const email = emailInput.value.trim();
+          const password = passwordInput.value;
+          if (!base || !email || !password) {
+            statusEl.textContent = 'نشانی سرویس، ایمیل و رمز عبور را وارد کنید.';
+            return;
+          }
+
+          statusEl.textContent = 'در حال احراز هویت با API...';
+          try {
+            const loginRes = await fetch(base + '/api/v1/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ email: email, password: password }),
+            });
+            if (!loginRes.ok) {
+              statusEl.textContent = 'ورود ناموفق بود (کد HTTP ' + loginRes.status + ').';
+              return;
+            }
+            const authData = await loginRes.json();
+            const jwt = authData && authData.accessToken ? String(authData.accessToken) : '';
+            tokenInput.value = jwt;
+
+            if (!collectionsInput.value.trim() && jwt) {
+              const colRes = await fetch(base + '/api/v1/collections?page=1&pageSize=5', {
+                headers: { Authorization: 'Bearer ' + jwt, Accept: 'application/json' },
+              });
+              if (colRes.ok) {
+                const colPage = await colRes.json();
+                if (colPage && Array.isArray(colPage.items) && colPage.items.length > 0) {
+                  collectionsInput.value = colPage.items[0].id;
+                }
+              }
+            }
+
+            applyConfig();
+          } catch (_err) {
+            statusEl.textContent =
+              'خطای شبکه یا CORS هنگام ارتباط با API. بررسی کنید Cors__AllowedOrigins این مبدأ را مجاز کرده باشد.';
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
