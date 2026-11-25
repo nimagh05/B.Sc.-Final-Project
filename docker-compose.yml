@@ -40,14 +40,18 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      extractor:
+        condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ConnectionStrings__Default: Host=db;Port=5432;Database=${POSTGRES_DB:-docsearch};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}
       Extraction__ExtractorBaseUrl: http://extractor:8000
+      Extraction__OcrMode: ${Extraction__OcrMode:-Defective}
       Storage__RootPath: /data/files
       Jwt__SigningKey: ${Jwt__SigningKey}
       Auth__BootstrapAdmin__Email: ${Auth__BootstrapAdmin__Email:-}
       Auth__BootstrapAdmin__Password: ${Auth__BootstrapAdmin__Password:-}
+      Cors__AllowedOrigins__0: ${Cors__AllowedOrigins__0:-http://localhost:5173}
       Ai__Embedding__Provider: ${Ai__Embedding__Provider:-Ollama}
       Ai__Embedding__Model: ${Ai__Embedding__Model:-bge-m3}
       Ai__Embedding__Endpoint: ${Ai__Embedding__Endpoint:-http://host.docker.internal:11434}
@@ -55,6 +59,7 @@ services:
       Ai__Chat__Endpoint: ${Ai__Chat__Endpoint:-}
       Ai__Chat__Model: ${Ai__Chat__Model:-}
       Ai__Chat__ApiKey: ${Ai__Chat__ApiKey:-}
+      Rag__MinSimilarity: ${Rag__MinSimilarity:-0.55}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -67,6 +72,9 @@ services:
     build: ./web
     container_name: ${COMPOSE_PROJECT_NAME:-docsearch}_web
     restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
     ports:
       - "${WEB_PORT:-5173}:80"
 
